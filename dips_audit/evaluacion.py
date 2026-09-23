@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import re
 import warnings
 from dataclasses import dataclass
@@ -16,7 +17,7 @@ from .cargador import cargar_export, parse_fecha
 ESTADOS_HUMANOS = ["OK", "DISCREPANCIA NO CRÍTICA", "DISCREPANCIA CRÍTICA"]
 ESTADOS_IA = ["OK", "REVISAR", "DISCREPANCIA NO CRÍTICA", "DISCREPANCIA CRÍTICA"]
 # Temas de los comentarios humanos (en orden de prioridad). Los primeros dependen
-# de información que no viene en el Excel de ICAM (attachments, RIRs, tarjetas).
+# de información que no viene en el Excel de entrada (attachments, RIRs, tarjetas).
 TEMAS = [
     ("Attachments / ref. técnica", re.compile(r"ATTACHMENT|ADJUNT|REFERENCIA T|CAPTURA", re.I)),
     ("RIR", re.compile(r"\bRIR", re.I)),
@@ -45,9 +46,14 @@ class Evaluacion:
     metricas: dict
 
 
-def evaluar(auditor: Auditor, ruta_historico: Path, hoja_export: str = "Busqueda",
-            hoja_veredictos: str = "Datos") -> Evaluacion:
-    lote = cargar_export(ruta_historico, hoja_export)
+def evaluar(auditor: Auditor, ruta_historico: Path, hoja_entrada: str = "DIPs",
+            hoja_veredictos: str = "DIPs") -> Evaluacion:
+    """Audita los DIPs de `hoja_entrada` y los compara con los veredictos de `hoja_veredictos`.
+
+    El benchmark anónimo trae ambos en la misma hoja; el histórico original, en las
+    hojas Busqueda y Datos.
+    """
+    lote = cargar_export(ruta_historico, hoja_entrada)
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
         humanos = pd.read_excel(ruta_historico, sheet_name=hoja_veredictos)
@@ -57,7 +63,9 @@ def evaluar(auditor: Auditor, ruta_historico: Path, hoja_export: str = "Busqueda
     fechas: list[date] = []
     for barcode in lote.datos["barcode"]:
         f = parse_fecha(humanos["AUDIT DATE - Apertura"].get(barcode)) if barcode in humanos.index else None
-        fechas.append(f.date() if isinstance(f, datetime) else auditor.fecha_auditoria)
+        # Hay fechas vacías guardadas como 01-ene-1900.
+        fechas.append(f.date() if isinstance(f, datetime) and f.year >= 2000
+                      else auditor.fecha_auditoria)
     resultado = auditor.auditar_lote(lote, fechas)
 
     filas = resultado.filas.copy()
@@ -97,6 +105,7 @@ def evaluar(auditor: Auditor, ruta_historico: Path, hoja_export: str = "Busqueda
           & h["Severidad"].isin(["CRITICA", "NO CRITICA"])]
     metricas = {
         "dips_comparados": len(comp),
+        "coinciden": int((comp["IA MARCA"] == comp["HUMANO DISCREPANCIA"]).sum()),
         "asociados_por_reglas": int(asociados),
         "pct_asociados": asociados / len(comp) * 100 if len(comp) else 0,
         "humano_discrepancias": len(humano_disc),
@@ -115,6 +124,67 @@ def evaluar(auditor: Auditor, ruta_historico: Path, hoja_export: str = "Busqueda
         "segundos": resultado.segundos,
     }
     return Evaluacion(resultado=resultado, comparacion=comp, matriz=matriz, metricas=metricas)
+
+
+# Indicadores del benchmark: clave, descripción, (numerador, denominador) en las
+# métricas y si conviene que suba (True) o que baje (False).
+INDICADORES = [
+    ("coincidencia", "Coincide con el auditor (OK vs. discrepancia)",
+     ("coinciden", "dips_comparados"), True),
+    ("asociados", "Asociados a una referencia solo con reglas",
+     ("asociados_por_reglas", "dips_comparados"), True),
+    ("ok_correctos", "OK del auditor que el programa también da OK",
+     ("humano_ok_ia_ok", "humano_ok"), True),
+    ("falsas_discrepancias", "OK del auditor que el programa marca con discrepancia",
+     ("humano_ok_ia_discrepancia", "humano_ok"), False),
+    ("revisar_de_mas", "OK del auditor que el programa deja en REVISAR",
+     ("humano_ok_ia_revisar", "humano_ok"), False),
+    ("discrepancias_detectadas", "Discrepancias del auditor que el programa marca",
+     ("humano_disc_marcadas_ia", "humano_discrepancias"), True),
+    ("detectables_detectadas", "... sin contar attachments y RIR (no están en el Excel)",
+     ("humano_disc_detectables_marcadas", "humano_disc_detectables"), True),
+]
+
+
+def indicadores(metricas: dict) -> dict[str, dict]:
+    salida = {}
+    for clave, _, (num, den), _ in INDICADORES:
+        a, b = int(metricas[num]), int(metricas[den])
+        salida[clave] = {"aciertos": a, "total": b, "pct": round(a / b * 100, 1) if b else 0.0}
+    return salida
+
+
+def cargar_linea_base(ruta: Path) -> dict | None:
+    if not ruta.exists():
+        return None
+    return json.loads(ruta.read_text(encoding="utf-8"))
+
+
+def guardar_linea_base(ev: Evaluacion, ruta: Path, datos: Path, modelo: str | None) -> Path:
+    contenido = {
+        "fecha": f"{datetime.now():%Y-%m-%d %H:%M}",
+        "datos": datos.name,
+        "modelo_local": modelo,
+        "indicadores": indicadores(ev.metricas),
+        "hallazgos_en_ok_del_auditor": ev.metricas["codigos_en_humano_ok"],
+    }
+    ruta.write_text(json.dumps(contenido, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    return ruta
+
+
+def empeoraron(actuales: dict[str, dict], base: dict | None) -> list[str]:
+    """Indicadores que quedaron peor que en la línea base."""
+    if not base:
+        return []
+    peores = []
+    for clave, descripcion, _, sube in INDICADORES:
+        previo = base["indicadores"].get(clave)
+        if previo is None:
+            continue
+        cambio = actuales[clave]["pct"] - previo["pct"]
+        if (cambio < 0) if sube else (cambio > 0):
+            peores.append(descripcion)
+    return peores
 
 
 def exportar_evaluacion(ev: Evaluacion, ruta: Path) -> Path:

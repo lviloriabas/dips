@@ -2,7 +2,7 @@
 # resuelven (errores de tipeo, abreviaturas, español, sinónimos), así que la
 # decisión recae en el modelo.
 #   esperado: ID del catálogo, o NINGUNA si el DIP no tiene referencia en la tabla.
-#   intervalo: como viene del export (valor + tipo).
+#   intervalo: como viene en el Excel de entrada (valor + tipo).
 
 positivos:
   - {nombre: "CREW 02 BOTLE LOW", intervalo: "3 DAY", esperado: OXIGENO_TRIPULACION}

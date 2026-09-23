@@ -15,9 +15,9 @@ por barcode y la lectura de las pestañas; no se modificó nada.
 
 ## Conclusiones
 
-### 1. El export muestra una foto del momento; ICAM muestra el estado actual
+### 1. El Excel de entrada muestra una foto del momento; ICAM muestra el estado actual
 
-En **31 de 377** DIPs, el intervalo del export no coincide con el que tiene hoy ICAM en Scheduling.
+En **31 de 377** DIPs, el intervalo del Excel de entrada no coincide con el que tiene hoy ICAM en Scheduling.
 Hay tres causas:
 
 - **Correcciones hechas después de la auditoría.** En 5 de los 8 críticos, History registra
@@ -27,21 +27,21 @@ Hay tres causas:
 - **Deadline provisional de 1 día.** Al diferir, ICAM crea un deadline CDY por defecto
   para el día siguiente. El planificador lo borra y carga el definitivo, en general
   en el mismo minuto: pasó en **110 de 377 DIPs (29 %)**, con una mediana de 0 minutos y un máximo de 7 horas.
-  Si el export se saca antes de ese reemplazo, trae "1 DAY" aunque el DIP esté bien abierto.
-  Ejemplos: T40S009BH9A (export 1 DAY, ICAM 88 días), T40S009AW94 (1 DAY, ICAM 3000 FH)
+  Si el Excel de entrada se saca antes de ese reemplazo, trae "1 DAY" aunque el DIP esté bien abierto.
+  Ejemplos: T40S009BH9A (Excel de entrada 1 DAY, ICAM 88 días), T40S009AW94 (1 DAY, ICAM 3000 FH)
   y T40S009CYSR (1 DAY, ICAM 364 días).
-- **Intervalo vacío en el export (16 DIPs).** Scheduling sí tiene el deadline.
+- **Intervalo vacío en el Excel de entrada (16 DIPs).** Scheduling sí tiene el deadline.
   Los 16 quedaron OK, así que el auditor lo leyó en ICAM.
 
 **Recomendación:** ante un intervalo de 1 día o vacío, `dips_audit` debe marcarlo como
-"verificar en Scheduling" y no como discrepancia. Además, conviene sacar el export
+"verificar en Scheduling" y no como discrepancia. Además, conviene sacar el Excel de entrada
 algunas horas después del diferimiento.
 
 ### 2. Límites dobles
 
-12 DIPs tienen dos deadlines (por ejemplo CDY + CYCLES en llantas, o HOURS + CDY). El export trae
+12 DIPs tienen dos deadlines (por ejemplo CDY + CYCLES en llantas, o HOURS + CDY). El Excel de entrada trae
 un solo intervalo, así que el segundo límite no se puede auditar desde el Excel.
-En los bleed control cards, la tabla pide además RIR cada 70 FH, que tampoco aparece en el export.
+En los bleed control cards, la tabla pide además RIR cada 70 FH, que tampoco aparece en el Excel de entrada.
 
 ### 3. Cierre fuera del deadline en UTC
 
@@ -82,13 +82,13 @@ Panamá (UTC-5) todavía es 16-jul 23:12.
 - **DIPs activos vencidos**: ninguno de los 114 activos está vencido hoy.
 - **Deferral Reference vs ATA**: no se puede comparar contra el *Config Slot*, porque este
   refleja la tarea donde se encontró la falla (p. ej. 05-20 checks) y no el sistema. Hay que
-  compararla contra el ATA del export, como ya hace `dips_audit`.
+  compararla contra el ATA del Excel de entrada, como ya hace `dips_audit`.
 
 ## Qué detectaron los auditores en Others (histórico completo, 80 discrepancias)
 
 Hay comentario en 42 de las 80 discrepancias. Categorías:
 
-| Tipo | Casos | ¿Se ve en el export? | ¿Se ve en ICAM? |
+| Tipo | Casos | ¿Se ve en el Excel de entrada? | ¿Se ve en ICAM? |
 |---|---|---|---|
 | Intervalo/T-A incorrecto | 28 | Parcial (foto del momento) | Sí: Scheduling + History |
 | Faltan adjuntos o ref. técnica | 10 | No | Sí: Task Information |

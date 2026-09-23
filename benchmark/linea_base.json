@@ -1,0 +1,50 @@
+{
+  "fecha": "2026-09-23 11:01",
+  "datos": "dips_auditados.xlsx",
+  "modelo_local": null,
+  "indicadores": {
+    "coincidencia": {
+      "aciertos": 399,
+      "total": 619,
+      "pct": 64.5
+    },
+    "asociados": {
+      "aciertos": 525,
+      "total": 619,
+      "pct": 84.8
+    },
+    "ok_correctos": {
+      "aciertos": 367,
+      "total": 539,
+      "pct": 68.1
+    },
+    "falsas_discrepancias": {
+      "aciertos": 38,
+      "total": 539,
+      "pct": 7.1
+    },
+    "revisar_de_mas": {
+      "aciertos": 134,
+      "total": 539,
+      "pct": 24.9
+    },
+    "discrepancias_detectadas": {
+      "aciertos": 32,
+      "total": 80,
+      "pct": 40.0
+    },
+    "detectables_detectadas": {
+      "aciertos": 26,
+      "total": 65,
+      "pct": 40.0
+    }
+  },
+  "hallazgos_en_ok_del_auditor": {
+    "intervalo_excedido": 23,
+    "tipo_intervalo_incorrecto": 8,
+    "duplicado": 6,
+    "usage_remaining_mayor_a_intervalo": 4,
+    "parent_assy_incorrecto": 4,
+    "intervalo_cero": 3
+  }
+}

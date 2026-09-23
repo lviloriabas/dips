@@ -83,7 +83,7 @@ def regla_intervalo(dip: dict, entrada: EntradaCatalogo, ctx: Contexto, r: Resul
     valor, unidad = dip["intervalo"], dip["unidad"]
     if valor is None or unidad is None:
         r.agregar(ctx, "datos_incompletos", "Deferral Interval Not Documented",
-                  f"El export no trae intervalo o tipo de intervalo válido "
+                  f"El Excel de entrada no trae intervalo o tipo de intervalo válido "
                   f"('{_fmt(valor)}' '{dip['tipo_intervalo_original']}').", "REVISAR")
         r.intervalo_ok = False
         return
@@ -251,7 +251,7 @@ def regla_parent_assy(dip: dict, entrada: EntradaCatalogo, ctx: Contexto,
     if not esperado:
         return
     if not actual:
-        r.manuales.append("Parent assy vacío en el export: verificar asignación.")
+        r.manuales.append("Parent assy vacío en el Excel de entrada: verificar asignación.")
         return
     if actual not in esperado:
         texto_esp = "/".join(sorted(esperado))
@@ -320,7 +320,7 @@ _ACTIVOS = {"ACTV", "IN WORK", "OPEN"}
 def _coexisten(da: dict, db: dict) -> bool:
     """True si los dos DIPs estuvieron abiertos al mismo tiempo.
 
-    Sin fecha de cierre en el export solo se puede afirmar si ambos siguen
+    Sin fecha de cierre en el Excel de entrada solo se puede afirmar si ambos siguen
     activos o si se abrieron el mismo día (DIP creado dos veces).
     """
     if da["estado"] in _ACTIVOS and db["estado"] in _ACTIVOS:

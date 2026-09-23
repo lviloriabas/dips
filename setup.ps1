@@ -191,5 +191,5 @@ if (-not $SinPruebas) {
 
 Write-Host ""
 Write-Host "Instalacion terminada." -ForegroundColor Green
-Write-Host "Para auditar: arrastre el Excel de ICAM sobre auditar.bat, o ejecute:"
+Write-Host "Para auditar: arrastre el Excel de entrada sobre auditar.bat, o ejecute:"
 Write-Host "    auditar.bat `"ruta\export.xlsx`" [--llm]"

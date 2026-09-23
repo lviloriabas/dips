@@ -6,7 +6,7 @@ hoja_referencias: "References"
 catalogo: "config/catalogo_others.yaml"
 carpeta_salida: "salidas"
 
-# Tipo de DIP que se audita (columna "Area" o "Type DIP" del export de ICAM).
+# Tipo de DIP que se audita (columna "Area" o "Type DIP" del Excel de entrada).
 tipos_auditados: ["Others"]
 
 tolerancias:
@@ -51,7 +51,7 @@ llm:
   # true = no usar GPU aunque exista (en las PCs sin GPU no cambia nada).
   solo_cpu: false
   candidatos: 6
-  # Modelos que compara "python -m dips_audit benchmark" (deben estar descargados).
+  # Modelos que compara "python -m dips_audit benchmark-llm" (deben estar descargados).
   modelos_benchmark:
     - qwen3.5:2b
     - qwen3.5:4b

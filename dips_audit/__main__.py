@@ -1,9 +1,11 @@
 """Interfaz de consola.
 
-    python -m dips_audit auditar  "export_icam.xlsx" [--hoja HOJA] [--llm]
-    python -m dips_audit evaluar  [--historico ARCHIVO] [--llm]
+    python -m dips_audit auditar  "entrada.xlsx" [--hoja HOJA] [--llm]
+    python -m dips_audit benchmark [--llm] [--guardar-linea-base]
+    python -m dips_audit anonimizar [--historico ARCHIVO]
     python -m dips_audit referencias
     python -m dips_audit probar-llm
+    python -m dips_audit benchmark-llm [--cpu]
 """
 
 from __future__ import annotations
@@ -19,6 +21,7 @@ from rich.panel import Panel
 from rich.table import Table
 
 from . import __version__
+from .anonimizar import ErrorAnonimizacion
 from .auditor import RAIZ, Auditor, cargar_configuracion
 from .cargador import ErrorCarga
 from .llm import ClienteOllama, ErrorLLM
@@ -33,6 +36,8 @@ ESTILOS = {
     "FUERA DE ALCANCE": "dim",
 }
 HISTORICO = RAIZ / "02 - HISTORY - DIPs AUDIT (From 09Jul 15_45).xlsx"
+DATOS_BENCHMARK = RAIZ / "benchmark" / "dips_auditados.xlsx"
+LINEA_BASE = RAIZ / "benchmark" / "linea_base.json"
 
 
 def _cliente_llm(config: dict, modelo: str | None) -> ClienteOllama:
@@ -105,55 +110,100 @@ def cmd_auditar(args, config) -> int:
     return 0
 
 
-def cmd_evaluar(args, config) -> int:
-    from .evaluacion import evaluar, exportar_evaluacion
+def cmd_benchmark(args, config) -> int:
+    from .evaluacion import (INDICADORES, cargar_linea_base, empeoraron, evaluar,
+                             exportar_evaluacion, guardar_linea_base, indicadores)
 
+    datos = Path(args.datos)
+    if not datos.exists():
+        raise FileNotFoundError(f"No existe {datos}. Genérelo con: python -m dips_audit anonimizar")
     llm = _cliente_llm(config, args.modelo) if args.llm else None
     auditor = Auditor(config, llm=llm)
-    with consola.status("Evaluando contra el histórico..."):
-        ev = evaluar(auditor, Path(args.historico))
+    with consola.status(f"Auditando los DIPs de {datos.name}..."):
+        ev = evaluar(auditor, datos)
     m = ev.metricas
+    actuales = indicadores(m)
+    ruta_base = Path(args.linea_base)
+    base = cargar_linea_base(ruta_base)
+    modelo = llm.modelo if llm else None
 
-    t = Table(title="Matriz: auditor humano (filas) vs automático (columnas)")
-    t.add_column("Humano \\ IA")
+    t = Table(title=f"Benchmark: {m['dips_comparados']} DIPs Others con veredicto del auditor"
+                    f"{f' (modelo local: {modelo})' if modelo else ''}")
+    t.add_column("Indicador")
+    t.add_column("Actual", justify="right")
+    t.add_column("Línea base", justify="right")
+    t.add_column("Cambio", justify="right")
+    for clave, descripcion, _, sube in INDICADORES:
+        a = actuales[clave]
+        previo = base["indicadores"].get(clave) if base else None
+        cambio = ""
+        if previo:
+            d = a["pct"] - previo["pct"]
+            color = "dim" if abs(d) < 0.05 else ("green" if (d > 0) == sube else "red")
+            cambio = f"[{color}]{d:+.1f} pp[/]"
+        t.add_row(descripcion, f"{a['pct']:.1f}% ({a['aciertos']}/{a['total']})",
+                  f"{previo['pct']:.1f}%" if previo else "-", cambio)
+    consola.print(t)
+
+    t = Table(title="Matriz: auditor (filas) vs. programa (columnas)")
+    t.add_column("Auditor \\ Programa")
     for c in ev.matriz.columns:
         t.add_column(c, justify="right")
     for estado, fila in ev.matriz.iterrows():
         t.add_row(estado, *[str(v) for v in fila])
     consola.print(t)
 
-    def pct(a, b):
-        return f"{a}/{b} ({a / b * 100:.0f}%)" if b else "0/0"
-
-    consola.print(Panel(
-        f"DIPs Others comparados: {m['dips_comparados']}\n"
-        f"Asociados a una referencia por reglas: {pct(m['asociados_por_reglas'], m['dips_comparados'])}\n\n"
-        f"Discrepancias humanas marcadas por el auditor automático (discrepancia o revisar): "
-        f"{pct(m['humano_disc_marcadas_ia'], m['humano_discrepancias'])}\n"
-        f"  ... excluyendo attachments/RIR (no vienen en el Excel): "
-        f"{pct(m['humano_disc_detectables_marcadas'], m['humano_disc_detectables'])}\n\n"
-        f"DIPs OK para el humano y OK para el automático: {pct(m['humano_ok_ia_ok'], m['humano_ok'])}\n"
-        f"DIPs OK para el humano con discrepancia automática: "
-        f"{pct(m['humano_ok_ia_discrepancia'], m['humano_ok'])}\n"
-        f"DIPs OK para el humano marcados REVISAR: {pct(m['humano_ok_ia_revisar'], m['humano_ok'])}\n\n"
-        f"Hallazgos automáticos en DIPs que el humano dio OK: {m['codigos_en_humano_ok']}\n"
-        f"Tiempo: {m['segundos']:.1f} s",
-        title="Evaluación contra el histórico"))
-
-    t = Table(title="Discrepancias humanas por tema del comentario")
+    t = Table(title="Discrepancias del auditor por tema del comentario")
     t.add_column("Tema")
-    t.add_column("Humano", justify="right")
-    t.add_column("Automático: discrepancia/revisar", justify="right")
-    t.add_column("Automático: cualquier hallazgo (incl. observación)", justify="right")
+    t.add_column("Auditor", justify="right")
+    t.add_column("Programa: discrepancia o revisar", justify="right")
+    t.add_column("Programa: cualquier hallazgo", justify="right")
     for tema, (total, marca, algun) in sorted(m["por_tema"].items(), key=lambda x: -x[1][0]):
         t.add_row(tema, str(total), str(marca), str(algun))
     consola.print(t)
+    consola.print(f"Hallazgos del programa en DIPs que el auditor dio OK: "
+                  f"{m['codigos_en_humano_ok']}")
 
-    carpeta = config["carpeta_salida"]
-    carpeta.mkdir(parents=True, exist_ok=True)
-    ruta = carpeta / f"EVALUACION_{datetime.now():%Y%m%d_%H%M%S}.xlsx"
-    exportar_evaluacion(ev, ruta)
-    consola.print(f"[bold green]Detalle guardado en:[/] {ruta}")
+    if not args.sin_excel:
+        carpeta = config["carpeta_salida"]
+        carpeta.mkdir(parents=True, exist_ok=True)
+        ruta = carpeta / f"BENCHMARK_{datetime.now():%Y%m%d_%H%M%S}.xlsx"
+        exportar_evaluacion(ev, ruta)
+        consola.print(f"[bold green]Detalle (hoja Desacuerdos):[/] {ruta}")
+    consola.print(f"[dim]Tiempo: {m['segundos']:.1f} s[/]")
+
+    if base and base.get("modelo_local") != modelo:
+        consola.print(f"[yellow]Nota:[/] la línea base se midió con modelo local = "
+                      f"{base.get('modelo_local') or 'ninguno'}; esta corrida, con "
+                      f"{modelo or 'ninguno'}.")
+    if args.guardar_linea_base:
+        guardar_linea_base(ev, ruta_base, datos, modelo)
+        consola.print(f"[bold green]Línea base actualizada:[/] {ruta_base}")
+        return 0
+    if base is None:
+        consola.print("[yellow]No hay línea base.[/] Guárdela con --guardar-linea-base.")
+        return 0
+    peores = empeoraron(actuales, base)
+    if peores:
+        consola.print("[bold red]Empeoró respecto de la línea base:[/] " + "; ".join(peores))
+        consola.print("[dim]Si el cambio es intencional, actualícela con --guardar-linea-base.[/]")
+        return 2
+    consola.print("[bold green]Ningún indicador empeoró respecto de la línea base.[/]")
+    return 0
+
+
+def cmd_anonimizar(args, config) -> int:
+    from .anonimizar import anonimizar, guardar
+
+    with consola.status("Anonimizando el histórico..."):
+        anon = anonimizar(Path(args.historico))
+        ruta = guardar(anon, Path(args.salida))
+    fuentes = anon.tabla["Fuente"].value_counts().to_dict()
+    consola.print(f"[bold green]Guardado:[/] {ruta}\n"
+                  f"DIPs: {len(anon.tabla)} ({fuentes.get('Busqueda', 0)} de la hoja Busqueda, "
+                  f"{fuentes.get('Datos', 0)} solo en Datos). Columnas del personal eliminadas. "
+                  f"Nombres reemplazados por [PERSONA] en {anon.textos_modificados} textos.\n"
+                  "[dim]Revise los comentarios antes de subir el archivo.[/]")
     return 0
 
 
@@ -200,7 +250,7 @@ def cmd_probar_llm(args, config) -> int:
     return 0
 
 
-def cmd_benchmark(args, config) -> int:
+def cmd_benchmark_llm(args, config) -> int:
     import pandas as pd
     from rich.progress import Progress
 
@@ -270,7 +320,7 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--config", help="Ruta a config.yaml")
     sub = p.add_subparsers(dest="comando", required=True)
 
-    a = sub.add_parser("auditar", help="Audita un Excel exportado de ICAM")
+    a = sub.add_parser("auditar", help="Audita un Excel de entrada")
     a.add_argument("archivo")
     a.add_argument("--hoja", help="Hoja a leer (por defecto, la primera con 'Fault Barcode')")
     a.add_argument("--salida", help="Ruta del Excel de resultado")
@@ -280,10 +330,20 @@ def main(argv: list[str] | None = None) -> int:
     a.add_argument("--sin-excel", action="store_true", help="Solo mostrar en consola")
     a.add_argument("--max-filas", type=int, default=40, help="Filas a mostrar en consola")
 
-    e = sub.add_parser("evaluar", help="Compara contra las auditorías humanas del histórico")
-    e.add_argument("--historico", default=str(HISTORICO))
-    e.add_argument("--llm", action="store_true")
+    e = sub.add_parser("benchmark", help="Audita los DIPs del benchmark anónimo y compara con "
+                                         "los veredictos del auditor y con la línea base")
+    e.add_argument("--datos", default=str(DATOS_BENCHMARK), help="Excel del benchmark")
+    e.add_argument("--linea-base", default=str(LINEA_BASE))
+    e.add_argument("--guardar-linea-base", action="store_true",
+                   help="Guardar este resultado como nueva línea base")
+    e.add_argument("--llm", action="store_true", help="Usar el modelo local")
     e.add_argument("--modelo")
+    e.add_argument("--sin-excel", action="store_true", help="No guardar el detalle en salidas/")
+
+    n = sub.add_parser("anonimizar", help="Crea el Excel del benchmark desde el histórico, "
+                                          "sin nombres del personal")
+    n.add_argument("--historico", default=str(HISTORICO))
+    n.add_argument("--salida", default=str(DATOS_BENCHMARK))
 
     sub.add_parser("referencias", help="Muestra cómo se interpretó la tabla de referencias")
 
@@ -292,7 +352,7 @@ def main(argv: list[str] | None = None) -> int:
                    help="Fault Names adicionales, opcionalmente con intervalo: 'NOMBRE @ 3 DAY'")
     t.add_argument("--modelo")
 
-    b = sub.add_parser("benchmark", help="Compara modelos locales (precisión, velocidad, RAM)")
+    b = sub.add_parser("benchmark-llm", help="Compara modelos locales (precisión, velocidad, RAM)")
     b.add_argument("--modelos", help="Lista separada por comas (por defecto, la de config.yaml)")
     b.add_argument("--pensar", action="store_true",
                    help="Evaluar también cada modelo con modo 'thinking'")
@@ -303,9 +363,11 @@ def main(argv: list[str] | None = None) -> int:
     args = p.parse_args(argv)
     try:
         config = cargar_configuracion(Path(args.config) if args.config else None)
-        return {"auditar": cmd_auditar, "evaluar": cmd_evaluar, "referencias": cmd_referencias,
-                "probar-llm": cmd_probar_llm, "benchmark": cmd_benchmark}[args.comando](args, config)
-    except (ErrorCarga, ErrorCatalogo, ErrorLLM, FileNotFoundError, PermissionError) as ex:
+        return {"auditar": cmd_auditar, "benchmark": cmd_benchmark, "anonimizar": cmd_anonimizar,
+                "referencias": cmd_referencias, "probar-llm": cmd_probar_llm,
+                "benchmark-llm": cmd_benchmark_llm}[args.comando](args, config)
+    except (ErrorCarga, ErrorCatalogo, ErrorLLM, ErrorAnonimizacion, FileNotFoundError,
+            PermissionError) as ex:
         consola.print(f"[bold red]Error:[/] {ex}")
         return 1
 

@@ -1,4 +1,4 @@
-"""Lectura del Excel exportado de ICAM y normalización de columnas y fechas."""
+"""Lectura del Excel de entrada y normalización de columnas y fechas."""
 
 from __future__ import annotations
 
@@ -44,7 +44,7 @@ class Lote:
     ruta: Path
     hoja: str
     fila_encabezado: int
-    original: pd.DataFrame          # columnas tal como vienen de ICAM
+    original: pd.DataFrame          # columnas tal como vienen en el Excel de entrada
     datos: pd.DataFrame             # columnas estándar ya interpretadas
     notas: list[str] = field(default_factory=list)
 
@@ -61,7 +61,8 @@ _FORMATOS_FECHA = [
 
 
 def parse_fecha(valor: object) -> datetime | None:
-    if valor is None or (isinstance(valor, float) and pd.isna(valor)):
+    # pd.NaT es instancia de datetime: se descarta antes de esa comprobación.
+    if valor is None or valor is pd.NaT or (isinstance(valor, float) and pd.isna(valor)):
         return None
     if isinstance(valor, pd.Timestamp):
         return None if pd.isna(valor) else valor.to_pydatetime()
@@ -236,7 +237,9 @@ def normalizar_lote(original: pd.DataFrame) -> tuple[pd.DataFrame, list[str]]:
             "complete_date": parse_fecha(v("complete_date")),
             "correccion_fecha": correccion,
         })
-    datos = pd.DataFrame(registros)
+    # dtype=object conserva los None: si no, pandas los vuelve NaT/NaN, que son
+    # verdaderos en un if y pasan los controles "is None" de las reglas.
+    datos = pd.DataFrame(registros, dtype=object)
     if datos.empty:
         return datos, notas
 

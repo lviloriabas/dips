@@ -50,7 +50,7 @@ def hacer_dip(**cambios) -> dict:
     return base
 
 
-ENCABEZADO_ICAM = [
+ENCABEZADO_ENTRADA = [
     "Fault Barcode", "ATA", "Area", "Fault Name", "DIP Interval", "Interval Type",
     "Fault Status", "Aircraft", "Task Parent Assy", "Fault Severity", "Deferral Reference",
     "Fault Due Date", "Fault Found on Date", "Scheduled Date", "Usage Remaining",
@@ -59,13 +59,13 @@ ENCABEZADO_ICAM = [
 
 def crear_export(ruta: Path, filas: list[list], filas_antes: int = 0,
                  encabezado: list[str] | None = None) -> Path:
-    """Crea un Excel con el formato del export de ICAM."""
+    """Crea un Excel de entrada de prueba."""
     wb = openpyxl.Workbook()
     ws = wb.active
     ws.title = "Export"
     for _ in range(filas_antes):
         ws.append(["Reporte de DIPs"])
-    ws.append(encabezado or ENCABEZADO_ICAM)
+    ws.append(encabezado or ENCABEZADO_ENTRADA)
     for f in filas:
         ws.append(f)
     wb.save(ruta)

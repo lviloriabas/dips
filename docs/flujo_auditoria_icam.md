@@ -11,7 +11,7 @@ DIPs revisados:
 
 ## 1. Entrada
 
-- **Barcode del DIP**: columna `Fault Barcode` del export de ICAM, con formato `T40S…`.
+- **Barcode del DIP**: columna `Fault Barcode` del Excel de entrada, con formato `T40S…`.
 - **Tabla de referencias**: `DIPs References.xlsx` (TA, parent assy, referencia técnica y RIR).
 
 ## 2. Búsqueda
@@ -80,7 +80,7 @@ El parámetro `aTab` abre una pestaña directamente: `idTabFaultInformation`,
 ## 4. Flujo propuesto
 
 ```
-Barcode (export ICAM)
+Barcode (Excel de entrada)
   └─ Barcode Search → Fault Details
        ├─ AUDITORÍA DE APERTURA (DIP en DEFER/ACTV)
        │   1. Fault Information: severidad DIP, Deferral Class/Reference vs ATA, quién difirió
@@ -107,7 +107,7 @@ se dedujo de la pantalla y falta confirmarlo con un auditor.
 
 - Tabla de referencias: *CREW OXYGEN BOTTLE PRESSURE* da **3 días** si la presión está más de
   200 psi sobre la mínima de despacho, con referencia AMM 12-15-21-210-801.
-- El export del día de la auditoría registraba intervalo **2 CDY** y vencimiento 20-ago. En History,
+- El Excel de entrada del día de la auditoría registraba intervalo **2 CDY** y vencimiento 20-ago. En History,
   el deadline se modificó el 18-ago de **20-AGO a 21-AGO** y hoy Scheduling muestra 3 CDY.
   Por eso **ICAM muestra el estado actual, no el que vio el auditor**: hay que usar History para
   reconstruir el estado a la fecha de auditoría.
@@ -115,9 +115,9 @@ se dedujo de la pantalla y falta confirmarlo con un auditor.
   correctiva. En el histórico, "captura de ref. técnica" = 0.
 - No tiene marcas `AUDITDIP`, aunque figura como auditado en el histórico. Posiblemente la marca
   empezó a usarse después o no se aplicó; falta confirmarlo.
-- El Deferral Reference en ICAM es *35-DIP*, pero en el export venía vacío.
+- El Deferral Reference en ICAM es *35-DIP*, pero en el Excel de entrada venía vacío.
 
-## 6. Datos de ICAM que no trae el export (pendientes para `dips_audit`)
+## 6. Datos de ICAM que no trae el Excel de entrada (pendientes para `dips_audit`)
 
 | Dato | Dónde está | Hoy en el programa |
 |---|---|---|
@@ -127,7 +127,7 @@ se dedujo de la pantalla y falta confirmarlo con un auditor.
 | Cambios y extensiones de deadline | History / Scheduling › Extension | No se ve |
 | S/N removido e instalado | Task Execution › Part Requirements | Solo el S/N de la descripción |
 | RII / inspección independiente | Task Execution › Labor | Verificación manual |
-| Fecha real de cierre | Details › Actual End Date | Solo si el export la trae |
+| Fecha real de cierre | Details › Actual End Date | Solo si el Excel de entrada la trae |
 
 ## 7. Controles que NO se deben tocar al auditar (solo lectura)
 

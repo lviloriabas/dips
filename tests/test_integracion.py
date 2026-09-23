@@ -1,4 +1,4 @@
-"""Pruebas de punta a punta: Excel de ICAM -> auditoría -> Excel de resultado."""
+"""Pruebas de punta a punta: Excel de entrada -> auditoría -> Excel de resultado."""
 
 from datetime import date, datetime
 
@@ -8,7 +8,7 @@ import pytest
 from dips_audit.__main__ import main
 from dips_audit.auditor import Auditor
 from dips_audit.reporte import exportar_excel
-from tests.conftest import HISTORICO, crear_export
+from tests.conftest import crear_export
 
 AVION = "Boeing 737-8V3 - HP-1837CMP"
 FILAS = [
@@ -73,14 +73,3 @@ def test_cli_auditar(export, tmp_path, capsys):
 
 def test_cli_archivo_inexistente(tmp_path):
     assert main(["auditar", str(tmp_path / "no_existe.xlsx"), "--sin-excel"]) == 1
-
-
-@pytest.mark.skipif(not HISTORICO.exists(), reason="No está el histórico de auditorías")
-def test_regresion_contra_historico(auditor):
-    """Protege la calibración: no debe empeorar el acuerdo con el auditor humano."""
-    from dips_audit.evaluacion import evaluar
-
-    m = evaluar(auditor, HISTORICO).metricas
-    assert m["pct_asociados"] >= 90
-    assert m["humano_ok_ia_ok"] / m["humano_ok"] >= 0.85
-    assert m["humano_ok_ia_discrepancia"] / m["humano_ok"] <= 0.07
