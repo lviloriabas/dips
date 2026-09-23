@@ -30,9 +30,20 @@ _GENERICAS = {
     "BOX", "UNIT", "PANEL", "DOOR", "ACCESS", "ENGINE", "AIRCRAFT", "EMERGENCY", "KIT",
     "CABLE", "CABLES", "TENSION", "RETENSION", "ADJUSTMENT", "WEIGHT", "BOTTLE", "CHECK",
 }
-# Un intervalo menor a esta fracción del TA de referencia se considera implausible
-# para validar una sugerencia de la IA (p. ej. 7 días para un TA de 4-6 meses).
-_FRACCION_MINIMA_TA = 0.2
+
+
+@dataclass(frozen=True)
+class ParametrosAsociacion:
+    """Ajustes de la asociación con el modelo local (config.yaml, sección llm)."""
+    candidatos: int = 6              # referencias candidatas que se le muestran al modelo
+    # Un intervalo menor a esta fracción del TA de referencia se considera implausible
+    # para validar una sugerencia de la IA (p. ej. 7 días para un TA de 4-6 meses).
+    fraccion_minima_ta: float = 0.2
+
+    @classmethod
+    def desde_config(cls, c: dict) -> ParametrosAsociacion:
+        return cls(candidatos=c.get("candidatos", cls.candidatos),
+                   fraccion_minima_ta=c.get("fraccion_minima_ta", cls.fraccion_minima_ta))
 
 
 @dataclass
@@ -41,6 +52,7 @@ class Asociacion:
     metodo: str            # REGLAS, IA, AMBIGUA, NINGUNA
     detalle: str = ""
     candidatos: list[str] = field(default_factory=list)
+    propuesta: str | None = None  # ID que propuso el modelo, aunque se haya descartado
 
     @property
     def confianza(self) -> str:
@@ -93,7 +105,7 @@ def comparte_palabra_distintiva(nombre_normalizado: str, entrada: EntradaCatalog
 
 
 def intervalo_compatible(entrada: EntradaCatalogo, valor: float | None, unidad: str | None,
-                         tol_dias: int = 1) -> bool:
+                         tol_dias: int = 1, fraccion_minima: float = 0.2) -> bool:
     """True si el intervalo del DIP podría corresponder al TA de la entrada.
 
     Se usa solo para descartar sugerencias de la IA claramente incompatibles
@@ -113,7 +125,7 @@ def intervalo_compatible(entrada: EntradaCatalogo, valor: float | None, unidad: 
                 maximo = lim.valor + (tol_dias if unidad == "DAY" else 0)
             else:
                 continue
-            if maximo * _FRACCION_MINIMA_TA <= valor <= maximo:
+            if maximo * fraccion_minima <= valor <= maximo:
                 return True
     return False
 
@@ -136,7 +148,8 @@ def similares_en_tabla(nombre: str, catalogo: Catalogo, limite: int = 2, umbral:
 
 
 def asociar(nombre: str, catalogo: Catalogo, llm=None, intervalo: float | None = None,
-            unidad: str | None = None) -> Asociacion:
+            unidad: str | None = None,
+            parametros: ParametrosAsociacion = ParametrosAsociacion()) -> Asociacion:
     """Asocia un Fault Name a una entrada del catálogo.
 
     1) Reglas de palabras clave (confianza ALTA).
@@ -159,11 +172,12 @@ def asociar(nombre: str, catalogo: Catalogo, llm=None, intervalo: float | None =
             return Asociacion(mejor, "REGLAS", candidatos=[e.id for e, _ in coincidencias])
         candidatos = empatadas
     else:
-        candidatos = sugerir(n, catalogo)
+        candidatos = sugerir(n, catalogo, parametros.candidatos)
 
     if llm is not None:
         texto_intervalo = f"{intervalo:g} {unidad}" if intervalo is not None and unidad else ""
         elegido, justificacion = llm.elegir_categoria(nombre, candidatos, texto_intervalo)
+        propuesta = elegido.id if elegido else None
         if elegido is not None:
             excluida = next((x for x in elegido.excluir if contiene_frase(n, x)), None)
             if excluida:
@@ -172,14 +186,16 @@ def asociar(nombre: str, catalogo: Catalogo, llm=None, intervalo: float | None =
             elif not comparte_palabra_distintiva(n, elegido):
                 justificacion = (f"La IA propuso {elegido.id}, pero se descartó: no comparte "
                                  f"palabras distintivas con el Fault Name.")
-            elif not intervalo_compatible(elegido, intervalo, unidad):
+            elif not intervalo_compatible(elegido, intervalo, unidad,
+                                          fraccion_minima=parametros.fraccion_minima_ta):
                 justificacion = (f"La IA propuso {elegido.id}, pero se descartó: el intervalo "
                                  f"del DIP ({texto_intervalo}) no es compatible con su TA.")
             else:
                 return Asociacion(elegido, "IA", detalle=justificacion,
-                                  candidatos=[e.id for e in candidatos])
+                                  candidatos=[e.id for e in candidatos], propuesta=propuesta)
         return Asociacion(None, "AMBIGUA" if coincidencias else "NINGUNA",
-                          detalle=justificacion, candidatos=[e.id for e in candidatos])
+                          detalle=justificacion, candidatos=[e.id for e in candidatos],
+                          propuesta=propuesta)
 
     return Asociacion(None, "AMBIGUA" if coincidencias else "NINGUNA",
                       candidatos=[e.id for e in candidatos])

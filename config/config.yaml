@@ -42,27 +42,38 @@ severidades:
   duplicado: NO CRITICA
   fault_severity: OBSERVACION
 
-# Modelo local (opcional). Solo se usa con la opción --llm y únicamente para
-# asociar DIPs que las reglas no pudieron asociar a una referencia.
+# ---------------------------------------------------------------------------
+# Modelo local (Ollama)
+# ---------------------------------------------------------------------------
+# Solo se usa para asociar a una referencia los DIPs que las reglas no asocian.
+# Elige entre unas pocas referencias candidatas o responde NINGUNA; nunca decide
+# si un DIP está OK o tiene discrepancia, y todo lo que sugiere queda en REVISAR.
+# En "auditar" se activa con --llm; el benchmark siempre lo usa si está disponible.
+#
+# Para ajustar: cambie un valor, ejecute benchmark.bat y compare el resultado
+# (aciertos, errores aceptados y segundos por consulta) con la línea base.
 llm:
   url: "http://localhost:11434"
-  modelo: "ministral-3:8b"   # ver resultados del benchmark en README.md
-  timeout_segundos: 120
-  # true = no usar GPU aunque exista (en las PCs sin GPU no cambia nada).
-  solo_cpu: false
-  candidatos: 6
-  # Modelos que compara "python -m dips_audit benchmark-llm" (deben estar descargados).
-  modelos_benchmark:
-    - qwen3.5:2b
-    - qwen3.5:4b
-    - qwen3.5:9b
-    - qwen3:4b
-    - qwen3:8b
-    - gemma4:e2b-it-qat
-    - gemma4:e4b-it-qat
-    - ministral-3:3b
-    - ministral-3:8b
-    - granite4.1:3b
-    - granite4.1:8b
-    - phi4-mini
-    - llama3.2:3b
+  modelo: "ministral-3:8b"   # otros probados: ministral-3:3b (menos RAM, algo menos preciso)
+  timeout_segundos: 300      # por consulta; en CPU una consulta tarda entre 20 s y 1 min
+  solo_cpu: false            # true = no usar GPU aunque exista (en PCs sin GPU no cambia nada)
+
+  # Qué se le pregunta al modelo. Probado en el benchmark (23-09-2026, CPU i7-1265U):
+  # con 4 candidatos y sin justificación cada consulta tarda 24 s en vez de 41 s,
+  # pero el modelo resolvió bien 41 de 46 casos en vez de 44. Cada cambio por
+  # separado perdió 1 caso. Como el modelo se consulta pocas veces al día, se
+  # prefieren los aciertos.
+  candidatos: 6              # referencias candidatas que se le muestran (más = prompt más largo)
+  justificacion: true        # pedir una justificación corta, que se muestra al auditor
+  pensar: false              # modo "thinking" (solo algunos modelos): mucho más lento
+
+  # Cómo responde
+  temperatura: 0             # 0 = siempre la misma respuesta para la misma pregunta
+  contexto_tokens: 2048      # tamaño del contexto; el prompt usa unos 500 tokens
+  max_tokens_respuesta: 300  # corta respuestas demasiado largas
+
+  # Validación de la sugerencia (determinista, se aplica después del modelo)
+  # El intervalo del DIP debe ser al menos esta fracción del TA de la referencia
+  # sugerida (p. ej. 7 días para un TA de 6 meses se descarta). Además, el
+  # Fault Name debe compartir una palabra distintiva con la referencia.
+  fraccion_minima_ta: 0.2

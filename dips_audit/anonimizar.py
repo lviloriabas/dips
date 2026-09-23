@@ -19,8 +19,12 @@ HOJA = "DIPs"
 MARCA = "[PERSONA]"
 TIPO_DIP = "Others"
 VEREDICTOS = ["OK", "DISCREPANCIA NO CRÍTICA", "DISCREPANCIA CRÍTICA"]
-CANTIDAD = 100   # DIPs del benchmark
+CANTIDAD = 50    # DIPs del benchmark
 SEMILLA = 2026   # fija la muestra: la misma semilla da los mismos DIPs
+# Datos de entrada sin los cuales el DIP no se puede auditar. Algunos DIPs de la
+# hoja Datos del histórico no los tienen, y no se completan desde ICAM porque allí
+# ya están corregidos: el benchmark usa lo que vio el auditor.
+DATOS_MINIMOS = ["DIP Interval", "Interval Type"]
 
 # Columnas del Excel de entrada, en el orden en que se guardan.
 COLUMNAS_ENTRADA = [
@@ -213,14 +217,16 @@ def anonimizar(ruta_historico: Path, cantidad: int | None = CANTIDAD,
 
 
 def muestrear(tabla: pd.DataFrame, cantidad: int | None, semilla: int = SEMILLA) -> pd.DataFrame:
-    """DIPs Others con veredicto del auditor; si hay `cantidad`, una muestra de ese tamaño.
+    """DIPs Others con veredicto del auditor y con los datos mínimos de entrada; si hay
+    `cantidad`, una muestra de ese tamaño.
 
     La muestra respeta la proporción de cada veredicto (OK, no crítica, crítica) y
     siempre es la misma para la misma semilla.
     """
     tipo = tabla["Type DIP"].astype(str).str.strip().str.upper()
     tabla = tabla[(tipo == TIPO_DIP.upper())
-                  & tabla["STATUS - Apertura"].isin(VEREDICTOS)].reset_index(drop=True)
+                  & tabla["STATUS - Apertura"].isin(VEREDICTOS)
+                  & tabla[DATOS_MINIMOS].notna().all(axis=1)].reset_index(drop=True)
     if not cantidad or cantidad >= len(tabla):
         return tabla
     grupos = tabla.groupby("STATUS - Apertura")

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import time
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import date
 from pathlib import Path
@@ -10,7 +11,7 @@ from pathlib import Path
 import pandas as pd
 import yaml
 
-from .asociacion import Asociacion, asociar, similares_en_tabla
+from .asociacion import Asociacion, ParametrosAsociacion, asociar, similares_en_tabla
 from .cargador import Lote, cargar_export
 from .llm import ClienteOllama
 from .referencias import Catalogo, EntradaCatalogo, cargar_catalogo, cargar_referencias
@@ -38,6 +39,7 @@ class ResultadoAuditoria:
     advertencias: list[str] = field(default_factory=list)
     segundos: float = 0.0
     consultas_llm: int = 0
+    asociaciones: list[Asociacion | None] = field(default_factory=list)  # una por DIP
 
     def conteo_estados(self) -> dict[str, int]:
         return self.filas["ESTADO IA"].value_counts().to_dict()
@@ -53,6 +55,7 @@ class Auditor:
                                                                              "References"))
         self.catalogo: Catalogo = cargar_catalogo(config["catalogo"], referencias)
         self.tipos = {t.upper() for t in config.get("tipos_auditados", ["Others"])}
+        self.parametros = ParametrosAsociacion.desde_config(config.get("llm", {}))
         tol = config.get("tolerancias", {})
         self._ctx_base = dict(
             severidades=config.get("severidades", {}),
@@ -65,18 +68,22 @@ class Auditor:
     def auditar_archivo(self, ruta: Path, hoja: str | None = None) -> ResultadoAuditoria:
         return self.auditar_lote(cargar_export(ruta, hoja))
 
-    def auditar_lote(self, lote: Lote, fechas_referencia: list[date] | None = None
-                     ) -> ResultadoAuditoria:
+    def auditar_lote(self, lote: Lote, fechas_referencia: list[date] | None = None,
+                     progreso: Callable[[int], None] | None = None) -> ResultadoAuditoria:
+        """`progreso(i)` se llama después de asociar el DIP i (lo lento es el modelo local)."""
         inicio = time.perf_counter()
         consultas_previas = self.llm.consultas if self.llm else 0
         dips = lote.datos.to_dict("records")
         en_alcance = [not d["tipo"] or d["tipo"].upper() in self.tipos for d in dips]
 
         asociaciones: list[Asociacion | None] = []
-        for dip, alcance in zip(dips, en_alcance):
+        for i, (dip, alcance) in enumerate(zip(dips, en_alcance)):
             asociaciones.append(
-                asociar(dip["nombre"], self.catalogo, self.llm, dip["intervalo"], dip["unidad"])
+                asociar(dip["nombre"], self.catalogo, self.llm, dip["intervalo"], dip["unidad"],
+                        self.parametros)
                 if alcance else None)
+            if progreso:
+                progreso(i)
         entradas = [a.entrada if a else None for a in asociaciones]
         # Duplicados y S/N repetidos se buscan sobre el subconjunto en alcance;
         # luego se remapean los índices al lote completo.
@@ -99,8 +106,8 @@ class Auditor:
             if asoc.metodo == "IA":
                 r.hallazgos.append(Hallazgo(
                     "asociacion_ia", "Reference Match", "REVISAR",
-                    f"Referencia sugerida por el modelo local: {asoc.entrada.nombre}. "
-                    f"Confirmar. ({asoc.detalle})"))
+                    f"Referencia sugerida por el modelo local: {asoc.entrada.nombre}. Confirmar."
+                    + (f" ({asoc.detalle})" if asoc.detalle else "")))
             elif asoc.entrada is None:
                 if asoc.metodo == "AMBIGUA":
                     motivo = f"coincide con varias referencias ({', '.join(asoc.candidatos[:3])})"
@@ -151,6 +158,7 @@ class Auditor:
             advertencias=list(lote.notas),
             segundos=time.perf_counter() - inicio,
             consultas_llm=(self.llm.consultas - consultas_previas) if self.llm else 0,
+            asociaciones=asociaciones,
         )
         return resultado
 

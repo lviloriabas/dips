@@ -68,7 +68,8 @@
 - id: UPK
   nombre: Universal Precaution Kit (kit de protección universal)
   referencias: ["UPK LESS THAN 130 DAYS DUE DATE"]
-  requiere: [[UPK, UNIVERSAL PROTECTION KIT, UNIVERSAL PRECAUTION KIT]]
+  # Sin exigir KIT: a veces viene cortado ("UNIVERSAL PRECAUTION KI").
+  requiere: [[UPK, UNIVERSAL PROTECTION, UNIVERSAL PRECAUTION]]
   requiere_sn: true
 
 - id: SURVIVAL_KIT

@@ -1,6 +1,6 @@
-# Casos para comparar modelos locales. Todos son Fault Names que las REGLAS no
-# resuelven (errores de tipeo, abreviaturas, español, sinónimos), así que la
-# decisión recae en el modelo.
+# Casos del benchmark para medir el modelo local. Todos son Fault Names que las
+# REGLAS no resuelven (errores de tipeo, abreviaturas, español, sinónimos), así
+# que la decisión recae en el modelo.
 #   esperado: ID del catálogo, o NINGUNA si el DIP no tiene referencia en la tabla.
 #   intervalo: como viene en el Excel de entrada (valor + tipo).
 

@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-import json
 import re
 import warnings
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import date, datetime
 from pathlib import Path
@@ -47,11 +47,12 @@ class Evaluacion:
 
 
 def evaluar(auditor: Auditor, ruta_historico: Path, hoja_entrada: str = "DIPs",
-            hoja_veredictos: str = "DIPs") -> Evaluacion:
+            hoja_veredictos: str = "DIPs", progreso: Callable[[int], None] | None = None
+            ) -> Evaluacion:
     """Audita los DIPs de `hoja_entrada` y los compara con los veredictos de `hoja_veredictos`.
 
     El benchmark anónimo trae ambos en la misma hoja; el histórico original, en las
-    hojas Busqueda y Datos.
+    hojas Busqueda y Datos. `progreso(i)` se llama después de asociar el DIP i.
     """
     lote = cargar_export(ruta_historico, hoja_entrada)
     with warnings.catch_warnings():
@@ -66,7 +67,7 @@ def evaluar(auditor: Auditor, ruta_historico: Path, hoja_entrada: str = "DIPs",
         # Hay fechas vacías guardadas como 01-ene-1900.
         fechas.append(f.date() if isinstance(f, datetime) and f.year >= 2000
                       else auditor.fecha_auditoria)
-    resultado = auditor.auditar_lote(lote, fechas)
+    resultado = auditor.auditar_lote(lote, fechas, progreso)
 
     filas = resultado.filas.copy()
     filas["ESTADO HUMANO"] = filas["Fault Barcode"].map(humanos["STATUS - Apertura"])
@@ -141,7 +142,7 @@ INDICADORES = [
      ("humano_ok_ia_revisar", "humano_ok"), False),
     ("discrepancias_detectadas", "Discrepancias del auditor que el programa marca",
      ("humano_disc_marcadas_ia", "humano_discrepancias"), True),
-    ("detectables_detectadas", "... sin contar attachments y RIR (no están en el Excel)",
+    ("detectables_detectadas", "Ídem, sin contar attachments ni RIR (no vienen en el Excel)",
      ("humano_disc_detectables_marcadas", "humano_disc_detectables"), True),
 ]
 
@@ -152,67 +153,3 @@ def indicadores(metricas: dict) -> dict[str, dict]:
         a, b = int(metricas[num]), int(metricas[den])
         salida[clave] = {"aciertos": a, "total": b, "pct": round(a / b * 100, 1) if b else 0.0}
     return salida
-
-
-def cargar_linea_base(ruta: Path) -> dict | None:
-    if not ruta.exists():
-        return None
-    return json.loads(ruta.read_text(encoding="utf-8"))
-
-
-def guardar_linea_base(ev: Evaluacion, ruta: Path, datos: Path, modelo: str | None) -> Path:
-    contenido = {
-        "fecha": f"{datetime.now():%Y-%m-%d %H:%M}",
-        "datos": datos.name,
-        "modelo_local": modelo,
-        "indicadores": indicadores(ev.metricas),
-        "hallazgos_en_ok_del_auditor": ev.metricas["codigos_en_humano_ok"],
-    }
-    ruta.write_text(json.dumps(contenido, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-    return ruta
-
-
-def empeoraron(actuales: dict[str, dict], base: dict | None) -> list[str]:
-    """Indicadores que quedaron peor que en la línea base."""
-    if not base:
-        return []
-    peores = []
-    for clave, descripcion, _, sube in INDICADORES:
-        previo = base["indicadores"].get(clave)
-        if previo is None:
-            continue
-        cambio = actuales[clave]["pct"] - previo["pct"]
-        if (cambio < 0) if sube else (cambio > 0):
-            peores.append(descripcion)
-    return peores
-
-
-def exportar_evaluacion(ev: Evaluacion, ruta: Path) -> Path:
-    from .reporte import COLORES_ESTADO, _escribir_tabla
-    from openpyxl import Workbook
-
-    wb = Workbook()
-    ws = wb.active
-    ws.title = "Métricas"
-    ws.column_dimensions["A"].width = 60
-    ws.column_dimensions["B"].width = 20
-    for k, v in ev.metricas.items():
-        ws.append([k, str(v) if isinstance(v, dict) else v])
-    ws.append([])
-    ws.append(["Matriz: filas = auditor humano, columnas = auditor automático"])
-    _matriz = ev.matriz.reset_index()
-    ws.append(list(_matriz.columns))
-    for fila in _matriz.itertuples(index=False):
-        ws.append(list(fila))
-
-    columnas = ["Fila Excel", "Fault Barcode", "Aircraft", "Fault Name", "DIP Interval",
-                "Interval Type", "ESTADO HUMANO", "COMENTARIO HUMANO", "TEMA HUMANO",
-                "ESTADO IA", "HALLAZGOS", "ACUERDO", "NO DETECTABLE DESDE EXCEL",
-                "REFERENCIA ASOCIADA", "ASOCIACIÓN"]
-    desacuerdos = ev.comparacion[ev.comparacion["ACUERDO"].isin(["Solo humano", "Solo IA"])]
-    _escribir_tabla(wb.create_sheet("Desacuerdos"), desacuerdos[columnas], None,
-                    "ESTADO IA", COLORES_ESTADO)
-    _escribir_tabla(wb.create_sheet("Comparación completa"), ev.comparacion[columnas], None,
-                    "ESTADO IA", COLORES_ESTADO)
-    wb.save(ruta)
-    return ruta
