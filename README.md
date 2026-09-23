@@ -84,25 +84,27 @@ El modelo por defecto es `ministral-3:8b` (43 de 46 aciertos en `benchmark-llm`,
 benchmark.bat
 ```
 
-Audita los 915 DIPs de `benchmark/dips_auditados.xlsx` (julio y agosto de 2026) y compara el resultado con el veredicto del auditor. Tarda unos 2 segundos. Opciones: `--llm` (usa el modelo local) y `--guardar-linea-base`.
+Audita los 100 DIPs Others de `benchmark/dips_auditados.xlsx` y compara el resultado con el veredicto del auditor. Tarda menos de un segundo. Opciones: `--llm` (usa el modelo local) y `--guardar-linea-base`.
+
+Los 100 DIPs son una muestra fija del histórico de julio y agosto de 2026: solo Others con veredicto (OK, no crítica o crítica) y en la misma proporción que el histórico. La muestra tiene 87 OK, 11 discrepancias no críticas y 2 críticas.
 
 Muestra cada indicador junto a la línea base (`benchmark/linea_base.json`). Si alguno empeora, lo avisa y termina con código 2, y las pruebas fallan. Si el cambio es intencional, actualice la línea base con `benchmark.bat --guardar-linea-base`. El detalle queda en `salidas/BENCHMARK_*.xlsx`: la hoja Desacuerdos lista los DIPs donde el programa y el auditor no coinciden, con el comentario del auditor.
 
-El Excel del benchmark es una copia anónima del histórico. No tiene las columnas del personal (auditor, diferido por, cuenta y cerrado por), y los nombres dentro de los comentarios quedan como `[PERSONA]`. Para regenerarlo cuando crezca el histórico, copie el histórico a la carpeta del proyecto y ejecute `anonimizar`. Revise los comentarios antes de subirlo.
+El Excel del benchmark es una copia anónima del histórico. No tiene las columnas del personal (auditor, diferido por, cuenta y cerrado por), y los nombres dentro de los comentarios quedan como `[PERSONA]`. Para regenerarlo cuando crezca el histórico, copie el histórico a la carpeta del proyecto y ejecute `anonimizar`. Con `--cantidad N` cambia el tamaño de la muestra (0 = todos los Others) y con `--semilla N` se elige otra muestra. Revise los comentarios antes de subirlo.
 
-Resultado actual, sobre los 619 DIPs Others con veredicto:
+Resultado actual:
 
 | Indicador | Resultado |
 | --- | --- |
-| Coincide con el auditor (OK o discrepancia) | 64.5 % |
-| Asociados a una referencia solo con reglas | 84.8 % |
-| OK del auditor que el programa también da OK | 68.1 % |
-| OK del auditor que el programa marca con discrepancia | 7.1 % |
-| OK del auditor que el programa deja en Revisar | 24.9 % |
-| Discrepancias del auditor que el programa marca | 40.0 % |
+| Coincide con el auditor (OK o discrepancia) | 71 de 100 |
+| Asociados a una referencia solo con reglas | 86 de 100 |
+| OK del auditor que el programa también da OK | 62 de 87 |
+| OK del auditor que el programa marca con discrepancia | 4 de 87 |
+| OK del auditor que el programa deja en Revisar | 21 de 87 |
+| Discrepancias del auditor que el programa marca | 9 de 13 |
 
-1. En los 413 DIPs auditados hasta el 17-ago, el 85 % de los OK del auditor también sale OK. En los 206 posteriores, solo el 30 %.
-2. La diferencia viene de dos causas: el tipo de intervalo `CDY` no se reconoce (queda en Revisar) y hay tipos de DIP que no están en el catálogo.
+1. Con 13 discrepancias en la muestra, cada una vale casi 8 puntos en ese indicador. Para medir la detección con más precisión, use `anonimizar --cantidad 0` (619 DIPs Others).
+2. La mayoría de los Revisar vienen de dos causas: el tipo de intervalo `CDY` no se reconoce y hay tipos de DIP que no están en el catálogo.
 3. Las falsas discrepancias vienen de diferencias en la tabla de referencias (amortiguadores MAX, BLEED FAMV, BLEED CTRL CARD).
 4. Las discrepancias que no se detectan dependen casi siempre de attachments, RIRs o S/N que no están en el Excel de entrada.
 

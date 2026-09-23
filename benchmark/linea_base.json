@@ -1,50 +1,46 @@
 {
-  "fecha": "2026-09-23 11:01",
+  "fecha": "2026-09-23 11:21",
   "datos": "dips_auditados.xlsx",
   "modelo_local": null,
   "indicadores": {
     "coincidencia": {
-      "aciertos": 399,
-      "total": 619,
-      "pct": 64.5
+      "aciertos": 71,
+      "total": 100,
+      "pct": 71.0
     },
     "asociados": {
-      "aciertos": 525,
-      "total": 619,
-      "pct": 84.8
+      "aciertos": 86,
+      "total": 100,
+      "pct": 86.0
     },
     "ok_correctos": {
-      "aciertos": 367,
-      "total": 539,
-      "pct": 68.1
+      "aciertos": 62,
+      "total": 87,
+      "pct": 71.3
     },
     "falsas_discrepancias": {
-      "aciertos": 38,
-      "total": 539,
-      "pct": 7.1
+      "aciertos": 4,
+      "total": 87,
+      "pct": 4.6
     },
     "revisar_de_mas": {
-      "aciertos": 134,
-      "total": 539,
-      "pct": 24.9
+      "aciertos": 21,
+      "total": 87,
+      "pct": 24.1
     },
     "discrepancias_detectadas": {
-      "aciertos": 32,
-      "total": 80,
-      "pct": 40.0
+      "aciertos": 9,
+      "total": 13,
+      "pct": 69.2
     },
     "detectables_detectadas": {
-      "aciertos": 26,
-      "total": 65,
-      "pct": 40.0
+      "aciertos": 7,
+      "total": 10,
+      "pct": 70.0
     }
   },
   "hallazgos_en_ok_del_auditor": {
-    "intervalo_excedido": 23,
-    "tipo_intervalo_incorrecto": 8,
-    "duplicado": 6,
-    "usage_remaining_mayor_a_intervalo": 4,
-    "parent_assy_incorrecto": 4,
-    "intervalo_cero": 3
+    "intervalo_excedido": 3,
+    "tipo_intervalo_incorrecto": 1
   }
 }

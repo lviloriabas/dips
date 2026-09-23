@@ -1,7 +1,7 @@
 """Copia anónima del histórico de auditorías para el benchmark.
 
 Junta en una sola hoja los datos del Excel de entrada y el veredicto del auditor
-de cada DIP, sin columnas ni textos con nombres del personal.
+de una muestra de DIPs Others, sin columnas ni textos con nombres del personal.
 """
 
 from __future__ import annotations
@@ -17,6 +17,10 @@ import pandas as pd
 
 HOJA = "DIPs"
 MARCA = "[PERSONA]"
+TIPO_DIP = "Others"
+VEREDICTOS = ["OK", "DISCREPANCIA NO CRÍTICA", "DISCREPANCIA CRÍTICA"]
+CANTIDAD = 100   # DIPs del benchmark
+SEMILLA = 2026   # fija la muestra: la misma semilla da los mismos DIPs
 
 # Columnas del Excel de entrada, en el orden en que se guardan.
 COLUMNAS_ENTRADA = [
@@ -154,11 +158,13 @@ def _fecha_con_hora(fecha: object, hora: object, am_pm: object) -> object:
     return pd.Timestamp(fecha).replace(hour=t.hour, minute=t.minute, second=0).to_pydatetime()
 
 
-def anonimizar(ruta_historico: Path) -> Anonimizacion:
+def anonimizar(ruta_historico: Path, cantidad: int | None = CANTIDAD,
+               semilla: int = SEMILLA) -> Anonimizacion:
     """Arma la tabla del benchmark a partir del histórico (hojas Busqueda y Datos).
 
     Para los DIPs de Busqueda se usan sus datos de entrada, como en la validación
     original. Los que solo están en Datos toman los datos de entrada de esa hoja.
+    Solo quedan DIPs Others con veredicto; `cantidad` = None los deja todos.
     """
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
@@ -190,24 +196,41 @@ def anonimizar(ruta_historico: Path) -> Anonimizacion:
     personal = nombres_del_personal(datos)
     textos = [str(v) for c in TEXTOS_LIBRES for v in tabla[c].dropna()]
     tachador = Tachador(personal, textos)
-    tachados = modificados = 0
     for col in TEXTOS_LIBRES:
-        nuevos = []
-        for valor in tabla[col]:
-            if isinstance(valor, str) and valor.strip():
-                limpio, n = tachador.tachar(valor)
-                if n:
-                    tachados += n
-                    modificados += 1
-                    valor = limpio
-            nuevos.append(valor)
-        tabla[col] = nuevos
+        tabla[col] = [tachador.tachar(v)[0] if isinstance(v, str) and v.strip() else v
+                      for v in tabla[col]]
 
+    # Se filtra después de tachar: el tachador distingue palabras comunes con todo el corpus.
+    tabla = muestrear(tabla, cantidad, semilla)
+    textos_finales = [v for c in TEXTOS_LIBRES for v in tabla[c] if isinstance(v, str)]
+    tachados = sum(v.count(MARCA) for v in textos_finales)
+    modificados = sum(MARCA in v for v in textos_finales)
     restantes = verificar(tabla, personal)
     if restantes:
         raise ErrorAnonimizacion("Quedaron nombres del personal en el texto: "
                                  + "; ".join(restantes[:5]))
     return Anonimizacion(tabla=tabla, nombres_tachados=tachados, textos_modificados=modificados)
+
+
+def muestrear(tabla: pd.DataFrame, cantidad: int | None, semilla: int = SEMILLA) -> pd.DataFrame:
+    """DIPs Others con veredicto del auditor; si hay `cantidad`, una muestra de ese tamaño.
+
+    La muestra respeta la proporción de cada veredicto (OK, no crítica, crítica) y
+    siempre es la misma para la misma semilla.
+    """
+    tipo = tabla["Type DIP"].astype(str).str.strip().str.upper()
+    tabla = tabla[(tipo == TIPO_DIP.upper())
+                  & tabla["STATUS - Apertura"].isin(VEREDICTOS)].reset_index(drop=True)
+    if not cantidad or cantidad >= len(tabla):
+        return tabla
+    grupos = tabla.groupby("STATUS - Apertura")
+    # Reparto proporcional; los lugares sobrantes van a los restos más grandes.
+    cuota = grupos.size() * cantidad / len(tabla)
+    asignado = cuota.astype(int)
+    faltan = cantidad - int(asignado.sum())
+    asignado[(cuota - asignado).sort_values(ascending=False).index[:faltan]] += 1
+    muestra = pd.concat(g.sample(n=int(asignado[v]), random_state=semilla) for v, g in grupos)
+    return muestra.sort_index().reset_index(drop=True)
 
 
 def verificar(tabla: pd.DataFrame, personal: set[str]) -> list[str]:

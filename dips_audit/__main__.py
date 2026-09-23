@@ -21,6 +21,8 @@ from rich.panel import Panel
 from rich.table import Table
 
 from . import __version__
+from .anonimizar import CANTIDAD as CANTIDAD_BENCHMARK
+from .anonimizar import SEMILLA as SEMILLA_BENCHMARK
 from .anonimizar import ErrorAnonimizacion
 from .auditor import RAIZ, Auditor, cargar_configuracion
 from .cargador import ErrorCarga
@@ -196,13 +198,14 @@ def cmd_anonimizar(args, config) -> int:
     from .anonimizar import anonimizar, guardar
 
     with consola.status("Anonimizando el histórico..."):
-        anon = anonimizar(Path(args.historico))
+        anon = anonimizar(Path(args.historico), args.cantidad or None, args.semilla)
         ruta = guardar(anon, Path(args.salida))
-    fuentes = anon.tabla["Fuente"].value_counts().to_dict()
+    veredictos = anon.tabla["STATUS - Apertura"].value_counts().to_dict()
     consola.print(f"[bold green]Guardado:[/] {ruta}\n"
-                  f"DIPs: {len(anon.tabla)} ({fuentes.get('Busqueda', 0)} de la hoja Busqueda, "
-                  f"{fuentes.get('Datos', 0)} solo en Datos). Columnas del personal eliminadas. "
-                  f"Nombres reemplazados por [PERSONA] en {anon.textos_modificados} textos.\n"
+                  f"DIPs Others: {len(anon.tabla)} ("
+                  + ", ".join(f"{v}: {n}" for v, n in veredictos.items()) + "). "
+                  f"Columnas del personal eliminadas. Nombres reemplazados por [PERSONA] "
+                  f"en {anon.textos_modificados} textos.\n"
                   "[dim]Revise los comentarios antes de subir el archivo.[/]")
     return 0
 
@@ -344,6 +347,10 @@ def main(argv: list[str] | None = None) -> int:
                                           "sin nombres del personal")
     n.add_argument("--historico", default=str(HISTORICO))
     n.add_argument("--salida", default=str(DATOS_BENCHMARK))
+    n.add_argument("--cantidad", type=int, default=CANTIDAD_BENCHMARK,
+                   help=f"DIPs de la muestra (por defecto {CANTIDAD_BENCHMARK}; 0 = todos)")
+    n.add_argument("--semilla", type=int, default=SEMILLA_BENCHMARK,
+                   help="Cambia la muestra; la misma semilla da los mismos DIPs")
 
     sub.add_parser("referencias", help="Muestra cómo se interpretó la tabla de referencias")
 
