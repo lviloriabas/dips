@@ -1,0 +1,55 @@
+# Casos para comparar modelos locales. Todos son Fault Names que las REGLAS no
+# resuelven (errores de tipeo, abreviaturas, español, sinónimos), así que la
+# decisión recae en el modelo.
+#   esperado: ID del catálogo, o NINGUNA si el DIP no tiene referencia en la tabla.
+#   intervalo: como viene del export (valor + tipo).
+
+positivos:
+  - {nombre: "CREW 02 BOTLE LOW", intervalo: "3 DAY", esperado: OXIGENO_TRIPULACION}
+  - {nombre: "CAPT O2 CYLINDER PRESS 900", intervalo: "3 DAY", esperado: OXIGENO_TRIPULACION}
+  - {nombre: "DIP - NOSE INTERNAL INSPECTION", intervalo: "3 CYCLES", esperado: RADOMO}
+  - {nombre: "DIP-EMERGENCY LOCATER TRANSMITER BATERY", intervalo: "150 DAY", esperado: ELT_PORTATIL}
+  - {nombre: "HIDRAULIC DECONTAMINATION FINAL", intervalo: "300 HOUR", esperado: DESCONTAMINACION_HID_TERMINAL}
+  - {nombre: "HIDRAULIC DECONTAMINATION FIRST STAGE", intervalo: "150 HOUR", esperado: DESCONTAMINACION_HID_INICIAL}
+  - {nombre: "BOTIQUIN DE PRIMEROS AUXILIOS VENCE 30-NOV-2026", intervalo: "100 DAY", esperado: FAK}
+  - {nombre: "KIT MEDICO DE EMERGENCIA PROXIMO A VENCER", intervalo: "120 DAY", esperado: EMK}
+  - {nombre: "HALOM EXTINGISHER COCKPIT WEIGHT DUE", intervalo: "60 DAY", esperado: HALON_PORTATIL}
+  - {nombre: "FUMIGATON CERT EXPIRING", intervalo: "5 DAY", esperado: FUMIGACION}
+  - {nombre: "MICROBIOLOGICAL CONTAMINATION TEST FUEL TANKS", intervalo: "4 DAY", esperado: CRECIMIENTO_MICROBIANO}
+  - {nombre: "FLIGHT DATA RECORDER DATA REVIEW", intervalo: "30 DAY", esperado: FDR}
+  - {nombre: "NOSE STRUT X DIMENSION LOW", intervalo: "10 CYCLES", esperado: AMORTIGUADOR_NLG}
+  - {nombre: "MAIN GEAR #2 RUBBER CORD VISIBLE", intervalo: "5 CYCLES", esperado: LLANTA}
+  - {nombre: "PARK BRK FAIL HOLD CHECK", intervalo: "3 DAY", esperado: FRENO_PARQUEO}
+  - {nombre: "LEFT WING AIL CABLE TENSION RECHECK", intervalo: "184 DAY", esperado: CABLES_ALERON}
+  - {nombre: "IDG DELTA P INDICATOR POPPED", intervalo: "400 HOUR", esperado: DPI}
+  - {nombre: "SURVIVOR KIT RAFT DUE DATE", intervalo: "50 DAY", esperado: SURVIVAL_KIT}
+  - {nombre: "BACK FLOW CHECK VALVE INERT GAS SYS", intervalo: "90 DAY", esperado: BACKFLOW}
+  - {nombre: "STROKE OF LIGHTING PHASE 2 INSPECTION", intervalo: "50 CYCLES", esperado: RAYO}
+  - {nombre: "PROTECCION UNIVERSAL KIT FWD", intervalo: "90 DAY", esperado: UPK}
+  - {nombre: "BRK 4 PIN FLUSH", intervalo: "20 CYCLES", esperado: DESGASTE_FRENOS}
+  - {nombre: "CHALECO SALVAVIDAS SEGURO DE COMPARTIMIENTO DANADO", intervalo: "60 DAY", esperado: CHALECO}
+  - {nombre: "RADIO STATION LICENCE EXPIRES", intervalo: "30 DAY", esperado: LICENCIA_RADIO}
+  - {nombre: "BLEED CONTROLLER CARD FAULT SMT", intervalo: "2902 HOUR", esperado: BLEED_CTRL_CARD}
+  - {nombre: "TOC FLAPS CONFIG WARNING SMT", intervalo: "30 HOUR", esperado: FLAPS_TAKEOFF_CONFIG}
+
+negativos:
+  - {nombre: "DEFIBRILLATOR DUE DATE", intervalo: "38 DAY"}
+  - {nombre: "DIP- wing tank # 2 access door 632AB", intervalo: "60 DAY"}
+  - {nombre: "AFT COMP NET", intervalo: "10 DAY"}
+  - {nombre: "DIP SEALANT INSTALLATION", intervalo: "7 DAY"}
+  - {nombre: "DIP-31 UNDERWATER LOCATOR BEACON(FDR)", intervalo: "112 DAY"}
+  - {nombre: "DIP- 25 PASSENGER LIFE VEST", intervalo: "145 DAY"}
+  - {nombre: "AFT LAV SMOKE DETECTOR BATTERY", intervalo: "30 DAY"}
+  - {nombre: "DIP- REPLACE FLEXIBLE HOSE", intervalo: "10 DAY"}
+  - {nombre: "DIP - 7 DAYS 46 NFS OAS AIRPLANE KEY", intervalo: "6 DAY"}
+  - {nombre: "DIP- to check spoiler cables tension .", intervalo: "7 DAY"}
+  - {nombre: "DIP-BOROSCOPE DUE TO FOD IN ENGINE #1", intervalo: "10 CYCLES"}
+  - {nombre: "DIP - E1 PRIMARY EXHAUST NOZZLE WITH OVERHEATING EVIDENCE", intervalo: "10 DAY"}
+  - {nombre: "AHM - 320 451 00 AIR/GND SENSOR scheduled maintenance task shows: SMT", intervalo: "150 HOUR"}
+  - {nombre: "OXYGEN MASK CREW STOWAGE BOX", intervalo: "10 DAY"}
+  - {nombre: "foward cargo cilling shroud with damage.", intervalo: "120 DAY"}
+  - {nombre: "DIP- check for hydraulic leakage at the NLG Swivel", intervalo: "15 CYCLES"}
+  - {nombre: "RE-EVALUATION", intervalo: "5 DAY"}
+  - {nombre: "LAV WASTE TANK SENSOR INOP", intervalo: "10 DAY"}
+  - {nombre: "PAX SEAT 23C RECLINE INOP", intervalo: "10 DAY"}
+  - {nombre: "EMERGENCY LIGHT BATTERY PACK EXPIRING", intervalo: "60 DAY"}
