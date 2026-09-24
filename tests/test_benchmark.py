@@ -13,8 +13,7 @@ from dips_audit import benchmark as bm
 from dips_audit.__main__ import main
 from dips_audit.anonimizar import (COLUMNAS_PERSONAL, HOJA, MARCA, Tachador, anonimizar,
                                    muestrear, nombres_del_personal)
-from dips_audit.auditor import RAIZ, Auditor
-from dips_audit.evaluacion import evaluar, indicadores
+from dips_audit.auditor import RAIZ
 from dips_audit.llm import ClienteOllama, ErrorLLM, Medicion
 from tests.conftest import HISTORICO
 
@@ -62,15 +61,22 @@ def test_benchmark_sin_columnas_del_personal():
     assert {"Fault Barcode", "STATUS - Apertura", "AUDIT DATE - Apertura"} <= set(encabezado)
 
 
-def test_reglas_no_empeoran_la_linea_base(config):
-    """Si un cambio intencional baja un indicador, ejecute benchmark.bat y copie el
-    JSON del resultado sobre benchmark/linea_base.json."""
-    base = bm.cargar_linea_base()
-    assert base is not None, "Falta benchmark/linea_base.json"
-    actuales = indicadores(evaluar(Auditor(config), bm.DATOS).metricas)
-    previos = base["auditoria"]["indicadores_solo_reglas"]
-    assert actuales["coincidencia"]["total"] == previos["coincidencia"]["total"]
-    assert bm.comparar_indicadores(actuales, previos) == []
+def test_sin_modelo_no_empeora_la_linea_base(config):
+    """Si un cambio intencional baja un indicador, ejecute benchmark_sin_modelo.bat y
+    copie el JSON del resultado sobre benchmark/linea_base_sin_modelo.json."""
+    base = bm.cargar_linea_base("sin_modelo")
+    assert base is not None, "Falta benchmark/linea_base_sin_modelo.json"
+    r = bm.ejecutar(bm.preparar(config), bm.Avance())
+    assert bm.comparable(r, base) == ""
+    assert bm.empeoraron(r, base) == []
+
+
+def test_lineas_base_de_cada_modo():
+    for modo in bm.MODOS:
+        base = bm.cargar_linea_base(modo)
+        assert base is not None and base["modo"] == modo
+    assert bm.cargar_linea_base("con_modelo")["costo_modelo"]["consultas"] > 0
+    assert bm.cargar_linea_base("sin_modelo")["costo_modelo"] is None
 
 
 def test_avance_estima_lo_que_falta():
@@ -112,6 +118,36 @@ class ModeloFalso:
         return candidatos[0], "prueba"
 
 
+def test_benchmark_sin_modelo(config, tmp_path):
+    plan = bm.preparar(config)
+    r = bm.ejecutar(plan, bm.Avance())
+
+    assert plan.modo == r["modo"] == "sin_modelo" and plan.consultas_previstas == 0
+    assert r["modelo_local"] is None and r["costo_modelo"] is None
+    assert "llm" not in r["configuracion"]
+    assert "indicadores_solo_reglas" not in r["auditoria"]
+    assert r["datos"]["dips"] == len(r["auditoria"]["dips"]) == 50
+    assert {d["metodo"] for d in r["auditoria"]["dips"]} <= {"reglas", "sin_referencia"}
+    # Sin modelo, las reglas (con tolerancia a errores de escritura) no aceptan referencias
+    # equivocadas; los casos que no resuelven quedan sin referencia.
+    ind = r["casos"]["indicadores"]
+    assert "aciertos_modelo" not in ind and "comparacion" not in r["casos"]
+    assert 0 < ind["con_referencia"]["aciertos"] < ind["con_referencia"]["total"]
+    assert ind["sin_referencia"]["aciertos"] == ind["sin_referencia"]["total"]
+    assert ind["errores_aceptados"]["aciertos"] == 0
+    assert r["tiempos"]["auditoria_consultas"] == r["tiempos"].get("casos_consultas", 0) == 0
+
+    ruta_json, ruta_md = bm.guardar(r, r, tmp_path)
+    assert ruta_json.parent == tmp_path / "sin_modelo"
+    md = ruta_md.read_text(encoding="utf-8")
+    assert md.startswith("# Benchmark del auditor de DIPs: sin modelo local")
+    for seccion in ("## Resumen", "## Cómo se audita", "## 1. Resultado frente al auditor",
+                    "## 2. Cómo se asoció", "## 3. Casos", "## 4. Tiempos",
+                    "## 5. Configuración", "## 6. Desacuerdos"):
+        assert seccion in md
+    assert "Modelo local" not in md and "Ningún indicador empeoró" in md
+
+
 def test_benchmark_completo_con_modelo_simulado(config, tmp_path):
     lineas: list[str] = []
     avance = bm.Avance(lineas.append)
@@ -119,11 +155,17 @@ def test_benchmark_completo_con_modelo_simulado(config, tmp_path):
     r = bm.ejecutar(plan, avance)
 
     assert avance.hechas == plan.consultas_previstas > 0 and lineas
-    assert r["modelo_local"] == {"modelo": "modelo-falso", "disponible": True, "motivo": ""}
+    assert r["modo"] == "con_modelo" and r["modelo_local"] == "modelo-falso"
     assert r["datos"]["dips"] == len(r["auditoria"]["dips"]) == 50
-    assert r["casos_modelo"]["indicadores"]["aciertos_finales"]["total"] == len(plan.casos)
-    # El modelo falso elige el primer candidato: igual que la alternativa sin modelo.
-    assert r["casos_modelo"]["indicadores"] == r["casos_modelo"]["indicadores_sin_modelo"]
+    casos = r["casos"]
+    assert casos["indicadores"]["aciertos_finales"]["total"] == len(plan.casos)
+    # El modelo falso elige el primer candidato: igual que la alternativa más parecida.
+    sin_aciertos_modelo = {k: v for k, v in casos["indicadores"].items() if k != "aciertos_modelo"}
+    assert sin_aciertos_modelo == casos["comparacion"]["mas_parecido"]
+    # Solo reglas es lo que mide el modo sin modelo con los mismos casos.
+    sin_modelo = bm.ejecutar(bm.preparar(config), bm.Avance())
+    assert casos["comparacion"]["solo_reglas"] == sin_modelo["casos"]["indicadores"]
+    assert r["auditoria"]["indicadores_solo_reglas"] == sin_modelo["auditoria"]["indicadores"]
     assert r["costo_modelo"]["consultas"] == plan.consultas_previstas
     assert r["costo_modelo"]["s_por_consulta"] == 2.0
     assert r["costo_modelo"]["tokens_por_s_entrada"] == pytest.approx(266.7, abs=0.1)
@@ -133,29 +175,45 @@ def test_benchmark_completo_con_modelo_simulado(config, tmp_path):
     assert all(d["programa"] != "OK" for d in r["auditoria"]["dips"] if d["metodo"] != "reglas")
 
     ruta_json, ruta_md = bm.guardar(r, r, tmp_path)
+    assert ruta_json.parent == tmp_path / "con_modelo"
     assert json.loads(ruta_json.read_text(encoding="utf-8")) == r
     md = ruta_md.read_text(encoding="utf-8")
+    assert md.startswith("# Benchmark del auditor de DIPs: con modelo local")
     for seccion in ("## Resumen", "## Cómo se audita", "## 1. Resultado frente al auditor",
-                    "## 2. Cómo se asoció", "## 3. Modelo local", "## 4. Tiempos",
+                    "## 2. Cómo se asoció", "## 3. Casos", "## 4. Tiempos",
                     "## 5. Configuración", "## 6. Desacuerdos"):
         assert seccion in md
+    assert "Solo reglas" in md and "Más parecido" in md
     assert bm.empeoraron(r, r) == []
     assert "Ningún indicador empeoró" in md
+    # Un resultado no se compara con la línea base del otro modo.
+    assert bm.comparable(r, sin_modelo) == "La línea base es de otro modo."
 
 
-def test_cli_benchmark_sin_modelo(tmp_path, monkeypatch, capsys):
-    """Sin Ollama, el benchmark mide solo las reglas y lo avisa."""
+def _config_sin_ollama(tmp_path) -> str:
     config = yaml.safe_load((RAIZ / "config" / "config.yaml").read_text(encoding="utf-8"))
     config["llm"]["url"] = "http://127.0.0.1:9"
     ruta = tmp_path / "config.yaml"
     ruta.write_text(yaml.safe_dump(config, allow_unicode=True), encoding="utf-8")
-    monkeypatch.setattr(bm, "RESULTADOS", tmp_path / "resultados")
+    return str(ruta)
 
-    assert main(["--config", str(ruta), "benchmark"]) == 0
+
+def test_cli_benchmark_sin_modelo_no_usa_ollama(tmp_path, monkeypatch, capsys):
+    monkeypatch.setattr(bm, "RESULTADOS", tmp_path / "resultados")
+    assert main(["--config", _config_sin_ollama(tmp_path), "benchmark", "sin-modelo"]) == 0
     salida = capsys.readouterr().out
-    assert "Modelo local no disponible" in salida and "Ningún indicador empeoró" in salida
-    assert len(list((tmp_path / "resultados").glob("*.json"))) == 1
-    assert len(list((tmp_path / "resultados").glob("*.md"))) == 1
+    assert "Ningún indicador empeoró" in salida and "Modelo local no disponible" not in salida
+    assert len(list((tmp_path / "resultados" / "sin_modelo").glob("*.json"))) == 1
+    assert len(list((tmp_path / "resultados" / "sin_modelo").glob("*.md"))) == 1
+
+
+def test_cli_benchmark_con_modelo_exige_ollama(tmp_path, monkeypatch, capsys):
+    """Sin Ollama, el modo con modelo no se degrada a solo reglas: avisa y termina."""
+    monkeypatch.setattr(bm, "RESULTADOS", tmp_path / "resultados")
+    assert main(["--config", _config_sin_ollama(tmp_path), "benchmark", "con-modelo"]) == 1
+    salida = capsys.readouterr().out
+    assert "Modelo local no disponible" in salida and "benchmark_sin_modelo.bat" in salida
+    assert not (tmp_path / "resultados").exists()
 
 
 def test_consulta_al_modelo_se_reintenta_una_vez(catalogo, monkeypatch):
@@ -179,9 +237,10 @@ def test_consulta_al_modelo_se_reintenta_una_vez(catalogo, monkeypatch):
         cliente.elegir_categoria("OTRO", [catalogo.por_id("FDR")])
 
 
-def test_cli_benchmark_no_tiene_opciones():
-    with pytest.raises(SystemExit):
-        main(["benchmark", "--llm"])
+def test_cli_benchmark_exige_el_modo():
+    for argumentos in (["benchmark"], ["benchmark", "--llm"], ["benchmark", "otro"]):
+        with pytest.raises(SystemExit):
+            main(argumentos)
 
 
 @pytest.mark.skipif(not HISTORICO.exists(), reason="No está el histórico de auditorías")

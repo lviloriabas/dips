@@ -83,21 +83,21 @@ def regla_intervalo(dip: dict, entrada: EntradaCatalogo, ctx: Contexto, r: Resul
     valor, unidad = dip["intervalo"], dip["unidad"]
     if valor is None or unidad is None:
         r.agregar(ctx, "datos_incompletos", "Deferral Interval Not Documented",
-                  f"El Excel de entrada no trae intervalo o tipo de intervalo válido "
+                  f"Sin intervalo o tipo de intervalo válido en el Excel de entrada "
                   f"('{_fmt(valor)}' '{dip['tipo_intervalo_original']}').", "REVISAR")
         r.intervalo_ok = False
         return
     if valor <= 0:
         r.agregar(ctx, "intervalo_cero", "Incorrect DIP Interval",
-                  f"El DIP se abrió con intervalo {_fmt(valor)} {unidad}.")
+                  f"T/A aperturado con intervalo {_fmt(valor)} {unidad}.")
         r.intervalo_ok = False
         return
 
     if entrada.hasta_vencimiento:
         if unidad != "DAY":
             r.agregar(ctx, "tipo_intervalo_incorrecto", "Incorrect DIP Interval",
-                      f"La referencia es 'UNTIL DUE DATE' (días calendario) pero el DIP se abrió "
-                      f"por {_fmt(valor)} {unidad}.")
+                      f"T/A aperturado en {_fmt(valor)} {unidad}; la referencia es UNTIL DUE "
+                      f"DATE (días calendario).")
             r.intervalo_ok = False
         else:
             r.intervalo_ok = True
@@ -286,7 +286,7 @@ def regla_sn(dip: dict, entrada: EntradaCatalogo, ctx: Contexto, r: ResultadoReg
     sns = extraer_sn(dip["nombre"] + " " + dip["descripcion"])
     if not sns:
         r.agregar(ctx, "sin_sn_en_descripcion", "Missing S/N",
-                  "No se menciona el S/N del componente en la descripción.")
+                  "Sin S/N del componente en la descripción.")
     r.manuales.append("Verificar que el S/N del attachment coincida con el componente "
                       "instalado" + (f" (S/N en descripción: {', '.join(sns)})." if sns else "."))
 

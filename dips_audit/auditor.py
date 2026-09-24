@@ -12,14 +12,18 @@ import pandas as pd
 import yaml
 
 from .asociacion import Asociacion, ParametrosAsociacion, asociar, similares_en_tabla
-from .cargador import Lote, cargar_export
+from .cargador import Lote, cargar_export, completar_con_icam
 from .llm import ClienteOllama
+from .referencia_tecnica import IndiceReferencias, buscar_referencia, extraer_codigos, revisar
 from .referencias import Catalogo, EntradaCatalogo, cargar_catalogo, cargar_referencias
 from .reglas import (Contexto, Hallazgo, auditar_dip, buscar_duplicados, buscar_sn_repetidos,
                      estado_final)
 
 RAIZ = Path(__file__).resolve().parent.parent
 FUERA_DE_ALCANCE = "FUERA DE ALCANCE"
+# Resultado para el auditor: tres categorías (el estado detallado queda en ESTADO IA).
+RESULTADOS = {"DISCREPANCIA CRÍTICA": "DISCREPANCIA", "DISCREPANCIA NO CRÍTICA": "DISCREPANCIA",
+              "REVISAR": "POSIBLE DISCREPANCIA", "OK": "OK", FUERA_DE_ALCANCE: FUERA_DE_ALCANCE}
 
 
 def cargar_configuracion(ruta: Path | None = None) -> dict:
@@ -28,6 +32,11 @@ def cargar_configuracion(ruta: Path | None = None) -> dict:
     for clave in ("referencias", "catalogo", "carpeta_salida"):
         p = Path(config[clave])
         config[clave] = p if p.is_absolute() else RAIZ / p
+    icam = config.get("icam")
+    if icam:
+        for clave in ("perfil", "carpeta"):
+            p = Path(icam[clave])
+            icam[clave] = p if p.is_absolute() else RAIZ / p
     return config
 
 
@@ -54,6 +63,7 @@ class Auditor:
         referencias = cargar_referencias(config["referencias"], config.get("hoja_referencias",
                                                                              "References"))
         self.catalogo: Catalogo = cargar_catalogo(config["catalogo"], referencias)
+        self.indice_referencias = IndiceReferencias.desde_catalogo(self.catalogo)
         self.tipos = {t.upper() for t in config.get("tipos_auditados", ["Others"])}
         self.parametros = ParametrosAsociacion.desde_config(config.get("llm", {}))
         tol = config.get("tolerancias", {})
@@ -65,8 +75,13 @@ class Auditor:
     def contexto(self, fecha: date | None = None) -> Contexto:
         return Contexto(fecha_referencia=fecha or self.fecha_auditoria, **self._ctx_base)
 
-    def auditar_archivo(self, ruta: Path, hoja: str | None = None) -> ResultadoAuditoria:
-        return self.auditar_lote(cargar_export(ruta, hoja))
+    def auditar_archivo(self, ruta: Path, hoja: str | None = None,
+                        icam: Path | None = None) -> ResultadoAuditoria:
+        """`icam`: archivo con datos extraídos de ICAM (referencia técnica), por barcode."""
+        lote = cargar_export(ruta, hoja)
+        if icam:
+            completar_con_icam(lote, icam)
+        return self.auditar_lote(lote)
 
     def auditar_lote(self, lote: Lote, fechas_referencia: list[date] | None = None,
                      progreso: Callable[[int], None] | None = None) -> ResultadoAuditoria:
@@ -78,10 +93,7 @@ class Auditor:
 
         asociaciones: list[Asociacion | None] = []
         for i, (dip, alcance) in enumerate(zip(dips, en_alcance)):
-            asociaciones.append(
-                asociar(dip["nombre"], self.catalogo, self.llm, dip["intervalo"], dip["unidad"],
-                        self.parametros)
-                if alcance else None)
+            asociaciones.append(self._asociar(dip) if alcance else None)
             if progreso:
                 progreso(i)
         entradas = [a.entrada if a else None for a in asociaciones]
@@ -103,6 +115,18 @@ class Auditor:
             fecha = fechas_referencia[i] if fechas_referencia else None
             ctx = self.contexto(fecha)
             r = auditar_dip(dip, asoc.entrada, ctx)
+            self._referencia_tecnica(dip, asoc, ctx, r)
+            if dip.get("intervalo_de_icam"):
+                r.agregar(ctx, "intervalo_de_icam", "Missing Data",
+                          f"El Excel de entrada no trae intervalo: se usó el de ICAM "
+                          f"({dip['intervalo']:g} {dip['tipo_intervalo_original']}).")
+            if asoc.metodo == "REGLAS" and asoc.detalle:
+                r.agregar(ctx, "asociacion_aproximada", "Reference Match",
+                          f"Fault Name con error de escritura: {asoc.detalle}")
+            elif asoc.metodo == "REF_TECNICA":
+                r.agregar(ctx, "asociacion_por_referencia_tecnica", "Reference Match",
+                          f"Referencia '{asoc.entrada.nombre}' identificada por la referencia "
+                          f"técnica {asoc.detalle}, no por el Fault Name.")
             if asoc.metodo == "IA":
                 r.hallazgos.append(Hallazgo(
                     "asociacion_ia", "Reference Match", "REVISAR",
@@ -162,6 +186,46 @@ class Auditor:
         )
         return resultado
 
+    def _referencia_tecnica(self, dip: dict, asoc: Asociacion, ctx, r) -> None:
+        """El DIP debe citar la referencia del manual con su revisión y la fecha de la
+        revisión (en la descripción o en cualquier otro campo), y debe ser la de la tabla."""
+        if not dip.get("datos_referencia"):
+            return  # no hay descripción ni referencias: no se puede revisar
+        encontrada = buscar_referencia(dip.get("descripcion"), dip.get("referencia_tecnica"),
+                                       dip.get("notas_diferimiento"), dip.get("nombre"))
+        dip["referencia_encontrada"] = str(encontrada)
+        esperada = (self.indice_referencias.por_entrada.get(asoc.entrada.id)
+                    if asoc.entrada else None)
+        corresponde = f" Corresponde {', '.join(sorted(esperada))}." if esperada else ""
+        if not encontrada.manual:
+            r.agregar(ctx, "sin_referencia_tecnica", "Missing Technical Reference",
+                      "Sin referencia técnica (manual, REV y fecha)." + corresponde)
+        elif encontrada.faltantes:
+            r.agregar(ctx, "referencia_tecnica_incompleta", "Missing Technical Reference",
+                      f"Referencia técnica incompleta ({encontrada}): falta "
+                      f"{' y '.join(encontrada.faltantes)}.")
+        if asoc.entrada and encontrada.manual:
+            texto = "; ".join(x for x in (dip.get("referencia_tecnica"), dip.get("descripcion"))
+                              if x)
+            revision = revisar(texto, asoc.entrada, self.catalogo, self.indice_referencias)
+            if revision and revision.codigo and revision.codigo != "sin_referencia_tecnica":
+                r.agregar(ctx, revision.codigo, "Incorrect Technical Reference",
+                          revision.mensaje)
+
+    def _asociar(self, dip: dict) -> Asociacion:
+        """Por el Fault Name (reglas y, si hay, modelo local); si no alcanza, por la
+        referencia técnica cuando corresponde a una sola referencia del catálogo."""
+        a = asociar(dip["nombre"], self.catalogo, self.llm, dip["intervalo"], dip["unidad"],
+                    self.parametros)
+        if a.entrada is None:
+            codigos = extraer_codigos(dip.get("referencia_tecnica"))
+            id_ = self.indice_referencias.entrada_unica(codigos)
+            if id_:
+                return Asociacion(self.catalogo.por_id(id_), "REF_TECNICA",
+                                  detalle=", ".join(codigos),
+                                  candidatos=a.candidatos)
+        return a
+
     @staticmethod
     def _comentario(r) -> str:
         partes = []
@@ -187,6 +251,7 @@ class Auditor:
             "DIP Interval": dip["intervalo"],
             "Interval Type": dip["tipo_intervalo_original"],
             "Fault Status": dip["estado"],
+            "RESULTADO": RESULTADOS.get(estado, estado),
             "ESTADO IA": estado,
             "HALLAZGOS": "\n".join(f"[{h.severidad}] {h.mensaje}" for h in hallazgos),
             "TIPO DE DISCREPANCIA": ", ".join(dict.fromkeys(
@@ -199,4 +264,8 @@ class Auditor:
                 f"{x.descripcion}: {x.ta}" + (f" / RIR {x.rir}" if x.rir else "")
                 for x in entrada.referencias) if entrada else "",
             "REFERENCIA TÉCNICA ESPERADA": entrada.referencias_tecnicas if entrada else "",
+            "REFERENCIA TÉCNICA DEL DIP": dip.get("referencia_encontrada") or "",
+            "ADJUNTOS EN ICAM": ("" if dip.get("adjuntos") is None
+                                 else f"{len(dip['adjuntos'])}: " + ", ".join(dip["adjuntos"])
+                                 if dip["adjuntos"] else "0"),
         }

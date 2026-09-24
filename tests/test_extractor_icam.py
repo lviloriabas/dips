@@ -1,0 +1,182 @@
+"""Extractor de ICAM contra un ICAM simulado en el equipo (no se conecta al ICAM real).
+
+El simulador reproduce la estructura de ICAM: formulario frmHeaderSearch con
+#idBarcodeSearchInput, POST /maintenix/servlet/ScanBarcode, página del DIP con #idBarcode,
+enlaces idTab<Pestaña>_link y contenido en #idTab<Pestaña>. Cada página trae scripts,
+un onload que intenta enviar datos y una imagen.
+"""
+
+import http.server
+import json
+import socket
+import threading
+import time
+from urllib.parse import parse_qs, urlparse
+
+import pytest
+
+pytest.importorskip("playwright")
+
+from dips_audit.extractor_icam import ErrorSesion, extraer, ruta_cache  # noqa: E402
+from dips_audit.icam import PESTANAS, leer_ficha  # noqa: E402
+
+TEXTOS = {
+    "TaskExecution": "Description\n{barcode} CREW O2 850 PSI IAW AMM TASK 12-15-21-210-801 REV 85, "
+                     "15-MAY-2026\nLabor",
+    "FaultInformation": "Fault Status:\tDEFER (Defer)\tFault Severity:\tDIP (Defer Item Project)\n"
+                        "Deferral Reference:\t35-DIP\tEvaluated:\t-",
+    "TaskInformation": "Parent Assembly:\tBoeing 737-8V3 - HP-1837CMP\tConfig Slot:\t35\n"
+                       "Technical References\nDocument Reference:\tTASK 12-15-21-210-801\n"
+                       "Attachments\n-\tName\tAttachment\tType\n-\tfoto.jpg\t-\t-\nZones",
+    "Scheduling": "-\tDriver1\tParameter2\tUnit\tScheduled From\tStart\tInterval\tDeadline\n"
+                  "-\t-\tCDY\tDAY\tCUSTOM\t18-AUG-2026 23:59 UTC\t3\t21-AUG-2026 23:59 UTC",
+    "History": "18-AUG-2026 09:05 UTC\tX\tACTV\t-\tDeferral Notes: TASK 12-15-21-210-801",
+}
+ESCANEO = "/maintenix/servlet/ScanBarcode"
+
+
+def _html_pestana(texto: str) -> str:
+    """Líneas con tab -> filas de tabla (como en ICAM); el resto -> div."""
+    partes, filas = [], []
+    for linea in texto.split("\n"):
+        if "\t" in linea:
+            filas.append("<tr>" + "".join(f"<td>{c}</td>" for c in linea.split("\t")) + "</tr>")
+            continue
+        if filas:
+            partes.append("<table>" + "".join(filas) + "</table>")
+            filas = []
+        partes.append(f"<div>{linea}</div>")
+    if filas:
+        partes.append("<table>" + "".join(filas) + "</table>")
+    return "".join(partes)
+
+
+CABECERA = (f"<form name='frmHeaderSearch' method='POST' action='{ESCANEO}'>"
+            "<input id='idBarcodeSearchInput' name='aBarcodeScan'></form>")
+
+
+class _ICAMSimulado(http.server.BaseHTTPRequestHandler):
+    envios: list[str] = []
+    fallar_una_vez: set[str] = set()   # "barcode/pestaña" que responde 500 la primera vez
+    sin_sesion = False
+
+    def log_message(self, *args):
+        pass
+
+    def _responder(self, codigo: int, html: str = "", destino: str = "") -> None:
+        self.send_response(codigo)
+        if destino:
+            self.send_header("Location", destino)
+        self.send_header("Content-Type", "text/html; charset=utf-8")
+        self.end_headers()
+        self.wfile.write(html.encode())
+
+    def _al_login(self) -> bool:
+        if self.sin_sesion and not self.path.startswith("/login"):
+            self._responder(302, destino=f"http://localhost:{self.server.server_port}/login")
+            return True
+        return False
+
+    def do_GET(self):
+        if self._al_login():
+            return
+        url = urlparse(self.path)
+        if url.path == "/login":
+            self._responder(200, "<title>Login</title><input name='usuario'>")
+        elif url.path.endswith("TaskDetails.jsp"):
+            q = parse_qs(url.query)
+            barcode = q["aTask"][0]
+            pestana = q["aTab"][0].replace("idTab", "")
+            if f"{barcode}/{pestana}" in _ICAMSimulado.fallar_una_vez:
+                _ICAMSimulado.fallar_una_vez.discard(f"{barcode}/{pestana}")
+                self._responder(500, "error")
+                return
+            enlaces = "".join(f"<a id='{p}_link' href='{url.path}?aTask={barcode}&aTab={p}'>{n}</a>"
+                              for n, p in PESTANAS.items())
+            self._responder(200, (
+                f"<html><head><title>Fault Details - CREW OXYGEN [{barcode}]</title>"
+                "<script>fetch('/guardar', {method: 'POST', body: 'x'})</script></head>"
+                "<body onload=\"fetch('/guardar-onload', {method: 'POST'})\">"
+                f"{CABECERA}<img src='/logo.png'><div id='idBarcode'>{barcode}</div>{enlaces}"
+                f"<div id='idTab{pestana}'>{_html_pestana(TEXTOS[pestana].format(barcode=barcode))}</div>"
+                "</body></html>"))
+        elif url.path == "/logo.png":
+            _ICAMSimulado.envios.append("imagen")
+            self._responder(404)
+        else:  # página de inicio de ICAM (ToDoList)
+            self._responder(200, f"<title>To Do List</title>{CABECERA}")
+
+    def do_POST(self):
+        if self._al_login():
+            return
+        largo = int(self.headers.get("Content-Length", 0))
+        cuerpo = self.rfile.read(largo).decode()
+        _ICAMSimulado.envios.append(self.path)
+        if self.path == ESCANEO:
+            barcode = parse_qs(cuerpo)["aBarcodeScan"][0]
+            self._responder(302, destino=f"/maintenix/web/task/TaskDetails.jsp?aTask={barcode}"
+                                         "&aTab=idTabTaskExecution")
+        else:
+            self._responder(200)
+
+
+def _puerto_libre() -> int:
+    with socket.socket() as s:
+        s.bind(("127.0.0.1", 0))
+        return s.getsockname()[1]
+
+
+@pytest.fixture
+def icam(tmp_path):
+    _ICAMSimulado.envios, _ICAMSimulado.fallar_una_vez = [], set()
+    _ICAMSimulado.sin_sesion = False
+    servidor = http.server.ThreadingHTTPServer(("127.0.0.1", 0), _ICAMSimulado)
+    threading.Thread(target=servidor.serve_forever, daemon=True).start()
+    config = {"url": f"http://127.0.0.1:{servidor.server_address[1]}/maintenix/common/ToDoList.jsp",
+              "perfil": tmp_path / "perfil", "puerto": _puerto_libre(), "oculto": True,
+              "cerrar_al_terminar": True, "paralelo": 3, "intentos": 3, "espera_segundos": 15}
+    yield config
+    servidor.shutdown()
+
+
+def _extraer(barcodes, config, carpeta):
+    try:
+        return extraer(barcodes, config, carpeta)
+    except ErrorSesion:
+        raise
+    except Exception as e:
+        if "Edge" in str(e):
+            pytest.skip(f"No se pudo abrir Edge: {e}")
+        raise
+
+
+def test_lee_por_barcode_rapido_y_solo_lectura(icam, tmp_path):
+    barcodes = [f"T40S009T{n:03d}" for n in range(12)]
+    _ICAMSimulado.fallar_una_vez = {"T40S009T003/Scheduling"}
+    inicio = time.monotonic()
+    estado = _extraer(barcodes, icam, tmp_path / "icam")
+    segundos = time.monotonic() - inicio
+    assert estado == {b: "leido" for b in barcodes}
+    # Solo llegaron las búsquedas: sin scripts de ICAM, sin onload y sin imágenes.
+    assert _ICAMSimulado.envios == [ESCANEO] * len(barcodes)
+    assert segundos < 20, f"12 DIPs en {segundos:.1f} s"
+
+    registro = json.loads(ruta_cache(tmp_path / "icam", "T40S009T003").read_text(encoding="utf-8"))
+    ficha = leer_ficha(registro["sections"], registro["barcode"])
+    assert ficha.descripcion.startswith("T40S009T003 CREW O2 850 PSI")
+    assert ficha.referencias_tecnicas == ["TASK 12-15-21-210-801"]
+    assert ficha.adjuntos == ["foto.jpg"]
+    assert [(i.valor, i.parametro) for i in ficha.intervalos] == [(3.0, "CDY")]
+    assert ficha.deferral_reference == "35-DIP"
+    assert ficha.notas_diferimiento == "TASK 12-15-21-210-801"
+
+    # Segunda corrida: ya están leídos, no se consulta ICAM.
+    assert _extraer(barcodes, icam, tmp_path / "icam") == {b: "en cache" for b in barcodes}
+    assert len(_ICAMSimulado.envios) == len(barcodes)
+
+
+def test_sin_sesion_avisa_y_no_se_queda_en_el_login(icam, tmp_path):
+    _ICAMSimulado.sin_sesion = True
+    with pytest.raises(ErrorSesion, match="No hay sesión iniciada en ICAM"):
+        _extraer(["T40S009T000"], icam, tmp_path / "icam")
+    assert not list((tmp_path / "icam").glob("*.json"))

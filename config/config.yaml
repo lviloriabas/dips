@@ -41,6 +41,18 @@ severidades:
   sn_repetido: NO CRITICA
   duplicado: NO CRITICA
   fault_severity: OBSERVACION
+  # El DIP debe citar la referencia del manual (AMM, MGM, ...) con su revisión y la fecha
+  # de la revisión, en la descripción o en cualquier campo. Se revisa si el Excel de entrada
+  # trae la descripción o las referencias, o con los datos de ICAM (--icam).
+  sin_referencia_tecnica: NO CRITICA         # no cita ninguna referencia del manual
+  referencia_tecnica_incompleta: NO CRITICA  # la cita sin revisión o sin fecha
+  intervalo_de_icam: OBSERVACION             # el Excel no trae intervalo; se usó el de ICAM
+  # Referencia del manual distinta de la de la tabla (solo si la tabla tiene número).
+  referencia_tecnica_equivocada: NO CRITICA  # tiene la de otra referencia de la tabla
+  referencia_tecnica_distinta: REVISAR       # tiene una tarea que la tabla no tiene
+  # Cómo se asoció el DIP a su referencia (se informan, no cambian el estado).
+  asociacion_aproximada: OBSERVACION             # Fault Name con errores de escritura
+  asociacion_por_referencia_tecnica: OBSERVACION # el nombre no alcanza; se usó la ref. técnica
 
 # ---------------------------------------------------------------------------
 # Modelo local (Ollama)
@@ -48,10 +60,26 @@ severidades:
 # Solo se usa para asociar a una referencia los DIPs que las reglas no asocian.
 # Elige entre unas pocas referencias candidatas o responde NINGUNA; nunca decide
 # si un DIP está OK o tiene discrepancia, y todo lo que sugiere queda en REVISAR.
-# En "auditar" se activa con --llm; el benchmark siempre lo usa si está disponible.
+# En "auditar" se activa con --llm. Se mide con benchmark_con_modelo.bat; sin él,
+# benchmark_sin_modelo.bat mide solo las reglas.
 #
-# Para ajustar: cambie un valor, ejecute benchmark.bat y compare el resultado
-# (aciertos, errores aceptados y segundos por consulta) con la línea base.
+# Para ajustar: cambie un valor, ejecute benchmark_con_modelo.bat y compare el
+# resultado (aciertos, errores aceptados y segundos por consulta) con la línea base.
+icam:
+  # Lectura de DIPs en ICAM por barcode, solo lectura (auditar --leer-icam, extraer-icam).
+  # Usa el Edge de ICAM del programa (abrir_icam.bat): se abre directo en ICAM y la sesión
+  # se inicia ahí antes de auditar. Si no hay sesión, el programa avisa y termina.
+  url: "https://copa.ifs.cloud/maintenix/"
+  perfil: ".icam_perfil"          # perfil del Edge de ICAM (no se sube al repositorio)
+  puerto: 9222                    # puerto local por el que el programa usa ese Edge
+  carpeta: "data/icam"            # un JSON por DIP leído; no se vuelve a leer
+  tipos: ["Others"]               # tipos de DIP que se leen (extraer-icam --todos: todos)
+  paralelo: 3                     # DIPs que se leen a la vez
+  intentos: 3                     # reintentos por búsqueda o pestaña que falla
+  espera_segundos: 30             # máximo por página
+  selector_busqueda: ""           # vacío = el campo Barcode Search se busca solo
+  selector_contenido: "body"      # de dónde se copia el texto de cada pestaña
+
 llm:
   url: "http://localhost:11434"
   modelo: "ministral-3:8b"   # otros probados: ministral-3:3b (menos RAM, algo menos preciso)

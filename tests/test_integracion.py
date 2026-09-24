@@ -57,7 +57,7 @@ def test_auditoria_de_punta_a_punta(config, export, tmp_path):
     assert wb.sheetnames == ["Resumen", "Auditoría", "Hallazgos"]
     ws = wb["Auditoría"]
     encabezado = [c.value for c in ws[1]]
-    assert encabezado[:2] == ["Fila Excel", "ESTADO IA"]
+    assert encabezado[:3] == ["Fila Excel", "RESULTADO", "ESTADO IA"]
     assert "Fault Barcode" in encabezado  # columnas originales conservadas
     assert ws.max_row == len(FILAS) + 1
     # El archivo original no se modifica.

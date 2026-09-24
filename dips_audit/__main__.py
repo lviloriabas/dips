@@ -1,7 +1,10 @@
 """Interfaz de consola.
 
-    python -m dips_audit auditar  "entrada.xlsx" [--hoja HOJA] [--llm]
-    python -m dips_audit benchmark
+    python -m dips_audit auditar  "entrada.xlsx" [--hoja HOJA] [--llm] [--icam ICAM.csv]
+    python -m dips_audit abrir-icam
+    python -m dips_audit auditar  "entrada.xlsx" --leer-icam
+    python -m dips_audit extraer-icam "entrada.xlsx" | --barcode T40S...
+    python -m dips_audit benchmark {sin-modelo,con-modelo}
     python -m dips_audit anonimizar [--historico ARCHIVO]
     python -m dips_audit referencias
     python -m dips_audit probar-llm
@@ -26,6 +29,7 @@ from .anonimizar import ErrorAnonimizacion
 from .auditor import RAIZ, Auditor, cargar_configuracion
 from .benchmark import DATOS as DATOS_BENCHMARK
 from .cargador import ErrorCarga
+from .extractor_icam import ErrorExtraccion
 from .llm import ClienteOllama, ErrorLLM
 from .referencias import ErrorCatalogo
 
@@ -56,12 +60,66 @@ def _tabla_estados(conteo: dict[str, int]) -> Table:
     return t
 
 
+def _extraer_icam(config, archivo: Path, hoja: str | None, todos: bool = False,
+                  barcodes: list[str] | None = None, actualizar: bool = False) -> Path:
+    """Lee en ICAM los DIPs del Excel de entrada (o `barcodes`) que aún no se leyeron."""
+    from .cargador import cargar_export
+    from .extractor_icam import extraer
+
+    icam = config["icam"]
+    if not barcodes:
+        datos = cargar_export(archivo, hoja).datos
+        tipos = {t.upper() for t in icam.get("tipos", ["Others"])}
+        barcodes = [d["barcode"] for d in datos.to_dict("records")
+                    if todos or not d["tipo"] or d["tipo"].upper() in tipos]
+    consola.print(f"Lectura de ICAM (solo lectura): {len(barcodes)} DIPs. Los ya leídos se "
+                  f"toman de {icam['carpeta']}.")
+    estado = extraer(barcodes, icam, icam["carpeta"], actualizar, consola.print)
+    errores = {b: e for b, e in estado.items() if e.startswith("error")}
+    leidos = sum(e == "leido" for e in estado.values())
+    consola.print(f"[bold green]ICAM:[/] {leidos} leídos, "
+                  f"{sum(e == 'en cache' for e in estado.values())} ya estaban, {len(errores)} con error.")
+    for b, e in list(errores.items())[:10]:
+        consola.print(f"[yellow]{b}:[/] {e}")
+    return icam["carpeta"]
+
+
+def cmd_extraer_icam(args, config) -> int:
+    carpeta = _extraer_icam(config, Path(args.archivo) if args.archivo else None, args.hoja,
+                            args.todos, args.barcode, args.actualizar)
+    if args.barcode and len(args.barcode) == 1:
+        # Diagnóstico: muestra lo que se interpretó del DIP.
+        import json
+
+        from .extractor_icam import ruta_cache
+        from .icam import leer_ficha
+        ruta = ruta_cache(carpeta, args.barcode[0])
+        if ruta.exists():
+            r = json.loads(ruta.read_text(encoding="utf-8"))
+            f = leer_ficha(r["sections"], r["barcode"], r.get("page_title", ""))
+            consola.print_json(json.dumps(f.como_dict(), ensure_ascii=False, default=str))
+    return 0
+
+
+def cmd_abrir_icam(args, config) -> int:
+    from .extractor_icam import abrir_edge, edge_activo
+
+    ya_abierto = edge_activo(int(config["icam"].get("puerto", 9222)))
+    abrir_edge(config["icam"])
+    consola.print("Edge de ICAM " + ("ya estaba abierto." if ya_abierto else "abierto.")
+                  + " Inicie sesión en ICAM en esa ventana y déjela abierta.")
+    return 0
+
+
 def cmd_auditar(args, config) -> int:
+    if args.leer_icam and not args.sin_icam and not args.icam:
+        args.icam = str(_extraer_icam(config, Path(args.archivo), args.hoja))
     llm = _cliente_llm(config, args.modelo) if args.llm else None
     fecha = datetime.strptime(args.fecha, "%Y-%m-%d").date() if args.fecha else date.today()
     auditor = Auditor(config, llm=llm, fecha_auditoria=fecha)
     with consola.status("Auditando..."):
-        resultado = auditor.auditar_archivo(Path(args.archivo), args.hoja)
+        resultado = auditor.auditar_archivo(Path(args.archivo), args.hoja,
+                                            Path(args.icam) if args.icam else None)
 
     lote = resultado.lote
     consola.print(Panel.fit(
@@ -141,22 +199,28 @@ def cmd_benchmark(args, config) -> int:
 
     from . import benchmark as bm
 
-    llm, sin_modelo = None, ""
-    try:
-        llm = _cliente_llm(config, None)
-    except ErrorLLM as e:
-        sin_modelo = str(e)
+    modo = args.modo.replace("-", "_")
+    llm = None
+    if modo == "con_modelo":
+        try:
+            llm = _cliente_llm(config, None)
+        except ErrorLLM as e:
+            consola.print(f"[bold red]Modelo local no disponible:[/] {e}\nEl benchmark con "
+                          "modelo necesita Ollama y el modelo descargado. Para medir solo las "
+                          f"reglas, ejecute {bm.MODOS['sin_modelo'][1]}.")
+            return 1
     # Sin terminal (salida redirigida a un archivo) no hay animación: se imprime una
     # línea por cada consulta al modelo.
     avance = bm.Avance(None if consola.is_terminal else consola.print)
     with consola.status("Preparando: lectura de datos y auditoría solo con reglas..."):
-        plan = bm.preparar(config, llm, sin_modelo)
-    consola.print(Markdown("# Benchmark del auditor de DIPs\n\n## Cómo se audita\n\n"
-                           + bm.como_se_audita(bm.descripcion(plan), bm.texto_plan(plan))))
+        plan = bm.preparar(config, llm)
+    descripcion = bm.descripcion(plan)
+    consola.print(Markdown(f"# {bm.titulo(descripcion)}\n\n## Cómo se audita\n\n"
+                           + bm.como_se_audita(descripcion, bm.texto_plan(plan))))
     consola.print()
     try:
         with bm.sin_suspension():
-            if consola.is_terminal:
+            if llm and consola.is_terminal:
                 with Live(_PantallaAvance(avance), console=consola, refresh_per_second=2):
                     resultado = bm.ejecutar(plan, avance)
             else:
@@ -172,25 +236,22 @@ def cmd_benchmark(args, config) -> int:
                       "que el equipo no se haya suspendido. No se guardó ningún resultado.")
         return 1
 
-    base = bm.cargar_linea_base()
+    base = bm.cargar_linea_base(modo)
     ruta_json, ruta_md = bm.guardar(resultado, base)
     consola.print()
     consola.print(Markdown(bm.a_markdown(resultado, base, completo=False)))
     consola.print(f"\n[bold green]Resultado guardado:[/] {ruta_json}\n"
                   f"[bold green]Para leer (incluye los desacuerdos con el auditor):[/] {ruta_md}")
-    if not llm:
-        consola.print(f"[bold yellow]Modelo local no disponible:[/] {sin_modelo} "
-                      "Se midieron solo las reglas.")
     motivo = bm.comparable(resultado, base)
     if motivo:
         consola.print(f"[yellow]{motivo}[/] Para usar este resultado como línea base, copie "
-                      f"{ruta_json.name} sobre {bm.LINEA_BASE}.")
+                      f"{ruta_json.name} sobre {bm.linea_base(modo)}.")
         return 0
     peores = bm.empeoraron(resultado, base)
     if peores:
         consola.print("[bold red]Empeoró respecto de la línea base:[/] " + "; ".join(peores))
         consola.print(f"[dim]Si el cambio es intencional, copie {ruta_json.name} sobre "
-                      f"{bm.LINEA_BASE}.[/]")
+                      f"{bm.linea_base(modo)}.[/]")
         return 2
     consola.print("[bold green]Ningún indicador empeoró respecto de la línea base.[/]")
     return 0
@@ -268,13 +329,21 @@ def main(argv: list[str] | None = None) -> int:
     a.add_argument("--salida", help="Ruta del Excel de resultado")
     a.add_argument("--fecha", help="Fecha de auditoría AAAA-MM-DD (por defecto, hoy)")
     a.add_argument("--llm", action="store_true", help="Usar el modelo local para casos sin referencia")
+    a.add_argument("--leer-icam", action="store_true",
+                   help="Leer antes en ICAM (solo lectura) los DIPs del archivo y usar esos datos")
+    a.add_argument("--sin-icam", action="store_true", help="Auditar solo con el Excel de entrada")
+    a.add_argument("--icam", help="CSV o Excel con datos extraídos de ICAM por barcode "
+                                  "(columnas barcode y technical_references; description opcional)")
     a.add_argument("--modelo", help="Modelo de Ollama (por defecto, el de config.yaml)")
     a.add_argument("--sin-excel", action="store_true", help="Solo mostrar en consola")
     a.add_argument("--max-filas", type=int, default=40, help="Filas a mostrar en consola")
 
-    sub.add_parser("benchmark", help="Mide el programa y el modelo local con los DIPs ya "
-                                    "auditados de benchmark/ (sin opciones; se ajusta en "
-                                    "config.yaml)")
+    b = sub.add_parser("benchmark", help="Mide el programa con los DIPs ya auditados de "
+                                        "benchmark/, sin o con modelo local (se ajusta en "
+                                        "config.yaml)")
+    b.add_argument("modo", choices=["sin-modelo", "con-modelo"],
+                   help="sin-modelo: solo reglas, unos segundos. con-modelo: reglas + modelo "
+                        "local (Ollama); en CPU tarda más de 30 min")
 
     n = sub.add_parser("anonimizar", help="Crea el Excel del benchmark desde el histórico, "
                                           "sin nombres del personal")
@@ -284,6 +353,16 @@ def main(argv: list[str] | None = None) -> int:
                    help=f"DIPs de la muestra (por defecto {CANTIDAD_BENCHMARK}; 0 = todos)")
     n.add_argument("--semilla", type=int, default=SEMILLA_BENCHMARK,
                    help="Cambia la muestra; la misma semilla da los mismos DIPs")
+
+    sub.add_parser("abrir-icam", help="Abre el Edge de ICAM del programa para iniciar sesión")
+    x = sub.add_parser("extraer-icam", help="Lee en ICAM (solo lectura) los DIPs de un Excel de "
+                                             "entrada y los guarda en data/icam/")
+    x.add_argument("archivo", nargs="?", help="Excel de entrada (o use --barcode)")
+    x.add_argument("--hoja")
+    x.add_argument("--barcode", action="append", help="Leer solo este barcode (se puede repetir); "
+                                                      "con uno solo, muestra lo interpretado")
+    x.add_argument("--todos", action="store_true", help="Todos los tipos de DIP, no solo los de config")
+    x.add_argument("--actualizar", action="store_true", help="Volver a leer los que ya estaban")
 
     sub.add_parser("referencias", help="Muestra cómo se interpretó la tabla de referencias")
 
@@ -296,9 +375,11 @@ def main(argv: list[str] | None = None) -> int:
     try:
         config = cargar_configuracion(Path(args.config) if args.config else None)
         return {"auditar": cmd_auditar, "benchmark": cmd_benchmark, "anonimizar": cmd_anonimizar,
+                "extraer-icam": cmd_extraer_icam, "abrir-icam": cmd_abrir_icam,
                 "referencias": cmd_referencias,
                 "probar-llm": cmd_probar_llm}[args.comando](args, config)
-    except (ErrorCarga, ErrorCatalogo, ErrorLLM, ErrorAnonimizacion, FileNotFoundError,
+    except (ErrorCarga, ErrorCatalogo, ErrorLLM, ErrorAnonimizacion, ErrorExtraccion,
+            FileNotFoundError,
             PermissionError) as ex:
         consola.print(f"[bold red]Error:[/] {ex}")
         return 1

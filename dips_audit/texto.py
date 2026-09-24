@@ -42,6 +42,7 @@ _SINONIMOS: list[tuple[str, str]] = [
     (r"\b(ELT|FAK|EMK|UPK|MLG|NLG|ENG|POB)(\d)\b", r"\1 \2"),
 ]
 _SINONIMOS_RE = [(re.compile(p), r) for p, r in _SINONIMOS]
+_SIGLA_CON_PUNTOS = re.compile(r"\b(?:[A-Z]\.){2,}[A-Z]?\b\.?")
 
 MESES = {
     "JAN": 1, "FEB": 2, "MAR": 3, "APR": 4, "MAY": 5, "JUN": 6,
@@ -61,6 +62,8 @@ def normalizar(texto: object) -> str:
     if texto is None:
         return ""
     t = sin_acentos(str(texto)).upper()
+    # Siglas escritas con puntos: P.O.B -> POB, E.L.T. -> ELT.
+    t = _SIGLA_CON_PUNTOS.sub(lambda m: m.group(0).replace(".", ""), t)
     t = re.sub(r"[^A-Z0-9]+", " ", t)
     t = re.sub(r"\s+", " ", t).strip()
     for patron, reemplazo in _SINONIMOS_RE:

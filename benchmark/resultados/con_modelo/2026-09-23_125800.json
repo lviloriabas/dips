@@ -1,6 +1,7 @@
 {
-  "formato": 1,
-  "fecha": "2026-09-23 15:26",
+  "formato": 2,
+  "modo": "con_modelo",
+  "fecha": "2026-09-23 12:57",
   "version_programa": "0.1.0",
   "datos": {
     "archivo": "benchmark/dips_auditados.xlsx",
@@ -11,18 +12,14 @@
       "DISCREPANCIA CRÍTICA": 1
     },
     "archivo_casos": "benchmark/casos_modelo_local.yaml",
-    "casos_modelo": 46,
-    "dips_sin_referencia_por_reglas": 5
+    "casos": 46,
+    "dips_sin_referencia_por_reglas": 6
   },
-  "modelo_local": {
-    "modelo": "ministral-3:8b",
-    "disponible": true,
-    "motivo": ""
-  },
+  "modelo_local": "ministral-3:8b",
   "configuracion": {
     "llm": {
       "modelo": "ministral-3:8b",
-      "timeout_segundos": 300,
+      "timeout_segundos": 120,
       "solo_cpu": false,
       "candidatos": 6,
       "justificacion": true,
@@ -76,19 +73,19 @@
   "auditoria": {
     "indicadores": {
       "coincidencia": {
-        "aciertos": 42,
+        "aciertos": 41,
         "total": 50,
-        "pct": 84.0
+        "pct": 82.0
       },
       "asociados": {
-        "aciertos": 45,
+        "aciertos": 44,
         "total": 50,
-        "pct": 90.0
+        "pct": 88.0
       },
       "ok_correctos": {
-        "aciertos": 38,
+        "aciertos": 37,
         "total": 44,
-        "pct": 86.4
+        "pct": 84.1
       },
       "falsas_discrepancias": {
         "aciertos": 3,
@@ -96,9 +93,9 @@
         "pct": 6.8
       },
       "revisar_de_mas": {
-        "aciertos": 3,
+        "aciertos": 4,
         "total": 44,
-        "pct": 6.8
+        "pct": 9.1
       },
       "discrepancias_detectadas": {
         "aciertos": 4,
@@ -113,19 +110,19 @@
     },
     "indicadores_solo_reglas": {
       "coincidencia": {
-        "aciertos": 42,
+        "aciertos": 41,
         "total": 50,
-        "pct": 84.0
+        "pct": 82.0
       },
       "asociados": {
-        "aciertos": 45,
+        "aciertos": 44,
         "total": 50,
-        "pct": 90.0
+        "pct": 88.0
       },
       "ok_correctos": {
-        "aciertos": 38,
+        "aciertos": 37,
         "total": 44,
-        "pct": 86.4
+        "pct": 84.1
       },
       "falsas_discrepancias": {
         "aciertos": 3,
@@ -133,9 +130,9 @@
         "pct": 6.8
       },
       "revisar_de_mas": {
-        "aciertos": 3,
+        "aciertos": 4,
         "total": 44,
-        "pct": 6.8
+        "pct": 9.1
       },
       "discrepancias_detectadas": {
         "aciertos": 4,
@@ -150,8 +147,8 @@
     },
     "matriz": {
       "OK": {
-        "OK": 38,
-        "REVISAR": 3,
+        "OK": 37,
+        "REVISAR": 4,
         "DISCREPANCIA NO CRÍTICA": 0,
         "DISCREPANCIA CRÍTICA": 3
       },
@@ -983,14 +980,16 @@
         "auditor": "OK",
         "comentario_auditor": "",
         "tema_auditor": "Sin comentario",
-        "programa": "OK",
-        "programa_solo_reglas": "OK",
-        "acuerdo": "Ambos OK",
-        "metodo": "reglas",
+        "programa": "REVISAR",
+        "programa_solo_reglas": "REVISAR",
+        "acuerdo": "Solo el programa marca",
+        "metodo": "modelo_aceptada",
         "referencia": "Universal Precaution Kit (kit de protección universal)",
-        "propuesta_modelo": null,
-        "detalle_modelo": "",
-        "hallazgos": []
+        "propuesta_modelo": "UPK",
+        "detalle_modelo": "Intervalo de 102 días coincide con referencia UPK <130 días y TA *UNTIL DUE DATE*.",
+        "hallazgos": [
+          "[REVISAR] Referencia sugerida por el modelo local: Universal Precaution Kit (kit de protección universal). Confirmar. (Intervalo de 102 días coincide con referencia UPK <130 días y TA *UNTIL DUE DATE*.)"
+        ]
       },
       {
         "barcode": "T40S00960XC",
@@ -1068,7 +1067,7 @@
       }
     ]
   },
-  "casos_modelo": {
+  "casos": {
     "indicadores": {
       "aciertos_finales": {
         "aciertos": 44,
@@ -1096,31 +1095,28 @@
         "pct": 93.5
       }
     },
-    "indicadores_sin_modelo": {
-      "aciertos_finales": {
-        "aciertos": 43,
-        "total": 46,
-        "pct": 93.5
-      },
-      "con_referencia": {
-        "aciertos": 24,
-        "total": 26,
-        "pct": 92.3
-      },
-      "sin_referencia": {
-        "aciertos": 19,
-        "total": 20,
-        "pct": 95.0
-      },
-      "errores_aceptados": {
-        "aciertos": 2,
-        "total": 46,
-        "pct": 4.3
-      },
-      "aciertos_modelo": {
-        "aciertos": 24,
-        "total": 46,
-        "pct": 52.2
+    "comparacion": {
+      "solo_reglas": {
+        "aciertos_finales": {
+          "aciertos": 20,
+          "total": 46,
+          "pct": 43.5
+        },
+        "con_referencia": {
+          "aciertos": 0,
+          "total": 26,
+          "pct": 0.0
+        },
+        "sin_referencia": {
+          "aciertos": 20,
+          "total": 20,
+          "pct": 100.0
+        },
+        "errores_aceptados": {
+          "aciertos": 0,
+          "total": 46,
+          "pct": 0.0
+        }
       }
     },
     "casos": [
@@ -1134,7 +1130,7 @@
         "acierto_modelo": true,
         "acierto_final": true,
         "error_aceptado": false,
-        "segundos": 41.45,
+        "segundos": 45.66,
         "detalle": "Intervalo de 3 días coincide con TA de 1 FC (1 Flight Cycle) para presión de botella de oxígeno de tripulación."
       },
       {
@@ -1147,7 +1143,7 @@
         "acierto_modelo": true,
         "acierto_final": true,
         "error_aceptado": false,
-        "segundos": 44.28,
+        "segundos": 55.72,
         "detalle": "Intervalo de 3 días coincide con TA de 1 FC si presión está entre 50-100 PSI sobre mínimo."
       },
       {
@@ -1160,7 +1156,7 @@
         "acierto_modelo": false,
         "acierto_final": false,
         "error_aceptado": false,
-        "segundos": 38.35,
+        "segundos": 40.76,
         "detalle": "Intervalo DIP (3 FC) no coincide con TA de ninguna categoría."
       },
       {
@@ -1173,7 +1169,7 @@
         "acierto_modelo": true,
         "acierto_final": true,
         "error_aceptado": false,
-        "segundos": 34.58,
+        "segundos": 35.66,
         "detalle": "Intervalo de 150 días coincide con el TA de *UNTIL DUE DATE* para ELT portátil."
       },
       {
@@ -1186,7 +1182,7 @@
         "acierto_modelo": true,
         "acierto_final": true,
         "error_aceptado": false,
-        "segundos": 41.62,
+        "segundos": 43.81,
         "detalle": "Intervalo del DIP (300 FH) coincide exactamente con el TA de la categoría."
       },
       {
@@ -1199,7 +1195,7 @@
         "acierto_modelo": true,
         "acierto_final": true,
         "error_aceptado": false,
-        "segundos": 44.55,
+        "segundos": 48.45,
         "detalle": "Intervalo del DIP (150 FH) coincide exactamente con el TA de la categoría."
       },
       {
@@ -1212,7 +1208,7 @@
         "acierto_modelo": true,
         "acierto_final": true,
         "error_aceptado": false,
-        "segundos": 47.55,
+        "segundos": 48.3,
         "detalle": "Intervalo de 100 días coincide con el TA de *UNTIL DUE DATE* (FAK vence en 30-NOV-2026)."
       },
       {
@@ -1225,7 +1221,7 @@
         "acierto_modelo": true,
         "acierto_final": true,
         "error_aceptado": false,
-        "segundos": 37.38,
+        "segundos": 38.05,
         "detalle": "El intervalo de 120 días coincide con la referencia de EMK (menos de 130 días)."
       },
       {
@@ -1238,7 +1234,7 @@
         "acierto_modelo": true,
         "acierto_final": true,
         "error_aceptado": false,
-        "segundos": 46.31,
+        "segundos": 45.41,
         "detalle": "Intervalo de 60 días coincide con TA de HALON FIRE EXTINGUISHER DUE."
       },
       {
@@ -1251,7 +1247,7 @@
         "acierto_modelo": true,
         "acierto_final": true,
         "error_aceptado": false,
-        "segundos": 36.22,
+        "segundos": 38.76,
         "detalle": "Intervalo de 5 días coincide con plazo típico de certificado de fumigación (hasta fecha de vencimiento)."
       },
       {
@@ -1264,7 +1260,7 @@
         "acierto_modelo": true,
         "acierto_final": true,
         "error_aceptado": false,
-        "segundos": 36.91,
+        "segundos": 37.0,
         "detalle": "Intervalo del DIP coincide exactamente con el TA de la categoría."
       },
       {
@@ -1277,7 +1273,7 @@
         "acierto_modelo": true,
         "acierto_final": true,
         "error_aceptado": false,
-        "segundos": 35.44,
+        "segundos": 34.42,
         "detalle": "Intervalo del DIP coincide exactamente con el TA de la categoría FDR (30 días)."
       },
       {
@@ -1290,7 +1286,7 @@
         "acierto_modelo": true,
         "acierto_final": true,
         "error_aceptado": false,
-        "segundos": 46.47,
+        "segundos": 52.04,
         "detalle": "El DIP menciona *NOSE STRUT* y el TA (20 FC) coincide con el intervalo de AMORTIGUADOR_NLG."
       },
       {
@@ -1303,7 +1299,7 @@
         "acierto_modelo": true,
         "acierto_final": true,
         "error_aceptado": false,
-        "segundos": 45.7,
+        "segundos": 55.71,
         "detalle": "Intervalo de 5 FC coincide con TA de llanta (hasta próxima estación RON)."
       },
       {
@@ -1316,7 +1312,7 @@
         "acierto_modelo": true,
         "acierto_final": true,
         "error_aceptado": false,
-        "segundos": 41.21,
+        "segundos": 46.09,
         "detalle": "Intervalo del DIP (3 días) coincide con el TA de la categoría **FRENO_PARQUEO** (3/50 días)."
       },
       {
@@ -1329,7 +1325,7 @@
         "acierto_modelo": true,
         "acierto_final": true,
         "error_aceptado": false,
-        "segundos": 51.01,
+        "segundos": 52.8,
         "detalle": "El intervalo de 184 días coincide con el TA de 6 meses (180 días) para re-tensión de cables de alerón."
       },
       {
@@ -1342,7 +1338,7 @@
         "acierto_modelo": true,
         "acierto_final": true,
         "error_aceptado": false,
-        "segundos": 33.7,
+        "segundos": 37.48,
         "detalle": "Intervalo del DIP (400 FH) coincide con el TA de la categoría DIFFERENTIAL PRESSURE INDICATOR (400 FH)."
       },
       {
@@ -1355,7 +1351,7 @@
         "acierto_modelo": false,
         "acierto_final": false,
         "error_aceptado": false,
-        "segundos": 35.75,
+        "segundos": 36.9,
         "detalle": "Intervalo de 50 días no coincide con TA de ninguna categoría (todos requieren <130 días o TA específico)."
       },
       {
@@ -1368,7 +1364,7 @@
         "acierto_modelo": true,
         "acierto_final": true,
         "error_aceptado": false,
-        "segundos": 40.72,
+        "segundos": 42.69,
         "detalle": "Intervalo DIP (90 días) coincide con TA de *PRIMARY BACKFLOW PREVENTION CHECK VALVE* (90 días)."
       },
       {
@@ -1381,7 +1377,7 @@
         "acierto_modelo": true,
         "acierto_final": true,
         "error_aceptado": false,
-        "segundos": 34.84,
+        "segundos": 37.14,
         "detalle": "Intervalo del DIP (50 FC) coincide exactamente con el TA de la categoría RAYO."
       },
       {
@@ -1394,7 +1390,7 @@
         "acierto_modelo": true,
         "acierto_final": true,
         "error_aceptado": false,
-        "segundos": 36.5,
+        "segundos": 37.69,
         "detalle": "Intervalo DIP (90 días) coincide con el TA de UPK (hasta fecha de vencimiento, típicamente cada 90 días)."
       },
       {
@@ -1407,7 +1403,7 @@
         "acierto_modelo": true,
         "acierto_final": true,
         "error_aceptado": false,
-        "segundos": 42.21,
+        "segundos": 44.3,
         "detalle": "Intervalo de 20 FC coincide con el TA de 27-37 FC para 737NG-700."
       },
       {
@@ -1420,7 +1416,7 @@
         "acierto_modelo": true,
         "acierto_final": true,
         "error_aceptado": false,
-        "segundos": 42.8,
+        "segundos": 44.85,
         "detalle": "Intervalo DIP (60 días) coincide con el TA de la categoría CHALECO (60 días)."
       },
       {
@@ -1433,7 +1429,7 @@
         "acierto_modelo": true,
         "acierto_final": true,
         "error_aceptado": false,
-        "segundos": 30.11,
+        "segundos": 37.74,
         "detalle": "Intervalo de 30 días coincide con plazo típico de licencias (ej. renovación)."
       },
       {
@@ -1446,7 +1442,7 @@
         "acierto_modelo": true,
         "acierto_final": true,
         "error_aceptado": false,
-        "segundos": 32.79,
+        "segundos": 34.83,
         "detalle": "El intervalo del DIP (2902 FH) coincide exactamente con el TA de la categoría BLEED_CTRL_CARD."
       },
       {
@@ -1459,7 +1455,7 @@
         "acierto_modelo": true,
         "acierto_final": true,
         "error_aceptado": false,
-        "segundos": 32.18,
+        "segundos": 31.15,
         "detalle": "Intervalo DIP (30 FH) coincide con TA de la categoría."
       },
       {
@@ -1472,7 +1468,7 @@
         "acierto_modelo": true,
         "acierto_final": true,
         "error_aceptado": false,
-        "segundos": 35.06,
+        "segundos": 38.69,
         "detalle": "Intervalo de 38 días no coincide con TA de ninguna categoría (todos requieren <130 días o 400 FH)."
       },
       {
@@ -1485,7 +1481,7 @@
         "acierto_modelo": true,
         "acierto_final": true,
         "error_aceptado": false,
-        "segundos": 39.3,
+        "segundos": 44.02,
         "detalle": "No hay coincidencia clara con el intervalo de 60 días en categorías proporcionadas."
       },
       {
@@ -1498,7 +1494,7 @@
         "acierto_modelo": true,
         "acierto_final": true,
         "error_aceptado": false,
-        "segundos": 27.19,
+        "segundos": 31.4,
         "detalle": "El intervalo de 10 días no coincide con TA de ninguna categoría proporcionada."
       },
       {
@@ -1511,7 +1507,7 @@
         "acierto_modelo": true,
         "acierto_final": true,
         "error_aceptado": false,
-        "segundos": 29.2,
+        "segundos": 33.65,
         "detalle": "Intervalo de 7 días no coincide con TA de ninguna categoría."
       },
       {
@@ -1524,7 +1520,7 @@
         "acierto_modelo": true,
         "acierto_final": true,
         "error_aceptado": false,
-        "segundos": 40.13,
+        "segundos": 42.69,
         "detalle": "Intervalo DIP (112 días) no coincide con TA de categorías (máx. 400 FH/≈120 días, pero no es ELT ni FDR)."
       },
       {
@@ -1537,7 +1533,7 @@
         "acierto_modelo": true,
         "acierto_final": true,
         "error_aceptado": false,
-        "segundos": 29.0,
+        "segundos": 31.09,
         "detalle": "Intervalo DIP (145 días) no coincide con TA de ninguna categoría."
       },
       {
@@ -1550,7 +1546,7 @@
         "acierto_modelo": true,
         "acierto_final": true,
         "error_aceptado": false,
-        "segundos": 30.61,
+        "segundos": 30.78,
         "detalle": "Intervalo de 30 días no coincide con TA de ninguna categoría."
       },
       {
@@ -1563,7 +1559,7 @@
         "acierto_modelo": true,
         "acierto_final": true,
         "error_aceptado": false,
-        "segundos": 38.98,
+        "segundos": 39.88,
         "detalle": "Intervalo de 10 días no coincide con TA de categorías dadas (máx. 50 FC o 400 FH)."
       },
       {
@@ -1576,7 +1572,7 @@
         "acierto_modelo": true,
         "acierto_final": true,
         "error_aceptado": false,
-        "segundos": 42.06,
+        "segundos": 52.05,
         "detalle": "Intervalo de 6 días no coincide con TA de ninguna categoría (mínimo 30 FH o hasta fecha límite)."
       },
       {
@@ -1589,7 +1585,7 @@
         "acierto_modelo": true,
         "acierto_final": true,
         "error_aceptado": false,
-        "segundos": 41.42,
+        "segundos": 51.61,
         "detalle": "Intervalo DIP (7 días) no coincide con TA de ninguna categoría (mínimo 4 meses)."
       },
       {
@@ -1602,7 +1598,7 @@
         "acierto_modelo": true,
         "acierto_final": true,
         "error_aceptado": false,
-        "segundos": 49.71,
+        "segundos": 58.03,
         "detalle": "El intervalo de 10 FC no coincide con TA de categorías dadas (ej. 3 FC, 75 FH, 12/27/37 FC)."
       },
       {
@@ -1615,7 +1611,7 @@
         "acierto_modelo": true,
         "acierto_final": true,
         "error_aceptado": false,
-        "segundos": 39.31,
+        "segundos": 40.96,
         "detalle": "Intervalo de 10 días no coincide con TA de ninguna categoría."
       },
       {
@@ -1628,7 +1624,7 @@
         "acierto_modelo": true,
         "acierto_final": true,
         "error_aceptado": false,
-        "segundos": 45.84,
+        "segundos": 46.23,
         "detalle": "Intervalo DIP (150 FH) no coincide con TA de ninguna categoría (máx. 30 FH o fechas fijas)."
       },
       {
@@ -1641,7 +1637,7 @@
         "acierto_modelo": true,
         "acierto_final": true,
         "error_aceptado": false,
-        "segundos": 36.89,
+        "segundos": 37.87,
         "detalle": "Intervalo de 10 días no coincide con TA de ninguna categoría."
       },
       {
@@ -1667,7 +1663,7 @@
         "acierto_modelo": false,
         "acierto_final": true,
         "error_aceptado": false,
-        "segundos": 45.71,
+        "segundos": 45.41,
         "detalle": "La IA propuso AMORTIGUADOR_NLG, pero se descartó: el Fault Name contiene 'SWIVEL', excluido para esa referencia."
       },
       {
@@ -1680,7 +1676,7 @@
         "acierto_modelo": true,
         "acierto_final": true,
         "error_aceptado": false,
-        "segundos": 28.99,
+        "segundos": 30.86,
         "detalle": "Intervalo de 5 días no coincide con TA de ninguna categoría."
       },
       {
@@ -1693,7 +1689,7 @@
         "acierto_modelo": true,
         "acierto_final": true,
         "error_aceptado": false,
-        "segundos": 29.61,
+        "segundos": 33.21,
         "detalle": "Intervalo DIP (10 días) no coincide con TA de ninguna categoría."
       },
       {
@@ -1706,7 +1702,7 @@
         "acierto_modelo": true,
         "acierto_final": true,
         "error_aceptado": false,
-        "segundos": 34.91,
+        "segundos": 40.52,
         "detalle": "Intervalo de 10 días no coincide con TA de categorías dadas (máx. 50 días)."
       },
       {
@@ -1719,30 +1715,30 @@
         "acierto_modelo": true,
         "acierto_final": true,
         "error_aceptado": false,
-        "segundos": 36.23,
+        "segundos": 37.97,
         "detalle": "Intervalo de 60 días no coincide con TA de ninguna categoría (máx. 30 días o 'UNTIL DUE DATE' sin intervalo específico)."
       }
     ]
   },
   "tiempos": {
-    "preparacion_s": 2.21,
-    "carga_modelo_s": 25.18,
-    "auditoria_s": 217.34,
-    "auditoria_consultas": 5,
-    "casos_s": 1731.15,
+    "preparacion_s": 0.56,
+    "carga_modelo_s": 19.17,
+    "auditoria_s": 239.0,
+    "auditoria_consultas": 6,
+    "casos_s": 1870.52,
     "casos_consultas": 45,
-    "total_s": 1983.5
+    "total_s": 2135.49
   },
   "costo_modelo": {
-    "consultas": 50,
-    "s_por_consulta": 38.93,
-    "s_p95": 48.55,
-    "s_max": 50.98,
-    "tokens_entrada_por_consulta": 431,
+    "consultas": 51,
+    "s_por_consulta": 41.34,
+    "s_p95": 55.69,
+    "s_max": 57.99,
+    "tokens_entrada_por_consulta": 433,
     "tokens_salida_por_consulta": 47,
-    "tokens_por_s_entrada": 18.6,
-    "tokens_por_s_salida": 3.5,
-    "pct_tiempo_en_prompt": 63,
+    "tokens_por_s_entrada": 17.4,
+    "tokens_por_s_salida": 3.3,
+    "pct_tiempo_en_prompt": 64,
     "memoria_gb": 5.28,
     "memoria_gpu_gb": 0.0
   }

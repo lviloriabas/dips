@@ -19,17 +19,20 @@ COLORES_ESTADO = {
     "OK": "C9E7C9",
     "FUERA DE ALCANCE": "E4E4E4",
 }
+COLORES_RESULTADO = {"DISCREPANCIA": "F4B6B6", "POSIBLE DISCREPANCIA": "FCE3B0", "OK": "C9E7C9",
+                     "FUERA DE ALCANCE": "E4E4E4"}
 COLORES_SEVERIDAD = {"CRITICA": "F4B6B6", "NO CRITICA": "FCE3B0", "REVISAR": "CFE2F3",
                      "OBSERVACION": "EFEFEF"}
 _ENCABEZADO = PatternFill("solid", fgColor="1F3A5F")
 _ENCABEZADO_IA = PatternFill("solid", fgColor="5B3A8C")
-COLUMNAS_IA = ["ESTADO IA", "TIPO DE DISCREPANCIA", "COMENTARIO SUGERIDO", "HALLAZGOS",
+COLUMNAS_IA = ["RESULTADO", "ESTADO IA", "TIPO DE DISCREPANCIA", "COMENTARIO SUGERIDO", "HALLAZGOS",
                "VERIFICACIÓN MANUAL", "REFERENCIA ASOCIADA", "ASOCIACIÓN",
-               "TA SEGÚN REFERENCIA", "REFERENCIA TÉCNICA ESPERADA"]
+               "TA SEGÚN REFERENCIA", "REFERENCIA TÉCNICA ESPERADA", "REFERENCIA TÉCNICA DEL DIP",
+               "ADJUNTOS EN ICAM"]
 _ANCHOS = {"Fault Name": 45, "COMENTARIO SUGERIDO": 60, "HALLAZGOS": 70,
            "VERIFICACIÓN MANUAL": 60, "TA SEGÚN REFERENCIA": 45,
-           "REFERENCIA TÉCNICA ESPERADA": 40, "Detalle": 90, "ESTADO IA": 24,
-           "TIPO DE DISCREPANCIA": 28, "REFERENCIA ASOCIADA": 32}
+           "REFERENCIA TÉCNICA ESPERADA": 40, "REFERENCIA TÉCNICA DEL DIP": 40, "Detalle": 90, "ESTADO IA": 24,
+           "TIPO DE DISCREPANCIA": 28, "REFERENCIA ASOCIADA": 32, "RESULTADO": 24}
 _ENVOLVER = {"HALLAZGOS", "VERIFICACIÓN MANUAL", "COMENTARIO SUGERIDO", "TA SEGÚN REFERENCIA",
              "Detalle", "Fault Name", "REFERENCIA TÉCNICA ESPERADA"}
 
@@ -77,6 +80,13 @@ def _escribir_tabla(ws, df: pd.DataFrame, columnas_ia: set[str] | None = None,
     ws.auto_filter.ref = ws.dimensions
 
 
+def _colorear(ws, df: pd.DataFrame, columna: str, colores: dict) -> None:
+    letra = get_column_letter(list(df.columns).index(columna) + 1)
+    for celda in ws[letra][1:]:
+        if celda.value in colores:
+            celda.fill = PatternFill("solid", fgColor=colores[celda.value])
+
+
 def exportar_excel(resultado: ResultadoAuditoria, ruta: Path) -> Path:
     wb = Workbook()
     _hoja_resumen(wb.active, resultado)
@@ -86,8 +96,9 @@ def exportar_excel(resultado: ResultadoAuditoria, ruta: Path) -> Path:
     ia = resultado.filas.set_index("Fila Excel")[COLUMNAS_IA]
     combinado = pd.concat([ia, original], axis=1, join="inner")
     combinado.insert(0, "Fila Excel", combinado.index)
-    _escribir_tabla(wb.create_sheet("Auditoría"), combinado, set(COLUMNAS_IA),
-                    "ESTADO IA", COLORES_ESTADO)
+    hoja = wb.create_sheet("Auditoría")
+    _escribir_tabla(hoja, combinado, set(COLUMNAS_IA), "RESULTADO", COLORES_RESULTADO)
+    _colorear(hoja, combinado, "ESTADO IA", COLORES_ESTADO)
 
     discrepancias = resultado.hallazgos
     _escribir_tabla(wb.create_sheet("Hallazgos"), discrepancias, None,
@@ -116,7 +127,15 @@ def _hoja_resumen(ws, resultado: ResultadoAuditoria) -> None:
         ws.append(list(fila))
         ws.cell(ws.max_row, 1).font = Font(bold=True)
     ws.append([])
-    ws.append(["Estado", "Cantidad"])
+    ws.append(["Resultado", "Cantidad"])
+    for c in ws[ws.max_row]:
+        c.font = Font(bold=True)
+    conteo = resultado.filas["RESULTADO"].value_counts()
+    for valor, color in COLORES_RESULTADO.items():
+        ws.append([valor, int(conteo.get(valor, 0))])
+        ws.cell(ws.max_row, 1).fill = PatternFill("solid", fgColor=color)
+    ws.append([])
+    ws.append(["Estado detallado", "Cantidad"])
     for c in ws[ws.max_row]:
         c.font = Font(bold=True)
     for estado in COLORES_ESTADO:

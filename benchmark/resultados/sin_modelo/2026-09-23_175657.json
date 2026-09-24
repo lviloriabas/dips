@@ -1,6 +1,7 @@
 {
-  "formato": 1,
-  "fecha": "2026-09-23 12:57",
+  "formato": 2,
+  "modo": "sin_modelo",
+  "fecha": "2026-09-23 17:56",
   "version_programa": "0.1.0",
   "datos": {
     "archivo": "benchmark/dips_auditados.xlsx",
@@ -11,27 +12,11 @@
       "DISCREPANCIA CRÍTICA": 1
     },
     "archivo_casos": "benchmark/casos_modelo_local.yaml",
-    "casos_modelo": 46,
-    "dips_sin_referencia_por_reglas": 6
+    "casos": 46,
+    "dips_sin_referencia_por_reglas": 5
   },
-  "modelo_local": {
-    "modelo": "ministral-3:8b",
-    "disponible": true,
-    "motivo": ""
-  },
+  "modelo_local": null,
   "configuracion": {
-    "llm": {
-      "modelo": "ministral-3:8b",
-      "timeout_segundos": 120,
-      "solo_cpu": false,
-      "candidatos": 6,
-      "justificacion": true,
-      "pensar": false,
-      "temperatura": 0,
-      "contexto_tokens": 2048,
-      "max_tokens_respuesta": 300,
-      "fraccion_minima_ta": 0.2
-    },
     "tolerancias": {
       "dias": 1,
       "meses_min": 30,
@@ -68,27 +53,27 @@
     }
   },
   "equipo": {
-    "procesador": "12th Gen Intel(R) Core(TM) i7-1265U",
+    "procesador": "AMD Ryzen 5 3600 6-Core Processor",
     "hilos": 12,
-    "ram_gb": 15.7,
+    "ram_gb": 31.9,
     "sistema": "Windows-11"
   },
   "auditoria": {
     "indicadores": {
       "coincidencia": {
-        "aciertos": 41,
+        "aciertos": 42,
         "total": 50,
-        "pct": 82.0
+        "pct": 84.0
       },
       "asociados": {
-        "aciertos": 44,
+        "aciertos": 45,
         "total": 50,
-        "pct": 88.0
+        "pct": 90.0
       },
       "ok_correctos": {
-        "aciertos": 37,
+        "aciertos": 38,
         "total": 44,
-        "pct": 84.1
+        "pct": 86.4
       },
       "falsas_discrepancias": {
         "aciertos": 3,
@@ -96,46 +81,9 @@
         "pct": 6.8
       },
       "revisar_de_mas": {
-        "aciertos": 4,
-        "total": 44,
-        "pct": 9.1
-      },
-      "discrepancias_detectadas": {
-        "aciertos": 4,
-        "total": 6,
-        "pct": 66.7
-      },
-      "detectables_detectadas": {
-        "aciertos": 3,
-        "total": 4,
-        "pct": 75.0
-      }
-    },
-    "indicadores_solo_reglas": {
-      "coincidencia": {
-        "aciertos": 41,
-        "total": 50,
-        "pct": 82.0
-      },
-      "asociados": {
-        "aciertos": 44,
-        "total": 50,
-        "pct": 88.0
-      },
-      "ok_correctos": {
-        "aciertos": 37,
-        "total": 44,
-        "pct": 84.1
-      },
-      "falsas_discrepancias": {
         "aciertos": 3,
         "total": 44,
         "pct": 6.8
-      },
-      "revisar_de_mas": {
-        "aciertos": 4,
-        "total": 44,
-        "pct": 9.1
       },
       "discrepancias_detectadas": {
         "aciertos": 4,
@@ -150,8 +98,8 @@
     },
     "matriz": {
       "OK": {
-        "OK": 37,
-        "REVISAR": 4,
+        "OK": 38,
+        "REVISAR": 3,
         "DISCREPANCIA NO CRÍTICA": 0,
         "DISCREPANCIA CRÍTICA": 3
       },
@@ -486,12 +434,12 @@
         "programa": "REVISAR",
         "programa_solo_reglas": "REVISAR",
         "acuerdo": "Solo el programa marca",
-        "metodo": "modelo_ninguna",
+        "metodo": "sin_referencia",
         "referencia": "",
         "propuesta_modelo": null,
-        "detalle_modelo": "El intervalo de 120 días no coincide con TA de ninguna categoría proporcionada.",
+        "detalle_modelo": "",
         "hallazgos": [
-          "[REVISAR] El DIP no se encontró en el catálogo de referencias Others. Revisar manualmente. IA: El intervalo de 120 días no coincide con TA de ninguna categoría proporcionada."
+          "[REVISAR] El DIP no se encontró en el catálogo de referencias Others. Revisar manualmente."
         ]
       },
       {
@@ -866,12 +814,12 @@
         "programa": "REVISAR",
         "programa_solo_reglas": "REVISAR",
         "acuerdo": "Ambos marcan",
-        "metodo": "modelo_ninguna",
+        "metodo": "sin_referencia",
         "referencia": "",
         "propuesta_modelo": null,
-        "detalle_modelo": "El intervalo del DIP (500 FH) no coincide con el TA de ninguna categoría proporcionada.",
+        "detalle_modelo": "",
         "hallazgos": [
-          "[REVISAR] El DIP no se encontró en el catálogo de referencias Others. Revisar manualmente. IA: El intervalo del DIP (500 FH) no coincide con el TA de ninguna categoría proporcionada."
+          "[REVISAR] El DIP no se encontró en el catálogo de referencias Others. Revisar manualmente."
         ]
       },
       {
@@ -952,12 +900,12 @@
         "programa": "REVISAR",
         "programa_solo_reglas": "REVISAR",
         "acuerdo": "Ambos marcan",
-        "metodo": "modelo_ninguna",
+        "metodo": "sin_referencia",
         "referencia": "",
         "propuesta_modelo": null,
-        "detalle_modelo": "El DIP no coincide con ninguna categoría de kits o equipos de seguridad listados.",
+        "detalle_modelo": "",
         "hallazgos": [
-          "[REVISAR] El DIP no se encontró en el catálogo de referencias Others. Revisar manualmente. IA: El DIP no coincide con ninguna categoría de kits o equipos de seguridad listados."
+          "[REVISAR] El DIP no se encontró en el catálogo de referencias Others. Revisar manualmente."
         ]
       },
       {
@@ -983,16 +931,14 @@
         "auditor": "OK",
         "comentario_auditor": "",
         "tema_auditor": "Sin comentario",
-        "programa": "REVISAR",
-        "programa_solo_reglas": "REVISAR",
-        "acuerdo": "Solo el programa marca",
-        "metodo": "modelo_aceptada",
+        "programa": "OK",
+        "programa_solo_reglas": "OK",
+        "acuerdo": "Ambos OK",
+        "metodo": "reglas",
         "referencia": "Universal Precaution Kit (kit de protección universal)",
-        "propuesta_modelo": "UPK",
-        "detalle_modelo": "Intervalo de 102 días coincide con referencia UPK <130 días y TA *UNTIL DUE DATE*.",
-        "hallazgos": [
-          "[REVISAR] Referencia sugerida por el modelo local: Universal Precaution Kit (kit de protección universal). Confirmar. (Intervalo de 102 días coincide con referencia UPK <130 días y TA *UNTIL DUE DATE*.)"
-        ]
+        "propuesta_modelo": null,
+        "detalle_modelo": "",
+        "hallazgos": []
       },
       {
         "barcode": "T40S00960XC",
@@ -1022,12 +968,12 @@
         "programa": "REVISAR",
         "programa_solo_reglas": "REVISAR",
         "acuerdo": "Solo el programa marca",
-        "metodo": "modelo_ninguna",
+        "metodo": "sin_referencia",
         "referencia": "",
         "propuesta_modelo": null,
-        "detalle_modelo": "El intervalo del DIP (1 FC) no coincide con el TA de ninguna categoría.",
+        "detalle_modelo": "",
         "hallazgos": [
-          "[REVISAR] El DIP no se encontró en el catálogo de referencias Others. Revisar manualmente. IA: El intervalo del DIP (1 FC) no coincide con el TA de ninguna categoría."
+          "[REVISAR] El DIP no se encontró en el catálogo de referencias Others. Revisar manualmente."
         ]
       },
       {
@@ -1040,12 +986,12 @@
         "programa": "REVISAR",
         "programa_solo_reglas": "REVISAR",
         "acuerdo": "Solo el programa marca",
-        "metodo": "modelo_ninguna",
+        "metodo": "sin_referencia",
         "referencia": "",
         "propuesta_modelo": null,
-        "detalle_modelo": "Intervalo de 3 días no coincide con TA de ninguna categoría.",
+        "detalle_modelo": "",
         "hallazgos": [
-          "[REVISAR] El DIP no se encontró en el catálogo de referencias Others. Revisar manualmente. IA: Intervalo de 3 días no coincide con TA de ninguna categoría."
+          "[REVISAR] El DIP no se encontró en el catálogo de referencias Others. Revisar manualmente."
         ]
       },
       {
@@ -1070,17 +1016,17 @@
       }
     ]
   },
-  "casos_modelo": {
+  "casos": {
     "indicadores": {
       "aciertos_finales": {
-        "aciertos": 44,
+        "aciertos": 20,
         "total": 46,
-        "pct": 95.7
+        "pct": 43.5
       },
       "con_referencia": {
-        "aciertos": 24,
+        "aciertos": 0,
         "total": 26,
-        "pct": 92.3
+        "pct": 0.0
       },
       "sin_referencia": {
         "aciertos": 20,
@@ -1091,11 +1037,6 @@
         "aciertos": 0,
         "total": 46,
         "pct": 0.0
-      },
-      "aciertos_modelo": {
-        "aciertos": 43,
-        "total": 46,
-        "pct": 93.5
       }
     },
     "casos": [
@@ -1104,621 +1045,607 @@
         "fault_name": "CREW 02 BOTLE LOW",
         "intervalo": "3 DAY",
         "esperado": "OXIGENO_TRIPULACION",
-        "respuesta_modelo": "OXIGENO_TRIPULACION",
-        "final": "OXIGENO_TRIPULACION",
-        "acierto_modelo": true,
-        "acierto_final": true,
+        "respuesta_modelo": "(reglas)",
+        "final": "NINGUNA",
+        "acierto_modelo": null,
+        "acierto_final": false,
         "error_aceptado": false,
-        "segundos": 45.66,
-        "detalle": "Intervalo de 3 días coincide con TA de 1 FC (1 Flight Cycle) para presión de botella de oxígeno de tripulación."
+        "segundos": 0.01,
+        "detalle": ""
       },
       {
         "grupo": "positivo",
         "fault_name": "CAPT O2 CYLINDER PRESS 900",
         "intervalo": "3 DAY",
         "esperado": "OXIGENO_TRIPULACION",
-        "respuesta_modelo": "OXIGENO_TRIPULACION",
-        "final": "OXIGENO_TRIPULACION",
-        "acierto_modelo": true,
-        "acierto_final": true,
+        "respuesta_modelo": "(reglas)",
+        "final": "NINGUNA",
+        "acierto_modelo": null,
+        "acierto_final": false,
         "error_aceptado": false,
-        "segundos": 55.72,
-        "detalle": "Intervalo de 3 días coincide con TA de 1 FC si presión está entre 50-100 PSI sobre mínimo."
+        "segundos": 0.01,
+        "detalle": ""
       },
       {
         "grupo": "positivo",
         "fault_name": "DIP - NOSE INTERNAL INSPECTION",
         "intervalo": "3 FC",
         "esperado": "RADOMO",
-        "respuesta_modelo": "NINGUNA",
+        "respuesta_modelo": "(reglas)",
         "final": "NINGUNA",
-        "acierto_modelo": false,
+        "acierto_modelo": null,
         "acierto_final": false,
         "error_aceptado": false,
-        "segundos": 40.76,
-        "detalle": "Intervalo DIP (3 FC) no coincide con TA de ninguna categoría."
+        "segundos": 0.01,
+        "detalle": ""
       },
       {
         "grupo": "positivo",
         "fault_name": "DIP-EMERGENCY LOCATER TRANSMITER BATERY",
         "intervalo": "150 DAY",
         "esperado": "ELT_PORTATIL",
-        "respuesta_modelo": "ELT_PORTATIL",
-        "final": "ELT_PORTATIL",
-        "acierto_modelo": true,
-        "acierto_final": true,
+        "respuesta_modelo": "(reglas)",
+        "final": "NINGUNA",
+        "acierto_modelo": null,
+        "acierto_final": false,
         "error_aceptado": false,
-        "segundos": 35.66,
-        "detalle": "Intervalo de 150 días coincide con el TA de *UNTIL DUE DATE* para ELT portátil."
+        "segundos": 0.01,
+        "detalle": ""
       },
       {
         "grupo": "positivo",
         "fault_name": "HIDRAULIC DECONTAMINATION FINAL",
         "intervalo": "300 FH",
         "esperado": "DESCONTAMINACION_HID_TERMINAL",
-        "respuesta_modelo": "DESCONTAMINACION_HID_TERMINAL",
-        "final": "DESCONTAMINACION_HID_TERMINAL",
-        "acierto_modelo": true,
-        "acierto_final": true,
+        "respuesta_modelo": "(reglas)",
+        "final": "NINGUNA",
+        "acierto_modelo": null,
+        "acierto_final": false,
         "error_aceptado": false,
-        "segundos": 43.81,
-        "detalle": "Intervalo del DIP (300 FH) coincide exactamente con el TA de la categoría."
+        "segundos": 0.01,
+        "detalle": ""
       },
       {
         "grupo": "positivo",
         "fault_name": "HIDRAULIC DECONTAMINATION FIRST STAGE",
         "intervalo": "150 FH",
         "esperado": "DESCONTAMINACION_HID_INICIAL",
-        "respuesta_modelo": "DESCONTAMINACION_HID_INICIAL",
-        "final": "DESCONTAMINACION_HID_INICIAL",
-        "acierto_modelo": true,
-        "acierto_final": true,
+        "respuesta_modelo": "(reglas)",
+        "final": "NINGUNA",
+        "acierto_modelo": null,
+        "acierto_final": false,
         "error_aceptado": false,
-        "segundos": 48.45,
-        "detalle": "Intervalo del DIP (150 FH) coincide exactamente con el TA de la categoría."
+        "segundos": 0.01,
+        "detalle": ""
       },
       {
         "grupo": "positivo",
         "fault_name": "BOTIQUIN DE PRIMEROS AUXILIOS VENCE 30-NOV-2026",
         "intervalo": "100 DAY",
         "esperado": "FAK",
-        "respuesta_modelo": "FAK",
-        "final": "FAK",
-        "acierto_modelo": true,
-        "acierto_final": true,
+        "respuesta_modelo": "(reglas)",
+        "final": "NINGUNA",
+        "acierto_modelo": null,
+        "acierto_final": false,
         "error_aceptado": false,
-        "segundos": 48.3,
-        "detalle": "Intervalo de 100 días coincide con el TA de *UNTIL DUE DATE* (FAK vence en 30-NOV-2026)."
+        "segundos": 0.01,
+        "detalle": ""
       },
       {
         "grupo": "positivo",
         "fault_name": "KIT MEDICO DE EMERGENCIA PROXIMO A VENCER",
         "intervalo": "120 DAY",
         "esperado": "EMK",
-        "respuesta_modelo": "EMK",
-        "final": "EMK",
-        "acierto_modelo": true,
-        "acierto_final": true,
+        "respuesta_modelo": "(reglas)",
+        "final": "NINGUNA",
+        "acierto_modelo": null,
+        "acierto_final": false,
         "error_aceptado": false,
-        "segundos": 38.05,
-        "detalle": "El intervalo de 120 días coincide con la referencia de EMK (menos de 130 días)."
+        "segundos": 0.01,
+        "detalle": ""
       },
       {
         "grupo": "positivo",
         "fault_name": "HALOM EXTINGISHER COCKPIT WEIGHT DUE",
         "intervalo": "60 DAY",
         "esperado": "HALON_PORTATIL",
-        "respuesta_modelo": "HALON_PORTATIL",
-        "final": "HALON_PORTATIL",
-        "acierto_modelo": true,
-        "acierto_final": true,
+        "respuesta_modelo": "(reglas)",
+        "final": "NINGUNA",
+        "acierto_modelo": null,
+        "acierto_final": false,
         "error_aceptado": false,
-        "segundos": 45.41,
-        "detalle": "Intervalo de 60 días coincide con TA de HALON FIRE EXTINGUISHER DUE."
+        "segundos": 0.01,
+        "detalle": ""
       },
       {
         "grupo": "positivo",
         "fault_name": "FUMIGATON CERT EXPIRING",
         "intervalo": "5 DAY",
         "esperado": "FUMIGACION",
-        "respuesta_modelo": "FUMIGACION",
-        "final": "FUMIGACION",
-        "acierto_modelo": true,
-        "acierto_final": true,
+        "respuesta_modelo": "(reglas)",
+        "final": "NINGUNA",
+        "acierto_modelo": null,
+        "acierto_final": false,
         "error_aceptado": false,
-        "segundos": 38.76,
-        "detalle": "Intervalo de 5 días coincide con plazo típico de certificado de fumigación (hasta fecha de vencimiento)."
+        "segundos": 0.01,
+        "detalle": ""
       },
       {
         "grupo": "positivo",
         "fault_name": "MICROBIOLOGICAL CONTAMINATION TEST FUEL TANKS",
         "intervalo": "4 DAY",
         "esperado": "CRECIMIENTO_MICROBIANO",
-        "respuesta_modelo": "CRECIMIENTO_MICROBIANO",
-        "final": "CRECIMIENTO_MICROBIANO",
-        "acierto_modelo": true,
-        "acierto_final": true,
+        "respuesta_modelo": "(reglas)",
+        "final": "NINGUNA",
+        "acierto_modelo": null,
+        "acierto_final": false,
         "error_aceptado": false,
-        "segundos": 37.0,
-        "detalle": "Intervalo del DIP coincide exactamente con el TA de la categoría."
+        "segundos": 0.01,
+        "detalle": ""
       },
       {
         "grupo": "positivo",
         "fault_name": "FLIGHT DATA RECORDER DATA REVIEW",
         "intervalo": "30 DAY",
         "esperado": "FDR",
-        "respuesta_modelo": "FDR",
-        "final": "FDR",
-        "acierto_modelo": true,
-        "acierto_final": true,
+        "respuesta_modelo": "(reglas)",
+        "final": "NINGUNA",
+        "acierto_modelo": null,
+        "acierto_final": false,
         "error_aceptado": false,
-        "segundos": 34.42,
-        "detalle": "Intervalo del DIP coincide exactamente con el TA de la categoría FDR (30 días)."
+        "segundos": 0.01,
+        "detalle": ""
       },
       {
         "grupo": "positivo",
         "fault_name": "NOSE STRUT X DIMENSION LOW",
         "intervalo": "10 FC",
         "esperado": "AMORTIGUADOR_NLG",
-        "respuesta_modelo": "AMORTIGUADOR_NLG",
-        "final": "AMORTIGUADOR_NLG",
-        "acierto_modelo": true,
-        "acierto_final": true,
+        "respuesta_modelo": "(reglas)",
+        "final": "NINGUNA",
+        "acierto_modelo": null,
+        "acierto_final": false,
         "error_aceptado": false,
-        "segundos": 52.04,
-        "detalle": "El DIP menciona *NOSE STRUT* y el TA (20 FC) coincide con el intervalo de AMORTIGUADOR_NLG."
+        "segundos": 0.01,
+        "detalle": ""
       },
       {
         "grupo": "positivo",
         "fault_name": "MAIN GEAR #2 RUBBER CORD VISIBLE",
         "intervalo": "5 FC",
         "esperado": "LLANTA",
-        "respuesta_modelo": "LLANTA",
-        "final": "LLANTA",
-        "acierto_modelo": true,
-        "acierto_final": true,
+        "respuesta_modelo": "(reglas)",
+        "final": "NINGUNA",
+        "acierto_modelo": null,
+        "acierto_final": false,
         "error_aceptado": false,
-        "segundos": 55.71,
-        "detalle": "Intervalo de 5 FC coincide con TA de llanta (hasta próxima estación RON)."
+        "segundos": 0.01,
+        "detalle": ""
       },
       {
         "grupo": "positivo",
         "fault_name": "PARK BRK FAIL HOLD CHECK",
         "intervalo": "3 DAY",
         "esperado": "FRENO_PARQUEO",
-        "respuesta_modelo": "FRENO_PARQUEO",
-        "final": "FRENO_PARQUEO",
-        "acierto_modelo": true,
-        "acierto_final": true,
+        "respuesta_modelo": "(reglas)",
+        "final": "NINGUNA",
+        "acierto_modelo": null,
+        "acierto_final": false,
         "error_aceptado": false,
-        "segundos": 46.09,
-        "detalle": "Intervalo del DIP (3 días) coincide con el TA de la categoría **FRENO_PARQUEO** (3/50 días)."
+        "segundos": 0.01,
+        "detalle": ""
       },
       {
         "grupo": "positivo",
         "fault_name": "LEFT WING AIL CABLE TENSION RECHECK",
         "intervalo": "184 DAY",
         "esperado": "CABLES_ALERON",
-        "respuesta_modelo": "CABLES_ALERON",
-        "final": "CABLES_ALERON",
-        "acierto_modelo": true,
-        "acierto_final": true,
+        "respuesta_modelo": "(reglas)",
+        "final": "NINGUNA",
+        "acierto_modelo": null,
+        "acierto_final": false,
         "error_aceptado": false,
-        "segundos": 52.8,
-        "detalle": "El intervalo de 184 días coincide con el TA de 6 meses (180 días) para re-tensión de cables de alerón."
+        "segundos": 0.01,
+        "detalle": ""
       },
       {
         "grupo": "positivo",
         "fault_name": "IDG DELTA P INDICATOR POPPED",
         "intervalo": "400 FH",
         "esperado": "DPI",
-        "respuesta_modelo": "DPI",
-        "final": "DPI",
-        "acierto_modelo": true,
-        "acierto_final": true,
+        "respuesta_modelo": "(reglas)",
+        "final": "NINGUNA",
+        "acierto_modelo": null,
+        "acierto_final": false,
         "error_aceptado": false,
-        "segundos": 37.48,
-        "detalle": "Intervalo del DIP (400 FH) coincide con el TA de la categoría DIFFERENTIAL PRESSURE INDICATOR (400 FH)."
+        "segundos": 0.01,
+        "detalle": ""
       },
       {
         "grupo": "positivo",
         "fault_name": "SURVIVOR KIT RAFT DUE DATE",
         "intervalo": "50 DAY",
         "esperado": "SURVIVAL_KIT",
-        "respuesta_modelo": "NINGUNA",
+        "respuesta_modelo": "(reglas)",
         "final": "NINGUNA",
-        "acierto_modelo": false,
+        "acierto_modelo": null,
         "acierto_final": false,
         "error_aceptado": false,
-        "segundos": 36.9,
-        "detalle": "Intervalo de 50 días no coincide con TA de ninguna categoría (todos requieren <130 días o TA específico)."
+        "segundos": 0.01,
+        "detalle": ""
       },
       {
         "grupo": "positivo",
         "fault_name": "BACK FLOW CHECK VALVE INERT GAS SYS",
         "intervalo": "90 DAY",
         "esperado": "BACKFLOW",
-        "respuesta_modelo": "BACKFLOW",
-        "final": "BACKFLOW",
-        "acierto_modelo": true,
-        "acierto_final": true,
+        "respuesta_modelo": "(reglas)",
+        "final": "NINGUNA",
+        "acierto_modelo": null,
+        "acierto_final": false,
         "error_aceptado": false,
-        "segundos": 42.69,
-        "detalle": "Intervalo DIP (90 días) coincide con TA de *PRIMARY BACKFLOW PREVENTION CHECK VALVE* (90 días)."
+        "segundos": 0.01,
+        "detalle": ""
       },
       {
         "grupo": "positivo",
         "fault_name": "STROKE OF LIGHTING PHASE 2 INSPECTION",
         "intervalo": "50 FC",
         "esperado": "RAYO",
-        "respuesta_modelo": "RAYO",
-        "final": "RAYO",
-        "acierto_modelo": true,
-        "acierto_final": true,
+        "respuesta_modelo": "(reglas)",
+        "final": "NINGUNA",
+        "acierto_modelo": null,
+        "acierto_final": false,
         "error_aceptado": false,
-        "segundos": 37.14,
-        "detalle": "Intervalo del DIP (50 FC) coincide exactamente con el TA de la categoría RAYO."
+        "segundos": 0.01,
+        "detalle": ""
       },
       {
         "grupo": "positivo",
         "fault_name": "PROTECCION UNIVERSAL KIT FWD",
         "intervalo": "90 DAY",
         "esperado": "UPK",
-        "respuesta_modelo": "UPK",
-        "final": "UPK",
-        "acierto_modelo": true,
-        "acierto_final": true,
+        "respuesta_modelo": "(reglas)",
+        "final": "NINGUNA",
+        "acierto_modelo": null,
+        "acierto_final": false,
         "error_aceptado": false,
-        "segundos": 37.69,
-        "detalle": "Intervalo DIP (90 días) coincide con el TA de UPK (hasta fecha de vencimiento, típicamente cada 90 días)."
+        "segundos": 0.01,
+        "detalle": ""
       },
       {
         "grupo": "positivo",
         "fault_name": "BRK 4 PIN FLUSH",
         "intervalo": "20 FC",
         "esperado": "DESGASTE_FRENOS",
-        "respuesta_modelo": "DESGASTE_FRENOS",
-        "final": "DESGASTE_FRENOS",
-        "acierto_modelo": true,
-        "acierto_final": true,
+        "respuesta_modelo": "(reglas)",
+        "final": "NINGUNA",
+        "acierto_modelo": null,
+        "acierto_final": false,
         "error_aceptado": false,
-        "segundos": 44.3,
-        "detalle": "Intervalo de 20 FC coincide con el TA de 27-37 FC para 737NG-700."
+        "segundos": 0.01,
+        "detalle": ""
       },
       {
         "grupo": "positivo",
         "fault_name": "CHALECO SALVAVIDAS SEGURO DE COMPARTIMIENTO DANADO",
         "intervalo": "60 DAY",
         "esperado": "CHALECO",
-        "respuesta_modelo": "CHALECO",
-        "final": "CHALECO",
-        "acierto_modelo": true,
-        "acierto_final": true,
+        "respuesta_modelo": "(reglas)",
+        "final": "NINGUNA",
+        "acierto_modelo": null,
+        "acierto_final": false,
         "error_aceptado": false,
-        "segundos": 44.85,
-        "detalle": "Intervalo DIP (60 días) coincide con el TA de la categoría CHALECO (60 días)."
+        "segundos": 0.01,
+        "detalle": ""
       },
       {
         "grupo": "positivo",
         "fault_name": "RADIO STATION LICENCE EXPIRES",
         "intervalo": "30 DAY",
         "esperado": "LICENCIA_RADIO",
-        "respuesta_modelo": "LICENCIA_RADIO",
-        "final": "LICENCIA_RADIO",
-        "acierto_modelo": true,
-        "acierto_final": true,
+        "respuesta_modelo": "(reglas)",
+        "final": "NINGUNA",
+        "acierto_modelo": null,
+        "acierto_final": false,
         "error_aceptado": false,
-        "segundos": 37.74,
-        "detalle": "Intervalo de 30 días coincide con plazo típico de licencias (ej. renovación)."
+        "segundos": 0.01,
+        "detalle": ""
       },
       {
         "grupo": "positivo",
         "fault_name": "BLEED CONTROLLER CARD FAULT SMT",
         "intervalo": "2902 FH",
         "esperado": "BLEED_CTRL_CARD",
-        "respuesta_modelo": "BLEED_CTRL_CARD",
-        "final": "BLEED_CTRL_CARD",
-        "acierto_modelo": true,
-        "acierto_final": true,
+        "respuesta_modelo": "(reglas)",
+        "final": "NINGUNA",
+        "acierto_modelo": null,
+        "acierto_final": false,
         "error_aceptado": false,
-        "segundos": 34.83,
-        "detalle": "El intervalo del DIP (2902 FH) coincide exactamente con el TA de la categoría BLEED_CTRL_CARD."
+        "segundos": 0.01,
+        "detalle": ""
       },
       {
         "grupo": "positivo",
         "fault_name": "TOC FLAPS CONFIG WARNING SMT",
         "intervalo": "30 FH",
         "esperado": "FLAPS_TAKEOFF_CONFIG",
-        "respuesta_modelo": "FLAPS_TAKEOFF_CONFIG",
-        "final": "FLAPS_TAKEOFF_CONFIG",
-        "acierto_modelo": true,
-        "acierto_final": true,
+        "respuesta_modelo": "(reglas)",
+        "final": "NINGUNA",
+        "acierto_modelo": null,
+        "acierto_final": false,
         "error_aceptado": false,
-        "segundos": 31.15,
-        "detalle": "Intervalo DIP (30 FH) coincide con TA de la categoría."
+        "segundos": 0.01,
+        "detalle": ""
       },
       {
         "grupo": "negativo",
         "fault_name": "DEFIBRILLATOR DUE DATE",
         "intervalo": "38 DAY",
         "esperado": "NINGUNA",
-        "respuesta_modelo": "NINGUNA",
+        "respuesta_modelo": "(reglas)",
         "final": "NINGUNA",
-        "acierto_modelo": true,
+        "acierto_modelo": null,
         "acierto_final": true,
         "error_aceptado": false,
-        "segundos": 38.69,
-        "detalle": "Intervalo de 38 días no coincide con TA de ninguna categoría (todos requieren <130 días o 400 FH)."
+        "segundos": 0.01,
+        "detalle": ""
       },
       {
         "grupo": "negativo",
         "fault_name": "DIP- wing tank # 2 access door 632AB",
         "intervalo": "60 DAY",
         "esperado": "NINGUNA",
-        "respuesta_modelo": "NINGUNA",
+        "respuesta_modelo": "(reglas)",
         "final": "NINGUNA",
-        "acierto_modelo": true,
+        "acierto_modelo": null,
         "acierto_final": true,
         "error_aceptado": false,
-        "segundos": 44.02,
-        "detalle": "No hay coincidencia clara con el intervalo de 60 días en categorías proporcionadas."
+        "segundos": 0.01,
+        "detalle": ""
       },
       {
         "grupo": "negativo",
         "fault_name": "AFT COMP NET",
         "intervalo": "10 DAY",
         "esperado": "NINGUNA",
-        "respuesta_modelo": "NINGUNA",
+        "respuesta_modelo": "(reglas)",
         "final": "NINGUNA",
-        "acierto_modelo": true,
+        "acierto_modelo": null,
         "acierto_final": true,
         "error_aceptado": false,
-        "segundos": 31.4,
-        "detalle": "El intervalo de 10 días no coincide con TA de ninguna categoría proporcionada."
+        "segundos": 0.01,
+        "detalle": ""
       },
       {
         "grupo": "negativo",
         "fault_name": "DIP SEALANT INSTALLATION",
         "intervalo": "7 DAY",
         "esperado": "NINGUNA",
-        "respuesta_modelo": "NINGUNA",
+        "respuesta_modelo": "(reglas)",
         "final": "NINGUNA",
-        "acierto_modelo": true,
+        "acierto_modelo": null,
         "acierto_final": true,
         "error_aceptado": false,
-        "segundos": 33.65,
-        "detalle": "Intervalo de 7 días no coincide con TA de ninguna categoría."
+        "segundos": 0.01,
+        "detalle": ""
       },
       {
         "grupo": "negativo",
         "fault_name": "DIP-31 UNDERWATER LOCATOR BEACON(FDR)",
         "intervalo": "112 DAY",
         "esperado": "NINGUNA",
-        "respuesta_modelo": "NINGUNA",
+        "respuesta_modelo": "(reglas)",
         "final": "NINGUNA",
-        "acierto_modelo": true,
+        "acierto_modelo": null,
         "acierto_final": true,
         "error_aceptado": false,
-        "segundos": 42.69,
-        "detalle": "Intervalo DIP (112 días) no coincide con TA de categorías (máx. 400 FH/≈120 días, pero no es ELT ni FDR)."
+        "segundos": 0.01,
+        "detalle": ""
       },
       {
         "grupo": "negativo",
         "fault_name": "DIP- 25 PASSENGER LIFE VEST",
         "intervalo": "145 DAY",
         "esperado": "NINGUNA",
-        "respuesta_modelo": "NINGUNA",
+        "respuesta_modelo": "(reglas)",
         "final": "NINGUNA",
-        "acierto_modelo": true,
+        "acierto_modelo": null,
         "acierto_final": true,
         "error_aceptado": false,
-        "segundos": 31.09,
-        "detalle": "Intervalo DIP (145 días) no coincide con TA de ninguna categoría."
+        "segundos": 0.01,
+        "detalle": ""
       },
       {
         "grupo": "negativo",
         "fault_name": "AFT LAV SMOKE DETECTOR BATTERY",
         "intervalo": "30 DAY",
         "esperado": "NINGUNA",
-        "respuesta_modelo": "NINGUNA",
+        "respuesta_modelo": "(reglas)",
         "final": "NINGUNA",
-        "acierto_modelo": true,
+        "acierto_modelo": null,
         "acierto_final": true,
         "error_aceptado": false,
-        "segundos": 30.78,
-        "detalle": "Intervalo de 30 días no coincide con TA de ninguna categoría."
+        "segundos": 0.01,
+        "detalle": ""
       },
       {
         "grupo": "negativo",
         "fault_name": "DIP- REPLACE FLEXIBLE HOSE",
         "intervalo": "10 DAY",
         "esperado": "NINGUNA",
-        "respuesta_modelo": "NINGUNA",
+        "respuesta_modelo": "(reglas)",
         "final": "NINGUNA",
-        "acierto_modelo": true,
+        "acierto_modelo": null,
         "acierto_final": true,
         "error_aceptado": false,
-        "segundos": 39.88,
-        "detalle": "Intervalo de 10 días no coincide con TA de categorías dadas (máx. 50 FC o 400 FH)."
+        "segundos": 0.01,
+        "detalle": ""
       },
       {
         "grupo": "negativo",
         "fault_name": "DIP - 7 DAYS 46 NFS OAS AIRPLANE KEY",
         "intervalo": "6 DAY",
         "esperado": "NINGUNA",
-        "respuesta_modelo": "NINGUNA",
+        "respuesta_modelo": "(reglas)",
         "final": "NINGUNA",
-        "acierto_modelo": true,
+        "acierto_modelo": null,
         "acierto_final": true,
         "error_aceptado": false,
-        "segundos": 52.05,
-        "detalle": "Intervalo de 6 días no coincide con TA de ninguna categoría (mínimo 30 FH o hasta fecha límite)."
+        "segundos": 0.01,
+        "detalle": ""
       },
       {
         "grupo": "negativo",
         "fault_name": "DIP- to check spoiler cables tension .",
         "intervalo": "7 DAY",
         "esperado": "NINGUNA",
-        "respuesta_modelo": "NINGUNA",
+        "respuesta_modelo": "(reglas)",
         "final": "NINGUNA",
-        "acierto_modelo": true,
+        "acierto_modelo": null,
         "acierto_final": true,
         "error_aceptado": false,
-        "segundos": 51.61,
-        "detalle": "Intervalo DIP (7 días) no coincide con TA de ninguna categoría (mínimo 4 meses)."
+        "segundos": 0.01,
+        "detalle": ""
       },
       {
         "grupo": "negativo",
         "fault_name": "DIP-BOROSCOPE DUE TO FOD IN ENGINE #1",
         "intervalo": "10 FC",
         "esperado": "NINGUNA",
-        "respuesta_modelo": "NINGUNA",
+        "respuesta_modelo": "(reglas)",
         "final": "NINGUNA",
-        "acierto_modelo": true,
+        "acierto_modelo": null,
         "acierto_final": true,
         "error_aceptado": false,
-        "segundos": 58.03,
-        "detalle": "El intervalo de 10 FC no coincide con TA de categorías dadas (ej. 3 FC, 75 FH, 12/27/37 FC)."
+        "segundos": 0.01,
+        "detalle": ""
       },
       {
         "grupo": "negativo",
         "fault_name": "DIP - E1 PRIMARY EXHAUST NOZZLE WITH OVERHEATING EVIDENCE",
         "intervalo": "10 DAY",
         "esperado": "NINGUNA",
-        "respuesta_modelo": "NINGUNA",
+        "respuesta_modelo": "(reglas)",
         "final": "NINGUNA",
-        "acierto_modelo": true,
+        "acierto_modelo": null,
         "acierto_final": true,
         "error_aceptado": false,
-        "segundos": 40.96,
-        "detalle": "Intervalo de 10 días no coincide con TA de ninguna categoría."
+        "segundos": 0.01,
+        "detalle": ""
       },
       {
         "grupo": "negativo",
         "fault_name": "AHM - 320 451 00 AIR/GND SENSOR scheduled maintenance task shows: SMT",
         "intervalo": "150 FH",
         "esperado": "NINGUNA",
-        "respuesta_modelo": "NINGUNA",
+        "respuesta_modelo": "(reglas)",
         "final": "NINGUNA",
-        "acierto_modelo": true,
+        "acierto_modelo": null,
         "acierto_final": true,
         "error_aceptado": false,
-        "segundos": 46.23,
-        "detalle": "Intervalo DIP (150 FH) no coincide con TA de ninguna categoría (máx. 30 FH o fechas fijas)."
+        "segundos": 0.01,
+        "detalle": ""
       },
       {
         "grupo": "negativo",
         "fault_name": "OXYGEN MASK CREW STOWAGE BOX",
         "intervalo": "10 DAY",
         "esperado": "NINGUNA",
-        "respuesta_modelo": "NINGUNA",
+        "respuesta_modelo": "(reglas)",
         "final": "NINGUNA",
-        "acierto_modelo": true,
+        "acierto_modelo": null,
         "acierto_final": true,
         "error_aceptado": false,
-        "segundos": 37.87,
-        "detalle": "Intervalo de 10 días no coincide con TA de ninguna categoría."
+        "segundos": 0.01,
+        "detalle": ""
       },
       {
         "grupo": "negativo",
         "fault_name": "foward cargo cilling shroud with damage.",
         "intervalo": "120 DAY",
         "esperado": "NINGUNA",
-        "respuesta_modelo": "NINGUNA",
+        "respuesta_modelo": "(reglas)",
         "final": "NINGUNA",
-        "acierto_modelo": true,
+        "acierto_modelo": null,
         "acierto_final": true,
         "error_aceptado": false,
-        "segundos": 0.03,
-        "detalle": "El intervalo de 120 días no coincide con TA de ninguna categoría proporcionada."
+        "segundos": 0.01,
+        "detalle": ""
       },
       {
         "grupo": "negativo",
         "fault_name": "DIP- check for hydraulic leakage at the NLG Swivel",
         "intervalo": "15 FC",
         "esperado": "NINGUNA",
-        "respuesta_modelo": "AMORTIGUADOR_NLG",
+        "respuesta_modelo": "(reglas)",
         "final": "NINGUNA",
-        "acierto_modelo": false,
+        "acierto_modelo": null,
         "acierto_final": true,
         "error_aceptado": false,
-        "segundos": 45.41,
-        "detalle": "La IA propuso AMORTIGUADOR_NLG, pero se descartó: el Fault Name contiene 'SWIVEL', excluido para esa referencia."
+        "segundos": 0.01,
+        "detalle": ""
       },
       {
         "grupo": "negativo",
         "fault_name": "RE-EVALUATION",
         "intervalo": "5 DAY",
         "esperado": "NINGUNA",
-        "respuesta_modelo": "NINGUNA",
+        "respuesta_modelo": "(reglas)",
         "final": "NINGUNA",
-        "acierto_modelo": true,
+        "acierto_modelo": null,
         "acierto_final": true,
         "error_aceptado": false,
-        "segundos": 30.86,
-        "detalle": "Intervalo de 5 días no coincide con TA de ninguna categoría."
+        "segundos": 0.01,
+        "detalle": ""
       },
       {
         "grupo": "negativo",
         "fault_name": "LAV WASTE TANK SENSOR INOP",
         "intervalo": "10 DAY",
         "esperado": "NINGUNA",
-        "respuesta_modelo": "NINGUNA",
+        "respuesta_modelo": "(reglas)",
         "final": "NINGUNA",
-        "acierto_modelo": true,
+        "acierto_modelo": null,
         "acierto_final": true,
         "error_aceptado": false,
-        "segundos": 33.21,
-        "detalle": "Intervalo DIP (10 días) no coincide con TA de ninguna categoría."
+        "segundos": 0.01,
+        "detalle": ""
       },
       {
         "grupo": "negativo",
         "fault_name": "PAX SEAT 23C RECLINE INOP",
         "intervalo": "10 DAY",
         "esperado": "NINGUNA",
-        "respuesta_modelo": "NINGUNA",
+        "respuesta_modelo": "(reglas)",
         "final": "NINGUNA",
-        "acierto_modelo": true,
+        "acierto_modelo": null,
         "acierto_final": true,
         "error_aceptado": false,
-        "segundos": 40.52,
-        "detalle": "Intervalo de 10 días no coincide con TA de categorías dadas (máx. 50 días)."
+        "segundos": 0.01,
+        "detalle": ""
       },
       {
         "grupo": "negativo",
         "fault_name": "EMERGENCY LIGHT BATTERY PACK EXPIRING",
         "intervalo": "60 DAY",
         "esperado": "NINGUNA",
-        "respuesta_modelo": "NINGUNA",
+        "respuesta_modelo": "(reglas)",
         "final": "NINGUNA",
-        "acierto_modelo": true,
+        "acierto_modelo": null,
         "acierto_final": true,
         "error_aceptado": false,
-        "segundos": 37.97,
-        "detalle": "Intervalo de 60 días no coincide con TA de ninguna categoría (máx. 30 días o 'UNTIL DUE DATE' sin intervalo específico)."
+        "segundos": 0.01,
+        "detalle": ""
       }
     ]
   },
   "tiempos": {
-    "preparacion_s": 0.56,
-    "carga_modelo_s": 19.17,
-    "auditoria_s": 239.0,
-    "auditoria_consultas": 6,
-    "casos_s": 1870.52,
-    "casos_consultas": 45,
-    "total_s": 2135.49
+    "preparacion_s": 0.66,
+    "auditoria_s": 0.12,
+    "auditoria_consultas": 0,
+    "casos_s": 0.38,
+    "total_s": 1.05
   },
-  "costo_modelo": {
-    "consultas": 51,
-    "s_por_consulta": 41.34,
-    "s_p95": 55.69,
-    "s_max": 57.99,
-    "tokens_entrada_por_consulta": 433,
-    "tokens_salida_por_consulta": 47,
-    "tokens_por_s_entrada": 17.4,
-    "tokens_por_s_salida": 3.3,
-    "pct_tiempo_en_prompt": 64,
-    "memoria_gb": 5.28,
-    "memoria_gpu_gb": 0.0
-  }
+  "costo_modelo": null
 }

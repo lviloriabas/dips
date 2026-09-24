@@ -14,3 +14,9 @@ salidas/
 
 # Archivos temporales de Excel
 ~$*.xlsx
+
+# Datos extraídos de ICAM (tienen nombres del personal)
+data/
+
+# Sesión de Edge del extractor de ICAM
+.icam_perfil/

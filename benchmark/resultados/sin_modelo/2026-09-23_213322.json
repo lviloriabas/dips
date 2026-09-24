@@ -1,6 +1,7 @@
 {
-  "formato": 1,
-  "fecha": "2026-09-23 14:45",
+  "formato": 2,
+  "modo": "sin_modelo",
+  "fecha": "2026-09-23 21:33",
   "version_programa": "0.1.0",
   "datos": {
     "archivo": "benchmark/dips_auditados.xlsx",
@@ -11,27 +12,11 @@
       "DISCREPANCIA CRÍTICA": 1
     },
     "archivo_casos": "benchmark/casos_modelo_local.yaml",
-    "casos_modelo": 46,
+    "casos": 46,
     "dips_sin_referencia_por_reglas": 5
   },
-  "modelo_local": {
-    "modelo": "ministral-3:8b",
-    "disponible": true,
-    "motivo": ""
-  },
+  "modelo_local": null,
   "configuracion": {
-    "llm": {
-      "modelo": "ministral-3:8b",
-      "timeout_segundos": 300,
-      "solo_cpu": false,
-      "candidatos": 4,
-      "justificacion": false,
-      "pensar": false,
-      "temperatura": 0,
-      "contexto_tokens": 2048,
-      "max_tokens_respuesta": 300,
-      "fraccion_minima_ta": 0.2
-    },
     "tolerancias": {
       "dias": 1,
       "meses_min": 30,
@@ -56,7 +41,12 @@
       "sin_sn_en_descripcion": "OBSERVACION",
       "sn_repetido": "NO CRITICA",
       "duplicado": "NO CRITICA",
-      "fault_severity": "OBSERVACION"
+      "fault_severity": "OBSERVACION",
+      "sin_referencia_tecnica": "NO CRITICA",
+      "referencia_tecnica_equivocada": "NO CRITICA",
+      "referencia_tecnica_distinta": "REVISAR",
+      "asociacion_aproximada": "OBSERVACION",
+      "asociacion_por_referencia_tecnica": "OBSERVACION"
     },
     "catalogo": {
       "archivo": "config/catalogo_others.yaml",
@@ -68,50 +58,13 @@
     }
   },
   "equipo": {
-    "procesador": "12th Gen Intel(R) Core(TM) i7-1265U",
+    "procesador": "AMD Ryzen 5 3600 6-Core Processor",
     "hilos": 12,
-    "ram_gb": 15.7,
+    "ram_gb": 31.9,
     "sistema": "Windows-11"
   },
   "auditoria": {
     "indicadores": {
-      "coincidencia": {
-        "aciertos": 42,
-        "total": 50,
-        "pct": 84.0
-      },
-      "asociados": {
-        "aciertos": 45,
-        "total": 50,
-        "pct": 90.0
-      },
-      "ok_correctos": {
-        "aciertos": 38,
-        "total": 44,
-        "pct": 86.4
-      },
-      "falsas_discrepancias": {
-        "aciertos": 3,
-        "total": 44,
-        "pct": 6.8
-      },
-      "revisar_de_mas": {
-        "aciertos": 3,
-        "total": 44,
-        "pct": 6.8
-      },
-      "discrepancias_detectadas": {
-        "aciertos": 4,
-        "total": 6,
-        "pct": 66.7
-      },
-      "detectables_detectadas": {
-        "aciertos": 3,
-        "total": 4,
-        "pct": 75.0
-      }
-    },
-    "indicadores_solo_reglas": {
       "coincidencia": {
         "aciertos": 42,
         "total": 50,
@@ -486,12 +439,12 @@
         "programa": "REVISAR",
         "programa_solo_reglas": "REVISAR",
         "acuerdo": "Solo el programa marca",
-        "metodo": "modelo_ninguna",
+        "metodo": "sin_referencia",
         "referencia": "",
         "propuesta_modelo": null,
-        "detalle_modelo": "El modelo respondió NINGUNA.",
+        "detalle_modelo": "",
         "hallazgos": [
-          "[REVISAR] El DIP no se encontró en el catálogo de referencias Others. Revisar manualmente. IA: El modelo respondió NINGUNA."
+          "[REVISAR] El DIP no se encontró en el catálogo de referencias Others. Revisar manualmente."
         ]
       },
       {
@@ -866,12 +819,12 @@
         "programa": "REVISAR",
         "programa_solo_reglas": "REVISAR",
         "acuerdo": "Ambos marcan",
-        "metodo": "modelo_ninguna",
+        "metodo": "sin_referencia",
         "referencia": "",
         "propuesta_modelo": null,
-        "detalle_modelo": "El modelo respondió NINGUNA.",
+        "detalle_modelo": "",
         "hallazgos": [
-          "[REVISAR] El DIP no se encontró en el catálogo de referencias Others. Revisar manualmente. IA: El modelo respondió NINGUNA."
+          "[REVISAR] El DIP no se encontró en el catálogo de referencias Others. Revisar manualmente."
         ]
       },
       {
@@ -952,12 +905,12 @@
         "programa": "REVISAR",
         "programa_solo_reglas": "REVISAR",
         "acuerdo": "Ambos marcan",
-        "metodo": "modelo_ninguna",
+        "metodo": "sin_referencia",
         "referencia": "",
         "propuesta_modelo": null,
-        "detalle_modelo": "El modelo respondió NINGUNA.",
+        "detalle_modelo": "",
         "hallazgos": [
-          "[REVISAR] El DIP no se encontró en el catálogo de referencias Others. Revisar manualmente. IA: El modelo respondió NINGUNA."
+          "[REVISAR] El DIP no se encontró en el catálogo de referencias Others. Revisar manualmente."
         ]
       },
       {
@@ -1020,12 +973,12 @@
         "programa": "REVISAR",
         "programa_solo_reglas": "REVISAR",
         "acuerdo": "Solo el programa marca",
-        "metodo": "modelo_ninguna",
+        "metodo": "sin_referencia",
         "referencia": "",
         "propuesta_modelo": null,
-        "detalle_modelo": "El modelo respondió NINGUNA.",
+        "detalle_modelo": "",
         "hallazgos": [
-          "[REVISAR] El DIP no se encontró en el catálogo de referencias Others. Revisar manualmente. IA: El modelo respondió NINGUNA."
+          "[REVISAR] El DIP no se encontró en el catálogo de referencias Others. Revisar manualmente."
         ]
       },
       {
@@ -1038,12 +991,12 @@
         "programa": "REVISAR",
         "programa_solo_reglas": "REVISAR",
         "acuerdo": "Solo el programa marca",
-        "metodo": "modelo_ninguna",
+        "metodo": "sin_referencia",
         "referencia": "",
         "propuesta_modelo": null,
-        "detalle_modelo": "El modelo respondió NINGUNA.",
+        "detalle_modelo": "",
         "hallazgos": [
-          "[REVISAR] El DIP no se encontró en el catálogo de referencias Others. Revisar manualmente. IA: El modelo respondió NINGUNA."
+          "[REVISAR] El DIP no se encontró en el catálogo de referencias Others. Revisar manualmente."
         ]
       },
       {
@@ -1068,17 +1021,17 @@
       }
     ]
   },
-  "casos_modelo": {
+  "casos": {
     "indicadores": {
       "aciertos_finales": {
-        "aciertos": 41,
+        "aciertos": 24,
         "total": 46,
-        "pct": 89.1
+        "pct": 52.2
       },
       "con_referencia": {
-        "aciertos": 21,
+        "aciertos": 4,
         "total": 26,
-        "pct": 80.8
+        "pct": 15.4
       },
       "sin_referencia": {
         "aciertos": 20,
@@ -1089,38 +1042,6 @@
         "aciertos": 0,
         "total": 46,
         "pct": 0.0
-      },
-      "aciertos_modelo": {
-        "aciertos": 40,
-        "total": 46,
-        "pct": 87.0
-      }
-    },
-    "indicadores_sin_modelo": {
-      "aciertos_finales": {
-        "aciertos": 43,
-        "total": 46,
-        "pct": 93.5
-      },
-      "con_referencia": {
-        "aciertos": 24,
-        "total": 26,
-        "pct": 92.3
-      },
-      "sin_referencia": {
-        "aciertos": 19,
-        "total": 20,
-        "pct": 95.0
-      },
-      "errores_aceptados": {
-        "aciertos": 2,
-        "total": 46,
-        "pct": 4.3
-      },
-      "aciertos_modelo": {
-        "aciertos": 24,
-        "total": 46,
-        "pct": 52.2
       }
     },
     "casos": [
@@ -1129,12 +1050,12 @@
         "fault_name": "CREW 02 BOTLE LOW",
         "intervalo": "3 DAY",
         "esperado": "OXIGENO_TRIPULACION",
-        "respuesta_modelo": "OXIGENO_TRIPULACION",
-        "final": "OXIGENO_TRIPULACION",
-        "acierto_modelo": true,
-        "acierto_final": true,
+        "respuesta_modelo": "(reglas)",
+        "final": "NINGUNA",
+        "acierto_modelo": null,
+        "acierto_final": false,
         "error_aceptado": false,
-        "segundos": 28.84,
+        "segundos": 0.01,
         "detalle": ""
       },
       {
@@ -1142,12 +1063,12 @@
         "fault_name": "CAPT O2 CYLINDER PRESS 900",
         "intervalo": "3 DAY",
         "esperado": "OXIGENO_TRIPULACION",
-        "respuesta_modelo": "OXIGENO_TRIPULACION",
-        "final": "OXIGENO_TRIPULACION",
-        "acierto_modelo": true,
-        "acierto_final": true,
+        "respuesta_modelo": "(reglas)",
+        "final": "NINGUNA",
+        "acierto_modelo": null,
+        "acierto_final": false,
         "error_aceptado": false,
-        "segundos": 26.33,
+        "segundos": 0.01,
         "detalle": ""
       },
       {
@@ -1155,38 +1076,38 @@
         "fault_name": "DIP - NOSE INTERNAL INSPECTION",
         "intervalo": "3 FC",
         "esperado": "RADOMO",
-        "respuesta_modelo": "NINGUNA",
+        "respuesta_modelo": "(reglas)",
         "final": "NINGUNA",
-        "acierto_modelo": false,
+        "acierto_modelo": null,
         "acierto_final": false,
         "error_aceptado": false,
-        "segundos": 27.34,
-        "detalle": "El modelo respondió NINGUNA."
+        "segundos": 0.01,
+        "detalle": ""
       },
       {
         "grupo": "positivo",
         "fault_name": "DIP-EMERGENCY LOCATER TRANSMITER BATERY",
         "intervalo": "150 DAY",
         "esperado": "ELT_PORTATIL",
-        "respuesta_modelo": "ELT_FIJO",
-        "final": "ELT_FIJO",
-        "acierto_modelo": true,
+        "respuesta_modelo": "(reglas)",
+        "final": "ELT_PORTATIL",
+        "acierto_modelo": null,
         "acierto_final": true,
         "error_aceptado": false,
-        "segundos": 23.45,
-        "detalle": ""
+        "segundos": 0.0,
+        "detalle": "Coincidencia aproximada: 'EMERGENCY LOCATER' por 'EMERGENCY LOCATOR'."
       },
       {
         "grupo": "positivo",
         "fault_name": "HIDRAULIC DECONTAMINATION FINAL",
         "intervalo": "300 FH",
         "esperado": "DESCONTAMINACION_HID_TERMINAL",
-        "respuesta_modelo": "DESCONTAMINACION_HID_TERMINAL",
-        "final": "DESCONTAMINACION_HID_TERMINAL",
-        "acierto_modelo": true,
-        "acierto_final": true,
+        "respuesta_modelo": "(reglas)",
+        "final": "NINGUNA",
+        "acierto_modelo": null,
+        "acierto_final": false,
         "error_aceptado": false,
-        "segundos": 24.23,
+        "segundos": 0.01,
         "detalle": ""
       },
       {
@@ -1194,12 +1115,12 @@
         "fault_name": "HIDRAULIC DECONTAMINATION FIRST STAGE",
         "intervalo": "150 FH",
         "esperado": "DESCONTAMINACION_HID_INICIAL",
-        "respuesta_modelo": "DESCONTAMINACION_HID_INICIAL",
-        "final": "DESCONTAMINACION_HID_INICIAL",
-        "acierto_modelo": true,
-        "acierto_final": true,
+        "respuesta_modelo": "(reglas)",
+        "final": "NINGUNA",
+        "acierto_modelo": null,
+        "acierto_final": false,
         "error_aceptado": false,
-        "segundos": 24.75,
+        "segundos": 0.01,
         "detalle": ""
       },
       {
@@ -1207,12 +1128,12 @@
         "fault_name": "BOTIQUIN DE PRIMEROS AUXILIOS VENCE 30-NOV-2026",
         "intervalo": "100 DAY",
         "esperado": "FAK",
-        "respuesta_modelo": "FAK",
-        "final": "FAK",
-        "acierto_modelo": true,
-        "acierto_final": true,
+        "respuesta_modelo": "(reglas)",
+        "final": "NINGUNA",
+        "acierto_modelo": null,
+        "acierto_final": false,
         "error_aceptado": false,
-        "segundos": 24.84,
+        "segundos": 0.01,
         "detalle": ""
       },
       {
@@ -1220,12 +1141,12 @@
         "fault_name": "KIT MEDICO DE EMERGENCIA PROXIMO A VENCER",
         "intervalo": "120 DAY",
         "esperado": "EMK",
-        "respuesta_modelo": "EMK",
-        "final": "EMK",
-        "acierto_modelo": true,
-        "acierto_final": true,
+        "respuesta_modelo": "(reglas)",
+        "final": "NINGUNA",
+        "acierto_modelo": null,
+        "acierto_final": false,
         "error_aceptado": false,
-        "segundos": 19.59,
+        "segundos": 0.01,
         "detalle": ""
       },
       {
@@ -1233,38 +1154,38 @@
         "fault_name": "HALOM EXTINGISHER COCKPIT WEIGHT DUE",
         "intervalo": "60 DAY",
         "esperado": "HALON_PORTATIL",
-        "respuesta_modelo": "HALON_PORTATIL",
+        "respuesta_modelo": "(reglas)",
         "final": "HALON_PORTATIL",
-        "acierto_modelo": true,
+        "acierto_modelo": null,
         "acierto_final": true,
         "error_aceptado": false,
-        "segundos": 24.16,
-        "detalle": ""
+        "segundos": 0.0,
+        "detalle": "Coincidencia aproximada: 'EXTINGISHER' por 'EXTINGUISHER'."
       },
       {
         "grupo": "positivo",
         "fault_name": "FUMIGATON CERT EXPIRING",
         "intervalo": "5 DAY",
         "esperado": "FUMIGACION",
-        "respuesta_modelo": "FUMIGACION",
+        "respuesta_modelo": "(reglas)",
         "final": "FUMIGACION",
-        "acierto_modelo": true,
+        "acierto_modelo": null,
         "acierto_final": true,
         "error_aceptado": false,
-        "segundos": 17.12,
-        "detalle": ""
+        "segundos": 0.0,
+        "detalle": "Coincidencia aproximada: 'FUMIGATON' por 'FUMIGATION'."
       },
       {
         "grupo": "positivo",
         "fault_name": "MICROBIOLOGICAL CONTAMINATION TEST FUEL TANKS",
         "intervalo": "4 DAY",
         "esperado": "CRECIMIENTO_MICROBIANO",
-        "respuesta_modelo": "CRECIMIENTO_MICROBIANO",
-        "final": "CRECIMIENTO_MICROBIANO",
-        "acierto_modelo": true,
-        "acierto_final": true,
+        "respuesta_modelo": "(reglas)",
+        "final": "NINGUNA",
+        "acierto_modelo": null,
+        "acierto_final": false,
         "error_aceptado": false,
-        "segundos": 22.94,
+        "segundos": 0.01,
         "detalle": ""
       },
       {
@@ -1272,12 +1193,12 @@
         "fault_name": "FLIGHT DATA RECORDER DATA REVIEW",
         "intervalo": "30 DAY",
         "esperado": "FDR",
-        "respuesta_modelo": "FDR",
-        "final": "FDR",
-        "acierto_modelo": true,
-        "acierto_final": true,
+        "respuesta_modelo": "(reglas)",
+        "final": "NINGUNA",
+        "acierto_modelo": null,
+        "acierto_final": false,
         "error_aceptado": false,
-        "segundos": 18.56,
+        "segundos": 0.01,
         "detalle": ""
       },
       {
@@ -1285,12 +1206,12 @@
         "fault_name": "NOSE STRUT X DIMENSION LOW",
         "intervalo": "10 FC",
         "esperado": "AMORTIGUADOR_NLG",
-        "respuesta_modelo": "AMORTIGUADOR_NLG",
-        "final": "AMORTIGUADOR_NLG",
-        "acierto_modelo": true,
-        "acierto_final": true,
+        "respuesta_modelo": "(reglas)",
+        "final": "NINGUNA",
+        "acierto_modelo": null,
+        "acierto_final": false,
         "error_aceptado": false,
-        "segundos": 28.6,
+        "segundos": 0.01,
         "detalle": ""
       },
       {
@@ -1298,25 +1219,25 @@
         "fault_name": "MAIN GEAR #2 RUBBER CORD VISIBLE",
         "intervalo": "5 FC",
         "esperado": "LLANTA",
-        "respuesta_modelo": "NINGUNA",
+        "respuesta_modelo": "(reglas)",
         "final": "NINGUNA",
-        "acierto_modelo": false,
+        "acierto_modelo": null,
         "acierto_final": false,
         "error_aceptado": false,
-        "segundos": 26.33,
-        "detalle": "El modelo respondió NINGUNA."
+        "segundos": 0.01,
+        "detalle": ""
       },
       {
         "grupo": "positivo",
         "fault_name": "PARK BRK FAIL HOLD CHECK",
         "intervalo": "3 DAY",
         "esperado": "FRENO_PARQUEO",
-        "respuesta_modelo": "FRENO_PARQUEO",
-        "final": "FRENO_PARQUEO",
-        "acierto_modelo": true,
-        "acierto_final": true,
+        "respuesta_modelo": "(reglas)",
+        "final": "NINGUNA",
+        "acierto_modelo": null,
+        "acierto_final": false,
         "error_aceptado": false,
-        "segundos": 23.82,
+        "segundos": 0.01,
         "detalle": ""
       },
       {
@@ -1324,12 +1245,12 @@
         "fault_name": "LEFT WING AIL CABLE TENSION RECHECK",
         "intervalo": "184 DAY",
         "esperado": "CABLES_ALERON",
-        "respuesta_modelo": "CABLES_ALERON",
-        "final": "CABLES_ALERON",
-        "acierto_modelo": true,
-        "acierto_final": true,
+        "respuesta_modelo": "(reglas)",
+        "final": "NINGUNA",
+        "acierto_modelo": null,
+        "acierto_final": false,
         "error_aceptado": false,
-        "segundos": 28.78,
+        "segundos": 0.01,
         "detalle": ""
       },
       {
@@ -1337,38 +1258,38 @@
         "fault_name": "IDG DELTA P INDICATOR POPPED",
         "intervalo": "400 FH",
         "esperado": "DPI",
-        "respuesta_modelo": "NINGUNA",
+        "respuesta_modelo": "(reglas)",
         "final": "NINGUNA",
-        "acierto_modelo": false,
+        "acierto_modelo": null,
         "acierto_final": false,
         "error_aceptado": false,
-        "segundos": 19.11,
-        "detalle": "El modelo respondió NINGUNA."
+        "segundos": 0.01,
+        "detalle": ""
       },
       {
         "grupo": "positivo",
         "fault_name": "SURVIVOR KIT RAFT DUE DATE",
         "intervalo": "50 DAY",
         "esperado": "SURVIVAL_KIT",
-        "respuesta_modelo": "NINGUNA",
+        "respuesta_modelo": "(reglas)",
         "final": "NINGUNA",
-        "acierto_modelo": false,
+        "acierto_modelo": null,
         "acierto_final": false,
         "error_aceptado": false,
-        "segundos": 25.14,
-        "detalle": "El modelo respondió NINGUNA."
+        "segundos": 0.01,
+        "detalle": ""
       },
       {
         "grupo": "positivo",
         "fault_name": "BACK FLOW CHECK VALVE INERT GAS SYS",
         "intervalo": "90 DAY",
         "esperado": "BACKFLOW",
-        "respuesta_modelo": "BACKFLOW",
-        "final": "BACKFLOW",
-        "acierto_modelo": true,
-        "acierto_final": true,
+        "respuesta_modelo": "(reglas)",
+        "final": "NINGUNA",
+        "acierto_modelo": null,
+        "acierto_final": false,
         "error_aceptado": false,
-        "segundos": 23.37,
+        "segundos": 0.01,
         "detalle": ""
       },
       {
@@ -1376,25 +1297,25 @@
         "fault_name": "STROKE OF LIGHTING PHASE 2 INSPECTION",
         "intervalo": "50 FC",
         "esperado": "RAYO",
-        "respuesta_modelo": "RAYO",
+        "respuesta_modelo": "(reglas)",
         "final": "RAYO",
-        "acierto_modelo": true,
+        "acierto_modelo": null,
         "acierto_final": true,
         "error_aceptado": false,
-        "segundos": 21.26,
-        "detalle": ""
+        "segundos": 0.0,
+        "detalle": "Coincidencia aproximada: 'LIGHTING' por 'LIGHTNING'."
       },
       {
         "grupo": "positivo",
         "fault_name": "PROTECCION UNIVERSAL KIT FWD",
         "intervalo": "90 DAY",
         "esperado": "UPK",
-        "respuesta_modelo": "UPK",
-        "final": "UPK",
-        "acierto_modelo": true,
-        "acierto_final": true,
+        "respuesta_modelo": "(reglas)",
+        "final": "NINGUNA",
+        "acierto_modelo": null,
+        "acierto_final": false,
         "error_aceptado": false,
-        "segundos": 22.59,
+        "segundos": 0.01,
         "detalle": ""
       },
       {
@@ -1402,25 +1323,25 @@
         "fault_name": "BRK 4 PIN FLUSH",
         "intervalo": "20 FC",
         "esperado": "DESGASTE_FRENOS",
-        "respuesta_modelo": "NINGUNA",
+        "respuesta_modelo": "(reglas)",
         "final": "NINGUNA",
-        "acierto_modelo": false,
+        "acierto_modelo": null,
         "acierto_final": false,
         "error_aceptado": false,
-        "segundos": 25.47,
-        "detalle": "El modelo respondió NINGUNA."
+        "segundos": 0.01,
+        "detalle": ""
       },
       {
         "grupo": "positivo",
         "fault_name": "CHALECO SALVAVIDAS SEGURO DE COMPARTIMIENTO DANADO",
         "intervalo": "60 DAY",
         "esperado": "CHALECO",
-        "respuesta_modelo": "CHALECO",
-        "final": "CHALECO",
-        "acierto_modelo": true,
-        "acierto_final": true,
+        "respuesta_modelo": "(reglas)",
+        "final": "NINGUNA",
+        "acierto_modelo": null,
+        "acierto_final": false,
         "error_aceptado": false,
-        "segundos": 24.37,
+        "segundos": 0.01,
         "detalle": ""
       },
       {
@@ -1428,12 +1349,12 @@
         "fault_name": "RADIO STATION LICENCE EXPIRES",
         "intervalo": "30 DAY",
         "esperado": "LICENCIA_RADIO",
-        "respuesta_modelo": "LICENCIA_RADIO",
-        "final": "LICENCIA_RADIO",
-        "acierto_modelo": true,
-        "acierto_final": true,
+        "respuesta_modelo": "(reglas)",
+        "final": "NINGUNA",
+        "acierto_modelo": null,
+        "acierto_final": false,
         "error_aceptado": false,
-        "segundos": 20.6,
+        "segundos": 0.01,
         "detalle": ""
       },
       {
@@ -1441,12 +1362,12 @@
         "fault_name": "BLEED CONTROLLER CARD FAULT SMT",
         "intervalo": "2902 FH",
         "esperado": "BLEED_CTRL_CARD",
-        "respuesta_modelo": "BLEED_CTRL_CARD",
-        "final": "BLEED_CTRL_CARD",
-        "acierto_modelo": true,
-        "acierto_final": true,
+        "respuesta_modelo": "(reglas)",
+        "final": "NINGUNA",
+        "acierto_modelo": null,
+        "acierto_final": false,
         "error_aceptado": false,
-        "segundos": 18.56,
+        "segundos": 0.01,
         "detalle": ""
       },
       {
@@ -1454,12 +1375,12 @@
         "fault_name": "TOC FLAPS CONFIG WARNING SMT",
         "intervalo": "30 FH",
         "esperado": "FLAPS_TAKEOFF_CONFIG",
-        "respuesta_modelo": "FLAPS_TAKEOFF_CONFIG",
-        "final": "FLAPS_TAKEOFF_CONFIG",
-        "acierto_modelo": true,
-        "acierto_final": true,
+        "respuesta_modelo": "(reglas)",
+        "final": "NINGUNA",
+        "acierto_modelo": null,
+        "acierto_final": false,
         "error_aceptado": false,
-        "segundos": 19.26,
+        "segundos": 0.01,
         "detalle": ""
       },
       {
@@ -1467,283 +1388,269 @@
         "fault_name": "DEFIBRILLATOR DUE DATE",
         "intervalo": "38 DAY",
         "esperado": "NINGUNA",
-        "respuesta_modelo": "NINGUNA",
+        "respuesta_modelo": "(reglas)",
         "final": "NINGUNA",
-        "acierto_modelo": true,
+        "acierto_modelo": null,
         "acierto_final": true,
         "error_aceptado": false,
-        "segundos": 21.26,
-        "detalle": "El modelo respondió NINGUNA."
+        "segundos": 0.01,
+        "detalle": ""
       },
       {
         "grupo": "negativo",
         "fault_name": "DIP- wing tank # 2 access door 632AB",
         "intervalo": "60 DAY",
         "esperado": "NINGUNA",
-        "respuesta_modelo": "NINGUNA",
+        "respuesta_modelo": "(reglas)",
         "final": "NINGUNA",
-        "acierto_modelo": true,
+        "acierto_modelo": null,
         "acierto_final": true,
         "error_aceptado": false,
-        "segundos": 25.89,
-        "detalle": "El modelo respondió NINGUNA."
+        "segundos": 0.01,
+        "detalle": ""
       },
       {
         "grupo": "negativo",
         "fault_name": "AFT COMP NET",
         "intervalo": "10 DAY",
         "esperado": "NINGUNA",
-        "respuesta_modelo": "NINGUNA",
+        "respuesta_modelo": "(reglas)",
         "final": "NINGUNA",
-        "acierto_modelo": true,
+        "acierto_modelo": null,
         "acierto_final": true,
         "error_aceptado": false,
-        "segundos": 16.18,
-        "detalle": "El modelo respondió NINGUNA."
+        "segundos": 0.01,
+        "detalle": ""
       },
       {
         "grupo": "negativo",
         "fault_name": "DIP SEALANT INSTALLATION",
         "intervalo": "7 DAY",
         "esperado": "NINGUNA",
-        "respuesta_modelo": "NINGUNA",
+        "respuesta_modelo": "(reglas)",
         "final": "NINGUNA",
-        "acierto_modelo": true,
+        "acierto_modelo": null,
         "acierto_final": true,
         "error_aceptado": false,
-        "segundos": 18.22,
-        "detalle": "El modelo respondió NINGUNA."
+        "segundos": 0.01,
+        "detalle": ""
       },
       {
         "grupo": "negativo",
         "fault_name": "DIP-31 UNDERWATER LOCATOR BEACON(FDR)",
         "intervalo": "112 DAY",
         "esperado": "NINGUNA",
-        "respuesta_modelo": "NINGUNA",
+        "respuesta_modelo": "(reglas)",
         "final": "NINGUNA",
-        "acierto_modelo": true,
+        "acierto_modelo": null,
         "acierto_final": true,
         "error_aceptado": false,
-        "segundos": 22.63,
-        "detalle": "El modelo respondió NINGUNA."
+        "segundos": 0.01,
+        "detalle": ""
       },
       {
         "grupo": "negativo",
         "fault_name": "DIP- 25 PASSENGER LIFE VEST",
         "intervalo": "145 DAY",
         "esperado": "NINGUNA",
-        "respuesta_modelo": "NINGUNA",
+        "respuesta_modelo": "(reglas)",
         "final": "NINGUNA",
-        "acierto_modelo": true,
+        "acierto_modelo": null,
         "acierto_final": true,
         "error_aceptado": false,
-        "segundos": 19.45,
-        "detalle": "El modelo respondió NINGUNA."
+        "segundos": 0.01,
+        "detalle": ""
       },
       {
         "grupo": "negativo",
         "fault_name": "AFT LAV SMOKE DETECTOR BATTERY",
         "intervalo": "30 DAY",
         "esperado": "NINGUNA",
-        "respuesta_modelo": "NINGUNA",
+        "respuesta_modelo": "(reglas)",
         "final": "NINGUNA",
-        "acierto_modelo": true,
+        "acierto_modelo": null,
         "acierto_final": true,
         "error_aceptado": false,
-        "segundos": 18.09,
-        "detalle": "El modelo respondió NINGUNA."
+        "segundos": 0.01,
+        "detalle": ""
       },
       {
         "grupo": "negativo",
         "fault_name": "DIP- REPLACE FLEXIBLE HOSE",
         "intervalo": "10 DAY",
         "esperado": "NINGUNA",
-        "respuesta_modelo": "NINGUNA",
+        "respuesta_modelo": "(reglas)",
         "final": "NINGUNA",
-        "acierto_modelo": true,
+        "acierto_modelo": null,
         "acierto_final": true,
         "error_aceptado": false,
-        "segundos": 22.68,
-        "detalle": "El modelo respondió NINGUNA."
+        "segundos": 0.01,
+        "detalle": ""
       },
       {
         "grupo": "negativo",
         "fault_name": "DIP - 7 DAYS 46 NFS OAS AIRPLANE KEY",
         "intervalo": "6 DAY",
         "esperado": "NINGUNA",
-        "respuesta_modelo": "NINGUNA",
+        "respuesta_modelo": "(reglas)",
         "final": "NINGUNA",
-        "acierto_modelo": true,
+        "acierto_modelo": null,
         "acierto_final": true,
         "error_aceptado": false,
-        "segundos": 20.62,
-        "detalle": "El modelo respondió NINGUNA."
+        "segundos": 0.01,
+        "detalle": ""
       },
       {
         "grupo": "negativo",
         "fault_name": "DIP- to check spoiler cables tension .",
         "intervalo": "7 DAY",
         "esperado": "NINGUNA",
-        "respuesta_modelo": "NINGUNA",
+        "respuesta_modelo": "(reglas)",
         "final": "NINGUNA",
-        "acierto_modelo": true,
+        "acierto_modelo": null,
         "acierto_final": true,
         "error_aceptado": false,
-        "segundos": 31.37,
-        "detalle": "El modelo respondió NINGUNA."
+        "segundos": 0.01,
+        "detalle": ""
       },
       {
         "grupo": "negativo",
         "fault_name": "DIP-BOROSCOPE DUE TO FOD IN ENGINE #1",
         "intervalo": "10 FC",
         "esperado": "NINGUNA",
-        "respuesta_modelo": "NINGUNA",
+        "respuesta_modelo": "(reglas)",
         "final": "NINGUNA",
-        "acierto_modelo": true,
+        "acierto_modelo": null,
         "acierto_final": true,
         "error_aceptado": false,
-        "segundos": 26.46,
-        "detalle": "El modelo respondió NINGUNA."
+        "segundos": 0.01,
+        "detalle": ""
       },
       {
         "grupo": "negativo",
         "fault_name": "DIP - E1 PRIMARY EXHAUST NOZZLE WITH OVERHEATING EVIDENCE",
         "intervalo": "10 DAY",
         "esperado": "NINGUNA",
-        "respuesta_modelo": "NINGUNA",
+        "respuesta_modelo": "(reglas)",
         "final": "NINGUNA",
-        "acierto_modelo": true,
+        "acierto_modelo": null,
         "acierto_final": true,
         "error_aceptado": false,
-        "segundos": 22.29,
-        "detalle": "El modelo respondió NINGUNA."
+        "segundos": 0.01,
+        "detalle": ""
       },
       {
         "grupo": "negativo",
         "fault_name": "AHM - 320 451 00 AIR/GND SENSOR scheduled maintenance task shows: SMT",
         "intervalo": "150 FH",
         "esperado": "NINGUNA",
-        "respuesta_modelo": "NINGUNA",
+        "respuesta_modelo": "(reglas)",
         "final": "NINGUNA",
-        "acierto_modelo": true,
+        "acierto_modelo": null,
         "acierto_final": true,
         "error_aceptado": false,
-        "segundos": 23.75,
-        "detalle": "El modelo respondió NINGUNA."
+        "segundos": 0.01,
+        "detalle": ""
       },
       {
         "grupo": "negativo",
         "fault_name": "OXYGEN MASK CREW STOWAGE BOX",
         "intervalo": "10 DAY",
         "esperado": "NINGUNA",
-        "respuesta_modelo": "NINGUNA",
+        "respuesta_modelo": "(reglas)",
         "final": "NINGUNA",
-        "acierto_modelo": true,
+        "acierto_modelo": null,
         "acierto_final": true,
         "error_aceptado": false,
-        "segundos": 26.71,
-        "detalle": "El modelo respondió NINGUNA."
+        "segundos": 0.01,
+        "detalle": ""
       },
       {
         "grupo": "negativo",
         "fault_name": "foward cargo cilling shroud with damage.",
         "intervalo": "120 DAY",
         "esperado": "NINGUNA",
-        "respuesta_modelo": "NINGUNA",
+        "respuesta_modelo": "(reglas)",
         "final": "NINGUNA",
-        "acierto_modelo": true,
+        "acierto_modelo": null,
         "acierto_final": true,
         "error_aceptado": false,
-        "segundos": 0.03,
-        "detalle": "El modelo respondió NINGUNA."
+        "segundos": 0.01,
+        "detalle": ""
       },
       {
         "grupo": "negativo",
         "fault_name": "DIP- check for hydraulic leakage at the NLG Swivel",
         "intervalo": "15 FC",
         "esperado": "NINGUNA",
-        "respuesta_modelo": "AMORTIGUADOR_NLG",
+        "respuesta_modelo": "(reglas)",
         "final": "NINGUNA",
-        "acierto_modelo": false,
+        "acierto_modelo": null,
         "acierto_final": true,
         "error_aceptado": false,
-        "segundos": 33.7,
-        "detalle": "La IA propuso AMORTIGUADOR_NLG, pero se descartó: el Fault Name contiene 'SWIVEL', excluido para esa referencia."
+        "segundos": 0.01,
+        "detalle": ""
       },
       {
         "grupo": "negativo",
         "fault_name": "RE-EVALUATION",
         "intervalo": "5 DAY",
         "esperado": "NINGUNA",
-        "respuesta_modelo": "NINGUNA",
+        "respuesta_modelo": "(reglas)",
         "final": "NINGUNA",
-        "acierto_modelo": true,
+        "acierto_modelo": null,
         "acierto_final": true,
         "error_aceptado": false,
-        "segundos": 19.39,
-        "detalle": "El modelo respondió NINGUNA."
+        "segundos": 0.01,
+        "detalle": ""
       },
       {
         "grupo": "negativo",
         "fault_name": "LAV WASTE TANK SENSOR INOP",
         "intervalo": "10 DAY",
         "esperado": "NINGUNA",
-        "respuesta_modelo": "NINGUNA",
+        "respuesta_modelo": "(reglas)",
         "final": "NINGUNA",
-        "acierto_modelo": true,
+        "acierto_modelo": null,
         "acierto_final": true,
         "error_aceptado": false,
-        "segundos": 20.71,
-        "detalle": "El modelo respondió NINGUNA."
+        "segundos": 0.01,
+        "detalle": ""
       },
       {
         "grupo": "negativo",
         "fault_name": "PAX SEAT 23C RECLINE INOP",
         "intervalo": "10 DAY",
         "esperado": "NINGUNA",
-        "respuesta_modelo": "NINGUNA",
+        "respuesta_modelo": "(reglas)",
         "final": "NINGUNA",
-        "acierto_modelo": true,
+        "acierto_modelo": null,
         "acierto_final": true,
         "error_aceptado": false,
-        "segundos": 20.11,
-        "detalle": "El modelo respondió NINGUNA."
+        "segundos": 0.01,
+        "detalle": ""
       },
       {
         "grupo": "negativo",
         "fault_name": "EMERGENCY LIGHT BATTERY PACK EXPIRING",
         "intervalo": "60 DAY",
         "esperado": "NINGUNA",
-        "respuesta_modelo": "NINGUNA",
+        "respuesta_modelo": "(reglas)",
         "final": "NINGUNA",
-        "acierto_modelo": true,
+        "acierto_modelo": null,
         "acierto_final": true,
         "error_aceptado": false,
-        "segundos": 24.54,
-        "detalle": "El modelo respondió NINGUNA."
+        "segundos": 0.01,
+        "detalle": ""
       }
     ]
   },
   "tiempos": {
-    "preparacion_s": 0.48,
-    "carga_modelo_s": 25.68,
-    "auditoria_s": 140.6,
-    "auditoria_consultas": 5,
-    "casos_s": 1043.67,
-    "casos_consultas": 45,
-    "total_s": 1217.89
+    "preparacion_s": 0.72,
+    "auditoria_s": 0.13,
+    "auditoria_consultas": 0,
+    "casos_s": 0.43,
+    "total_s": 1.15
   },
-  "costo_modelo": {
-    "consultas": 50,
-    "s_por_consulta": 23.65,
-    "s_p95": 31.34,
-    "s_max": 33.67,
-    "tokens_entrada_por_consulta": 335,
-    "tokens_salida_por_consulta": 15,
-    "tokens_por_s_entrada": 20.0,
-    "tokens_por_s_salida": 3.3,
-    "pct_tiempo_en_prompt": 78,
-    "memoria_gb": 5.28,
-    "memoria_gpu_gb": 0.0
-  }
+  "costo_modelo": null
 }

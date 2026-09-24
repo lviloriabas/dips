@@ -31,6 +31,8 @@ COLUMNAS = {
     "scheduled_date": ["Scheduled Date"],
     "usage_remaining": ["Usage Remaining"],
     "complete_date": ["Completed Date", "Fault Completed Date", "Completion Date"],
+    "referencia_tecnica": ["Technical References", "Technical Reference", "technical_references",
+                           "Referencias Técnicas", "Referencia Técnica", "Referencia Tecnica"],
 }
 OBLIGATORIAS = ["barcode", "nombre", "intervalo", "tipo_intervalo", "estado", "avion"]
 
@@ -235,7 +237,16 @@ def normalizar_lote(original: pd.DataFrame) -> tuple[pd.DataFrame, list[str]]:
             "scheduled_date": parse_fecha(v("scheduled_date")),
             "usage_remaining": parse_numero(v("usage_remaining")),
             "complete_date": parse_fecha(v("complete_date")),
+            # None = el Excel no trae el dato; "" = el DIP no tiene referencia técnica.
+            "referencia_tecnica": (parse_texto(v("referencia_tecnica"))
+                                   if "referencia_tecnica" in mapa else None),
             "correccion_fecha": correccion,
+            # True si hay con qué revisar la referencia técnica (descripción o columna de
+            # referencias en el Excel, o datos de ICAM).
+            "datos_referencia": "descripcion" in mapa or "referencia_tecnica" in mapa,
+            "intervalo_de_icam": False,
+            "notas_diferimiento": "",
+            "adjuntos": None,          # lista de nombres si se leyó ICAM; None = sin dato
         })
     # dtype=object conserva los None: si no, pandas los vuelve NaT/NaN, que son
     # verdaderos en un if y pasan los controles "is None" de las reglas.
@@ -264,3 +275,95 @@ def normalizar_lote(original: pd.DataFrame) -> tuple[pd.DataFrame, list[str]]:
         notas.append("El Excel no trae la descripción larga: la búsqueda de S/N y referencias "
                      "técnicas se hace solo sobre el Fault Name.")
     return datos, notas
+
+
+def _registros_icam(ruta: Path) -> dict[str, dict]:
+    """Datos de ICAM por barcode: referencia técnica, descripción, notas de diferimiento,
+    intervalos y adjuntos.
+
+    Acepta la carpeta que llena el extractor (`data/icam/`, un JSON por DIP), un JSON de
+    extracción (`dips_dataset.json` o `icam_dips.json`) o un CSV/Excel con las columnas
+    `barcode`, `technical_references` y, opcional, `description`. El texto de las
+    pestañas se interpreta con `icam.leer_ficha`.
+    """
+    import json
+
+    from .icam import leer_ficha
+
+    if ruta.is_dir() or ruta.suffix.lower() == ".json":
+        if ruta.is_dir():
+            registros = [json.loads(x.read_text(encoding="utf-8")) for x in sorted(ruta.glob("*.json"))]
+        else:
+            datos = json.loads(ruta.read_text(encoding="utf-8"))
+            registros = datos["records"] if isinstance(datos, dict) else datos
+        salida = {}
+        for r in registros:
+            if r.get("icam_capture_status", "six_tabs") != "six_tabs":
+                continue  # solo vino del Excel: no hay datos de ICAM
+            secciones = (r.get("icam_detail") or r).get("sections", {})
+            ficha = leer_ficha(secciones, parse_texto(r["barcode"]), parse_texto(r.get("page_title")))
+            salida[ficha.barcode] = {
+                "referencia_tecnica": "; ".join(ficha.referencias_tecnicas),
+                "descripcion": ficha.descripcion,
+                "notas_diferimiento": ficha.notas_diferimiento,
+                "adjuntos": ficha.adjuntos,
+                "intervalos": [{"value": i.valor, "parameter": i.parametro, "unit": i.unidad}
+                               for i in ficha.intervalos],
+            }
+        return salida
+    if ruta.suffix.lower() == ".csv":
+        extra = pd.read_csv(ruta, dtype=str, keep_default_na=False, encoding="utf-8-sig")
+    else:
+        extra = pd.read_excel(ruta, dtype=str).fillna("")
+    columnas = {c.lower().strip(): c for c in extra.columns}
+    col_barcode = columnas.get("barcode") or columnas.get("fault barcode")
+    col_ref = next((columnas[a.lower()] for a in COLUMNAS["referencia_tecnica"]
+                    if a.lower() in columnas), None)
+    col_desc = columnas.get("description") or columnas.get("descripcion")
+    if not col_barcode or not col_ref:
+        raise ErrorCarga(f"El archivo de ICAM {ruta.name} debe tener las columnas 'barcode' y "
+                         "'technical_references'.")
+    return {parse_texto(r[col_barcode]): {"referencia_tecnica": parse_texto(r[col_ref]),
+                                          "descripcion": parse_texto(r[col_desc]) if col_desc else "",
+                                          "notas_diferimiento": "", "adjuntos": None,
+                                          "intervalos": []}
+            for _, r in extra.iterrows()}
+
+
+def completar_con_icam(lote: Lote, ruta: Path) -> int:
+    """Agrega al lote los datos extraídos de ICAM, por barcode.
+
+    - Referencia técnica y descripción: para revisar la referencia del manual.
+    - Intervalo: solo si el Excel de entrada no lo trae (queda anotado en el DIP).
+    Un barcode que no está en el archivo queda sin el dato y no se revisa.
+    Devuelve cuántos DIPs del lote se completaron.
+    """
+    ruta = Path(ruta)
+    registros = _registros_icam(ruta)
+    datos = lote.datos
+    completados = intervalos = 0
+    for i, barcode in datos["barcode"].items():
+        r = registros.get(barcode)
+        if r is None:
+            continue
+        completados += 1
+        datos.at[i, "datos_referencia"] = True
+        datos.at[i, "referencia_tecnica"] = r["referencia_tecnica"]
+        if r["descripcion"]:
+            datos.at[i, "descripcion"] = r["descripcion"]
+        datos.at[i, "notas_diferimiento"] = r["notas_diferimiento"]
+        datos.at[i, "adjuntos"] = r["adjuntos"]
+        if datos.at[i, "intervalo"] is None and r["intervalos"]:
+            primero = r["intervalos"][0]
+            valor = parse_numero(primero.get("value") or primero.get("interval"))
+            unidad = normalizar_unidad(primero.get("parameter")) or normalizar_unidad(
+                primero.get("unit"))
+            if valor is not None and unidad:
+                datos.at[i, "intervalo"] = valor
+                datos.at[i, "unidad"] = unidad
+                datos.at[i, "tipo_intervalo_original"] = parse_texto(primero.get("parameter"))
+                datos.at[i, "intervalo_de_icam"] = True
+                intervalos += 1
+    lote.notas.append(f"Datos de ICAM ({ruta.name}): {completados} de {len(datos)} DIPs"
+                      + (f"; intervalo tomado de ICAM en {intervalos}." if intervalos else "."))
+    return completados

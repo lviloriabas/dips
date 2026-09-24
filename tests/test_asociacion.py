@@ -119,6 +119,14 @@ def test_llm_sugerencia_con_intervalo_incompatible_se_descarta(catalogo):
     assert a.entrada is None and "no es compatible" in a.detalle
 
 
+def test_llm_sugerencia_sin_intervalo_se_descarta(catalogo):
+    """Sin intervalo no se puede validar: no se acepta aunque comparta palabras."""
+    llm = LLMFalso(catalogo.por_id("OXIGENO_PORTATIL"))
+    a = asociar("DIP - REPLACE PAX OXYGEN GENERATORS ON ROW 17 ABC", catalogo, llm, None, None)
+    assert a.entrada is None and a.propuesta == "OXIGENO_PORTATIL"
+    assert "no tiene intervalo" in a.detalle
+
+
 def test_llm_sugerencia_con_palabra_excluida_se_descarta(catalogo):
     llm = LLMFalso(catalogo.por_id("FDR"))
     a = asociar("DIP-31 UNDERWATER LOCATOR BEACON(FDR)", catalogo, llm, 30, "DAY")

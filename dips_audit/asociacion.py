@@ -49,14 +49,14 @@ class ParametrosAsociacion:
 @dataclass
 class Asociacion:
     entrada: EntradaCatalogo | None
-    metodo: str            # REGLAS, IA, AMBIGUA, NINGUNA
+    metodo: str            # REGLAS, REF_TECNICA, IA, AMBIGUA, NINGUNA
     detalle: str = ""
     candidatos: list[str] = field(default_factory=list)
     propuesta: str | None = None  # ID que propuso el modelo, aunque se haya descartado
 
     @property
     def confianza(self) -> str:
-        return {"REGLAS": "ALTA", "IA": "MEDIA"}.get(self.metodo, "BAJA")
+        return {"REGLAS": "ALTA", "REF_TECNICA": "ALTA", "IA": "MEDIA"}.get(self.metodo, "BAJA")
 
 
 def palabras_clave(texto_normalizado: str) -> set[str]:
@@ -72,9 +72,44 @@ def _equivalentes(entradas: list[EntradaCatalogo]) -> bool:
     return all(firma(e) == firma(primera) for e in entradas[1:])
 
 
+def _palabra_parecida(a: str, b: str) -> bool:
+    """Igual, o con un error de escritura en palabras de 5 letras o más (FUNIGATION ~ FUMIGATION).
+    En palabras cortas y siglas un cambio de letra es otra palabra (ELT/EMK)."""
+    return a == b or (min(len(a), len(b)) >= 5 and fuzz.ratio(a, b) >= 85)
+
+
+def _frase_aproximada(palabras: list[str], frase: str) -> tuple[str, str] | None:
+    """(texto encontrado, frase) si la frase aparece con errores de escritura, o None."""
+    f = normalizar(frase).split()
+    for i in range(len(palabras) - len(f) + 1):
+        tramo = palabras[i:i + len(f)]
+        if f and all(_palabra_parecida(p, q) for p, q in zip(tramo, f)):
+            return " ".join(tramo), " ".join(f)
+    return None
+
+
+def coincide_aproximado(entrada: EntradaCatalogo, nombre_normalizado: str
+                        ) -> tuple[int, list[tuple[str, str]]] | None:
+    """Como EntradaCatalogo.coincide, tolerando errores de escritura. Devuelve
+    (puntaje, [(texto del DIP, frase del catálogo) que no son idénticas]) o None."""
+    palabras = nombre_normalizado.split()
+    if any(_frase_aproximada(palabras, x) for x in entrada.excluir):
+        return None
+    puntaje, distintas = 0, []
+    for grupo in entrada.requiere:
+        encontradas = [(f, m) for f in grupo if (m := _frase_aproximada(palabras, f))]
+        if not encontradas:
+            return None
+        frase, (texto, normal) = max(encontradas, key=lambda x: len(normalizar(x[0])))
+        puntaje += 100 + len(normalizar(frase))
+        if texto != normal:
+            distintas.append((texto, normal))
+    return puntaje, distintas
+
+
 def _puntaje_palabras(consulta: set[str], texto: set[str]) -> float:
     """Suma, por cada palabra de la consulta, su mejor parecido con una palabra
-    del texto (tolera errores de tipeo: BOTLE ~ BOTTLE, HALOM ~ HALON)."""
+    del texto (tolera errores de escritura: BOTLE ~ BOTTLE, HALOM ~ HALON)."""
     total = 0.0
     for q in consulta:
         mejor = max((fuzz.ratio(q, t) for t in texto), default=0)
@@ -97,7 +132,7 @@ def sugerir(nombre_normalizado: str, catalogo: Catalogo, limite: int = 6) -> lis
 
 def comparte_palabra_distintiva(nombre_normalizado: str, entrada: EntradaCatalogo) -> bool:
     """True si el Fault Name y la entrada comparten una palabra no genérica
-    (con tolerancia a errores de tipeo: FUMIGATON ~ FUMIGATION)."""
+    (con tolerancia a errores de escritura: FUMIGATON ~ FUMIGATION)."""
     propias = palabras_clave(entrada.texto_busqueda()) - _GENERICAS
     return any(fuzz.ratio(p, q) >= (75 if min(len(p), len(q)) >= 7 else 80)
                for p in palabras_clave(nombre_normalizado) - _GENERICAS
@@ -165,6 +200,20 @@ def asociar(nombre: str, catalogo: Catalogo, llm=None, intervalo: float | None =
             coincidencias.append((e, puntaje))
     coincidencias.sort(key=lambda x: -x[1])
 
+    if not coincidencias:
+        # Mismas palabras clave, tolerando errores de escritura. Se acepta solo si una única
+        # entrada (o entradas equivalentes) coincide: es tan exigente como la exacta.
+        aproximadas = [(e, r) for e in catalogo.entradas
+                       if (r := coincide_aproximado(e, n)) is not None]
+        if aproximadas:
+            mejor = max(p for _, (p, _) in aproximadas)
+            empatadas = [(e, r) for e, r in aproximadas if r[0] == mejor]
+            if len(empatadas) == 1 or _equivalentes([e for e, _ in empatadas]):
+                e, (_, distintas) = empatadas[0]
+                detalle = ", ".join(f"'{t}' se leyó como '{f}'" for t, f in distintas) + "."
+                return Asociacion(e, "REGLAS", detalle=detalle,
+                                  candidatos=[x.id for x, _ in aproximadas])
+
     if coincidencias:
         mejor, puntaje = coincidencias[0]
         empatadas = [e for e, p in coincidencias if p == puntaje]
@@ -186,6 +235,11 @@ def asociar(nombre: str, catalogo: Catalogo, llm=None, intervalo: float | None =
             elif not comparte_palabra_distintiva(n, elegido):
                 justificacion = (f"La IA propuso {elegido.id}, pero se descartó: no comparte "
                                  f"palabras distintivas con el Fault Name.")
+            elif intervalo is None or unidad is None:
+                # Sin intervalo no hay con qué validar la sugerencia: en el histórico, así
+                # se aceptaron generadores de oxígeno como botellas (discrepancias falsas).
+                justificacion = (f"La IA propuso {elegido.id}, pero se descartó: el DIP no "
+                                 f"tiene intervalo para validar la sugerencia.")
             elif not intervalo_compatible(elegido, intervalo, unidad,
                                           fraccion_minima=parametros.fraccion_minima_ta):
                 justificacion = (f"La IA propuso {elegido.id}, pero se descartó: el intervalo "

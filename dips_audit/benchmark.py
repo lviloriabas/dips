@@ -1,15 +1,19 @@
-"""Benchmark del auditor de DIPs. Es uno solo y no tiene opciones.
+"""Benchmark del auditor de DIPs, en dos modos que se corren y se reportan por separado.
 
-Con los datos de la carpeta benchmark/ mide:
-  1. Auditoría: audita los DIPs de dips_auditados.xlsx con reglas y modelo local y
-     compara el resultado con el veredicto del auditor.
-  2. Modelo local: en casos_modelo_local.yaml (Fault Names que las reglas no
-     resuelven, con la referencia correcta) mide cuántos asocia bien el modelo.
-  3. Tiempos de cada etapa y costo de cada consulta al modelo (tokens, RAM).
+  sin_modelo: solo reglas, como `auditar` sin --llm. Tarda unos segundos.
+  con_modelo: reglas + modelo local, como `auditar --llm`. Necesita Ollama.
 
-El resultado se guarda en benchmark/resultados/ (JSON para guardar y comparar,
-Markdown para leer) y se compara con benchmark/linea_base.json, que es la copia
-de un resultado anterior. Los ajustes que se evalúan están en config/config.yaml.
+Con los datos de la carpeta benchmark/, cada modo mide:
+  1. Auditoría: audita los DIPs de dips_auditados.xlsx y compara el resultado con
+     el veredicto del auditor.
+  2. Casos: en casos_modelo_local.yaml (Fault Names que las reglas no resuelven,
+     con la referencia correcta) mide cuántos quedan bien asociados.
+  3. Tiempos de cada etapa y, con modelo, el costo de cada consulta (tokens, RAM).
+
+El resultado se guarda en benchmark/resultados/<modo>/ (JSON para guardar y
+comparar, Markdown para leer) y se compara con benchmark/linea_base_<modo>.json,
+que es la copia de un resultado anterior del mismo modo. Los ajustes que se
+evalúan están en config/config.yaml.
 """
 
 from __future__ import annotations
@@ -39,16 +43,21 @@ from .referencias import normalizar_unidad
 CARPETA = RAIZ / "benchmark"
 DATOS = CARPETA / "dips_auditados.xlsx"
 CASOS = CARPETA / "casos_modelo_local.yaml"
-LINEA_BASE = CARPETA / "linea_base.json"
-RESULTADOS = CARPETA / "resultados"
-FORMATO = 1  # versión del formato del JSON de resultados
+RESULTADOS = CARPETA / "resultados"  # una subcarpeta por modo
+FORMATO = 2  # versión del formato del JSON de resultados
 
-# Indicadores del modelo en los casos etiquetados: clave, descripción y si
-# conviene que suba (True) o que baje (False).
-INDICADORES_MODELO = [
-    ("aciertos_finales", "Casos bien resueltos (después de validar)", True),
+# Modos del benchmark: título y línea de comando que lo corre.
+MODOS = {
+    "sin_modelo": ("Sin modelo local (solo reglas)", "benchmark_sin_modelo.bat"),
+    "con_modelo": ("Con modelo local (reglas + modelo)", "benchmark_con_modelo.bat"),
+}
+
+# Indicadores de los casos etiquetados: clave, descripción y si conviene que suba
+# (True) o que baje (False). El último solo existe con modelo.
+INDICADORES_CASOS = [
+    ("aciertos_finales", "Casos bien resueltos", True),
     ("con_referencia", "Con referencia: asociados a la correcta", True),
-    ("sin_referencia", "Sin referencia: rechazados (NINGUNA)", True),
+    ("sin_referencia", "Sin referencia: no se asocian a ninguna", True),
     ("errores_aceptados", "Referencia equivocada aceptada (el error peligroso)", False),
     ("aciertos_modelo", "Respuesta del modelo correcta, antes de validar", True),
 ]
@@ -61,8 +70,8 @@ METODOS = {
                           "No pasó la validación. Queda en REVISAR sin referencia."),
     "modelo_ninguna": ("Modelo local: respondió NINGUNA", "NINGUNA",
                        "Queda en REVISAR sin referencia."),
-    "sin_referencia": ("Sin referencia (no se consultó el modelo)", "no consultado",
-                       "Queda en REVISAR."),
+    "sin_referencia": ("Sin referencia (sin modelo)", "-",
+                       "Queda en REVISAR sin referencia: el auditor la busca."),
 }
 _ACUERDO = {"Ambos marcan": "Ambos marcan", "Ambos OK": "Ambos OK",
             "Solo humano": "Solo el auditor marca", "Solo IA": "Solo el programa marca"}
@@ -98,6 +107,7 @@ def _evaluar_caso(caso: Caso, auditor: Auditor, cliente) -> dict:
     inicio = time.perf_counter()
     a = asociar(caso.nombre, catalogo, cliente, caso.intervalo, caso.unidad, auditor.parametros)
     segundos = time.perf_counter() - inicio
+    consultado = cliente is not None and a.metodo != "REGLAS"
     esperado = catalogo.por_id(caso.esperado)
 
     def correcto(id_: str | None) -> bool:
@@ -107,12 +117,12 @@ def _evaluar_caso(caso: Caso, auditor: Auditor, cliente) -> dict:
                                         and _equivalentes([entrada, esperado]))
 
     final = a.entrada.id if a.entrada else "NINGUNA"
-    respuesta = "(reglas)" if a.metodo == "REGLAS" else (a.propuesta or "NINGUNA")
+    respuesta = (a.propuesta or "NINGUNA") if consultado else "(reglas)"
     return {
         "grupo": caso.grupo, "fault_name": caso.nombre,
         "intervalo": f"{caso.intervalo:g} {caso.unidad}", "esperado": caso.esperado,
         "respuesta_modelo": respuesta, "final": final,
-        "acierto_modelo": correcto(a.propuesta or "NINGUNA") if a.metodo != "REGLAS" else None,
+        "acierto_modelo": correcto(a.propuesta or "NINGUNA") if consultado else None,
         "acierto_final": correcto(final),
         "error_aceptado": a.entrada is not None and not correcto(final),
         "segundos": round(segundos, 2), "detalle": a.detalle,
@@ -122,8 +132,8 @@ def _evaluar_caso(caso: Caso, auditor: Auditor, cliente) -> dict:
 class CandidatoMasParecido:
     """Alternativa sin modelo: elige siempre el candidato más parecido al Fault Name.
 
-    Pasa por la misma validación que el modelo. Sirve de referencia: si el modelo
-    no la supera, no aporta nada a cambio de su costo.
+    Pasa por la misma validación que el modelo. Solo se mide en el modo con modelo,
+    como comparación; el programa no la usa.
     """
 
     def elegir_categoria(self, nombre, candidatos, intervalo=""):
@@ -135,18 +145,20 @@ def _indicador(aciertos: int, total: int) -> dict:
             "pct": round(aciertos / total * 100, 1) if total else 0.0}
 
 
-def _indicadores_casos(detalle: list[dict]) -> dict[str, dict]:
+def _indicadores_casos(detalle: list[dict], con_modelo: bool) -> dict[str, dict]:
     pos = [d for d in detalle if d["grupo"] == "positivo"]
     neg = [d for d in detalle if d["grupo"] == "negativo"]
-    consultados = [d for d in detalle if d["acierto_modelo"] is not None]
-    return {
+    salida = {
         "aciertos_finales": _indicador(sum(d["acierto_final"] for d in detalle), len(detalle)),
         "con_referencia": _indicador(sum(d["acierto_final"] for d in pos), len(pos)),
         "sin_referencia": _indicador(sum(d["acierto_final"] for d in neg), len(neg)),
         "errores_aceptados": _indicador(sum(d["error_aceptado"] for d in detalle), len(detalle)),
-        "aciertos_modelo": _indicador(sum(d["acierto_modelo"] for d in consultados),
-                                      len(consultados)),
     }
+    if con_modelo:
+        consultados = [d for d in detalle if d["acierto_modelo"] is not None]
+        salida["aciertos_modelo"] = _indicador(sum(d["acierto_modelo"] for d in consultados),
+                                               len(consultados))
+    return salida
 
 
 # --------------------------------------------------------------------------
@@ -282,11 +294,14 @@ class Plan:
     auditor: Auditor
     reglas: Evaluacion           # auditoría solo con reglas (tarda menos de un segundo)
     casos: list[Caso]
-    llm: ClienteOllama | None
-    sin_modelo: str              # motivo, si el modelo no está disponible
+    llm: ClienteOllama | None    # None = modo sin modelo
     dips_con_modelo: set[int]    # DIPs que las reglas no asocian: se consultan al modelo
     casos_con_modelo: set[int]
     anterior: dict | None        # último resultado con el mismo modelo (para estimar)
+
+    @property
+    def modo(self) -> str:
+        return "con_modelo" if self.llm else "sin_modelo"
 
     @property
     def consultas_previstas(self) -> int:
@@ -303,8 +318,10 @@ class Plan:
                 + (self.anterior["tiempos"].get("carga_modelo_s") or 0))
 
 
-def preparar(config: dict, llm: ClienteOllama | None, sin_modelo: str = "") -> Plan:
-    """Lee los datos, audita solo con reglas y cuenta cuántas consultas al modelo habrá."""
+def preparar(config: dict, llm: ClienteOllama | None = None) -> Plan:
+    """Lee los datos, audita solo con reglas y cuenta cuántas consultas al modelo habrá.
+
+    Sin `llm` el benchmark es el del modo sin modelo."""
     auditor = Auditor(config)
     reglas = evaluar(auditor, DATOS)
     casos = cargar_casos()
@@ -313,8 +330,8 @@ def preparar(config: dict, llm: ClienteOllama | None, sin_modelo: str = "") -> P
     casos_con_modelo = {i for i, c in enumerate(casos)
                         if asociar(c.nombre, auditor.catalogo, None, c.intervalo, c.unidad,
                                    auditor.parametros).metodo != "REGLAS"}
-    return Plan(config, auditor, reglas, casos, llm, sin_modelo, dips_con_modelo,
-                casos_con_modelo, _anterior(llm.modelo) if llm else None)
+    return Plan(config, auditor, reglas, casos, llm, dips_con_modelo, casos_con_modelo,
+                _anterior(llm.modelo) if llm else None)
 
 
 def descripcion(plan: Plan) -> dict:
@@ -323,19 +340,20 @@ def descripcion(plan: Plan) -> dict:
     humanos = plan.reglas.comparacion["ESTADO HUMANO"].value_counts()
     return {
         "formato": FORMATO,
+        "modo": plan.modo,
         "fecha": f"{datetime.now():%Y-%m-%d %H:%M}",
         "version_programa": __version__,
         "datos": {
             "archivo": _relativa(DATOS), "dips": len(plan.reglas.comparacion),
             "veredictos_auditor": {e: int(humanos.get(e, 0)) for e in
                                    ["OK", "DISCREPANCIA NO CRÍTICA", "DISCREPANCIA CRÍTICA"]},
-            "archivo_casos": _relativa(CASOS), "casos_modelo": len(plan.casos),
+            "archivo_casos": _relativa(CASOS), "casos": len(plan.casos),
             "dips_sin_referencia_por_reglas": len(plan.dips_con_modelo),
         },
-        "modelo_local": {"modelo": plan.llm.modelo if plan.llm else config["llm"]["modelo"],
-                         "disponible": plan.llm is not None, "motivo": plan.sin_modelo},
+        "modelo_local": plan.llm.modelo if plan.llm else None,
         "configuracion": {
-            "llm": {k: v for k, v in config["llm"].items() if k != "url"},
+            **({"llm": {k: v for k, v in config["llm"].items() if k != "url"}}
+               if plan.llm else {}),
             "tolerancias": config.get("tolerancias", {}),
             "severidades": config.get("severidades", {}),
             "catalogo": {"archivo": _relativa(config["catalogo"]),
@@ -350,7 +368,7 @@ def descripcion(plan: Plan) -> dict:
 def texto_plan(plan: Plan) -> str:
     """Cuántas consultas al modelo habrá y cuánto se estima que tarde todo."""
     if not plan.llm:
-        return "**Plan:** solo reglas; tarda unos segundos."
+        return "**Plan:** solo reglas, sin consultas al modelo; tarda unos segundos."
     texto = (f"**Plan:** {plan.consultas_previstas} consultas al modelo "
              f"({len(plan.dips_con_modelo)} DIPs de la auditoría y "
              f"{len(plan.casos_con_modelo)} casos). ")
@@ -362,7 +380,7 @@ def texto_plan(plan: Plan) -> str:
 
 
 def ejecutar(plan: Plan, avance: Avance) -> dict:
-    """Corre las etapas con el modelo y devuelve el resultado (se guarda como JSON)."""
+    """Corre las etapas del modo del plan y devuelve el resultado (se guarda como JSON)."""
     llm = plan.llm
     tiempos: dict[str, float | int | None] = {"preparacion_s": round(avance.transcurrido, 2)}
     avance.previstas = plan.consultas_previstas
@@ -401,11 +419,11 @@ def ejecutar(plan: Plan, avance: Avance) -> dict:
         tiempos["auditoria_s"] = round(plan.reglas.metricas["segundos"], 2)
     tiempos["auditoria_consultas"] = llm.consultas if llm else 0
 
-    # Casos etiquetados del modelo local.
-    casos = None
+    # Casos etiquetados: Fault Names que las reglas no resuelven.
+    inicio = time.perf_counter()
     if llm:
         avance.nueva_etapa(f"Modelo local: {len(plan.casos)} casos de asociación")
-        inicio, antes = time.perf_counter(), llm.consultas
+        antes = llm.consultas
         observado = _Observado(llm, avance)
         detalle = []
         for i, caso in enumerate(plan.casos):
@@ -413,26 +431,38 @@ def ejecutar(plan: Plan, avance: Avance) -> dict:
             detalle.append(_evaluar_caso(caso, plan.auditor, observado))
             if i in plan.casos_con_modelo:
                 avance.hecha(sum(m.segundos for m in llm.mediciones[previas:]))
-        tiempos["casos_s"] = round(time.perf_counter() - inicio, 2)
         tiempos["casos_consultas"] = llm.consultas - antes
-        sin_modelo = [_evaluar_caso(c, plan.auditor, CandidatoMasParecido()) for c in plan.casos]
-        casos = {"indicadores": _indicadores_casos(detalle),
-                 "indicadores_sin_modelo": _indicadores_casos(sin_modelo), "casos": detalle}
         llm.descargar_de_memoria()
+    else:
+        detalle = [_evaluar_caso(c, plan.auditor, None) for c in plan.casos]
+    tiempos["casos_s"] = round(time.perf_counter() - inicio, 2)
+    casos = {"indicadores": _indicadores_casos(detalle, llm is not None)}
+    if llm:
+        # Qué pasaría con los mismos casos sin el modelo (se calcula al instante).
+        casos["comparacion"] = {
+            "solo_reglas": _indicadores_casos(
+                [_evaluar_caso(c, plan.auditor, None) for c in plan.casos], False),
+            "mas_parecido": _indicadores_casos(
+                [_evaluar_caso(c, plan.auditor, CandidatoMasParecido()) for c in plan.casos],
+                False),
+        }
+    casos["casos"] = detalle
     tiempos["total_s"] = round(avance.transcurrido, 2)
 
+    auditoria = {"indicadores": indicadores(ev.metricas)}
+    if llm:
+        auditoria["indicadores_solo_reglas"] = indicadores(plan.reglas.metricas)
     return {
         **descripcion(plan),
         "auditoria": {
-            "indicadores": indicadores(ev.metricas),
-            "indicadores_solo_reglas": indicadores(plan.reglas.metricas),
+            **auditoria,
             "matriz": {h: {p: int(v) for p, v in fila.items()} for h, fila in ev.matriz.iterrows()},
             "por_tema": {t: {"auditor": a, "programa_marca": b, "programa_algun_hallazgo": c}
                          for t, (a, b, c) in ev.metricas["por_tema"].items()},
             "hallazgos_en_ok_del_auditor": ev.metricas["codigos_en_humano_ok"],
             "dips": _dips(ev, plan.reglas, llm is not None),
         },
-        "casos_modelo": casos,
+        "casos": casos,
         "tiempos": tiempos,
         "costo_modelo": _costo(llm, memoria) if llm else None,
     }
@@ -545,24 +575,31 @@ def _leer(ruta: Path) -> dict | None:
     return datos if isinstance(datos, dict) and datos.get("formato") == FORMATO else None
 
 
-def cargar_linea_base(ruta: Path = LINEA_BASE) -> dict | None:
-    return _leer(ruta)
+def linea_base(modo: str) -> Path:
+    return CARPETA / f"linea_base_{modo}.json"
+
+
+def cargar_linea_base(modo: str) -> dict | None:
+    base = _leer(linea_base(modo))
+    return base if base and base.get("modo") == modo else None
 
 
 def _anterior(modelo: str) -> dict | None:
     """Último resultado medido con el mismo modelo (sirve para estimar el tiempo)."""
-    candidatos = sorted(RESULTADOS.glob("*.json"), reverse=True) if RESULTADOS.exists() else []
-    for ruta in candidatos + [LINEA_BASE]:
+    carpeta = RESULTADOS / "con_modelo"
+    candidatos = sorted(carpeta.glob("*.json"), reverse=True) if carpeta.exists() else []
+    for ruta in candidatos + [linea_base("con_modelo")]:
         r = _leer(ruta)
-        if (r and r["modelo_local"]["modelo"] == modelo and r["modelo_local"]["disponible"]
+        if (r and r.get("modo") == "con_modelo" and r["modelo_local"] == modelo
                 and (r.get("costo_modelo") or {}).get("s_por_consulta")):
             return r
     return None
 
 
 def guardar(resultado: dict, base: dict | None, carpeta: Path | None = None) -> tuple[Path, Path]:
-    """Guarda el resultado en JSON (para guardar) y en Markdown (para leer)."""
-    carpeta = carpeta or RESULTADOS
+    """Guarda el resultado en JSON (para guardar) y en Markdown (para leer), en la
+    subcarpeta de su modo."""
+    carpeta = (carpeta or RESULTADOS) / resultado["modo"]
     carpeta.mkdir(parents=True, exist_ok=True)
     nombre = datetime.now().strftime("%Y-%m-%d_%H%M%S")
     ruta_json, ruta_md = carpeta / f"{nombre}.json", carpeta / f"{nombre}.md"
@@ -576,53 +613,34 @@ def comparable(resultado: dict, base: dict | None) -> str:
     """Motivo por el que la línea base no se puede comparar ("" si se puede)."""
     if base is None:
         return "No hay línea base."
+    if base["modo"] != resultado["modo"]:
+        return "La línea base es de otro modo."
     antes, ahora = base["datos"], resultado["datos"]
-    if (antes["dips"], antes["casos_modelo"]) != (ahora["dips"], ahora["casos_modelo"]):
+    if (antes["dips"], antes["casos"]) != (ahora["dips"], ahora["casos"]):
         return (f"La línea base se midió con otros datos ({antes['dips']} DIPs y "
-                f"{antes['casos_modelo']} casos; ahora {ahora['dips']} y {ahora['casos_modelo']}).")
+                f"{antes['casos']} casos; ahora {ahora['dips']} y {ahora['casos']}).")
     return ""
-
-
-def _previos_auditoria(resultado: dict, base: dict | None) -> dict:
-    """Indicadores de la línea base comparables con los de esta corrida.
-
-    Una corrida sin modelo (p. ej. una PC sin Ollama) se compara con los indicadores
-    solo con reglas de la línea base. Si la línea base no usó el modelo y esta sí, la
-    auditoría no se compara.
-    """
-    if base is None or comparable(resultado, base):
-        return {}
-    con_modelo = resultado["modelo_local"]["disponible"]
-    if con_modelo == base["modelo_local"]["disponible"]:
-        return base["auditoria"]["indicadores"]
-    return {} if con_modelo else base["auditoria"]["indicadores_solo_reglas"]
 
 
 def _nota_modelo(resultado: dict, base: dict | None) -> str:
-    if base is None or comparable(resultado, base):
+    if base is None or comparable(resultado, base) or base["modelo_local"] == resultado[
+            "modelo_local"]:
         return ""
-    antes, ahora = base["modelo_local"], resultado["modelo_local"]
-    if ahora["disponible"] and not antes["disponible"]:
-        return "La línea base se midió sin modelo local: la auditoría no se compara."
-    if antes["disponible"] and not ahora["disponible"]:
-        return "Sin modelo local: se compara con la línea base medida solo con reglas."
-    if antes["modelo"] != ahora["modelo"]:
-        return f"La línea base usó el modelo {antes['modelo']}."
-    return ""
+    return f"La línea base usó el modelo {base['modelo_local']}."
 
 
 def _grupos(resultado: dict, base: dict | None):
-    """(grupo, descripción, sube, actual, previo) de cada indicador que se compara."""
-    usar_base = base if not comparable(resultado, base) else None
-    previos = _previos_auditoria(resultado, base)
+    """(grupo, clave, descripción, sube, actual, previo) de cada indicador que se compara."""
+    usar_base = (base if not comparable(resultado, base) else None) or {}
+    previos = usar_base.get("auditoria", {}).get("indicadores", {})
     for clave, descripcion, _, sube in INDICADORES:
-        yield ("auditoria", descripcion, sube, resultado["auditoria"]["indicadores"][clave],
-               previos.get(clave))
-    if resultado["casos_modelo"]:
-        previos = ((usar_base or {}).get("casos_modelo") or {}).get("indicadores", {})
-        for clave, descripcion, sube in INDICADORES_MODELO:
-            yield ("casos_modelo", descripcion, sube,
-                   resultado["casos_modelo"]["indicadores"][clave], previos.get(clave))
+        yield ("auditoria", clave, descripcion, sube,
+               resultado["auditoria"]["indicadores"][clave], previos.get(clave))
+    actuales = resultado["casos"]["indicadores"]
+    previos = usar_base.get("casos", {}).get("indicadores", {})
+    for clave, descripcion, sube in INDICADORES_CASOS:
+        if clave in actuales:
+            yield "casos", clave, descripcion, sube, actuales[clave], previos.get(clave)
 
 
 def _peor(actual: dict, previo: dict | None, sube: bool) -> bool:
@@ -634,14 +652,8 @@ def _peor(actual: dict, previo: dict | None, sube: bool) -> bool:
 
 def empeoraron(resultado: dict, base: dict | None) -> list[str]:
     """Indicadores que quedaron peor que en la línea base."""
-    return [d for _, d, sube, actual, previo in _grupos(resultado, base)
+    return [d for _, _, d, sube, actual, previo in _grupos(resultado, base)
             if _peor(actual, previo, sube)]
-
-
-def comparar_indicadores(actuales: dict, previos: dict) -> list[str]:
-    """Como `empeoraron`, pero solo con los indicadores de la auditoría."""
-    return [d for clave, d, _, sube in INDICADORES
-            if _peor(actuales[clave], previos.get(clave), sube)]
 
 
 # --------------------------------------------------------------------------
@@ -679,11 +691,31 @@ def _fecha_legible(fecha: str) -> str:
 
 def como_se_audita(r: dict, estimado: str = "") -> str:
     """Explicación del método. Se muestra antes de empezar y queda en el Markdown."""
-    datos, c, m = r["datos"], r["configuracion"], r["modelo_local"]
+    datos, c, modelo = r["datos"], r["configuracion"], r["modelo_local"]
     v = datos["veredictos_auditor"]
-    llm = c["llm"]
-    modelo = (f"`{m['modelo']}` (Ollama, en este equipo)" if m["disponible"]
-              else f"`{m['modelo']}`, **no disponible en esta corrida**: se miden solo las reglas")
+    sin_reglas = f"{datos['dips_sin_referencia_por_reglas']} de {datos['dips']}"
+    if modelo:
+        tercero = (
+            f"3. **Modelo local (solo asocia).** `{modelo}` (Ollama, en este equipo). Se usa "
+            f"solo con los DIPs que las reglas no asocian ({sin_reglas}): elige entre "
+            f"{c['llm'].get('candidatos', 6)} referencias candidatas o responde NINGUNA. La "
+            "sugerencia se descarta si no comparte una palabra distintiva con el Fault Name o si "
+            "el intervalo no es compatible. Lo que sugiere queda en REVISAR: nunca decide OK ni "
+            "discrepancia. Es lo que hace `auditar --llm`.")
+        quinto = (
+            f"5. **Casos.** {datos['casos']} Fault Names que las reglas no resuelven, con la "
+            f"referencia correcta, en `{datos['archivo_casos']}`. Miden si el modelo acierta y "
+            "cuánto tarda, frente a no usar el modelo.")
+    else:
+        tercero = (
+            f"3. **Sin modelo local.** Los DIPs que las reglas no asocian ({sin_reglas}) quedan "
+            "en REVISAR sin referencia, y el auditor la busca. Es lo que hace `auditar` sin "
+            "`--llm`. No necesita Ollama.")
+        quinto = (
+            f"5. **Casos.** {datos['casos']} Fault Names que las reglas no resuelven, con la "
+            f"referencia correcta, en `{datos['archivo_casos']}`. Sin modelo, los que no tienen "
+            "referencia en la tabla quedan bien (sin referencia) y los que sí tienen quedan en "
+            "REVISAR sin referencia. Sirven para comparar con el modo con modelo.")
     return "\n".join([
         f"1. **Datos.** {datos['dips']} DIPs Others ya auditados por personas (jul-ago 2026): "
         f"{v['OK']} OK, {v['DISCREPANCIA NO CRÍTICA']} con discrepancia no crítica y "
@@ -696,36 +728,33 @@ def como_se_audita(r: dict, estimado: str = "") -> str:
         f"`{c['referencias']['archivo']}` por palabras clave (`{c['catalogo']['archivo']}`) y "
         "verifican intervalo, tipo de intervalo, parent assy, due date, vencidos, duplicados, "
         "S/N y deferral reference.",
-        f"3. **Modelo local (solo asocia).** {modelo}. Se usa solo con los DIPs que las reglas "
-        f"no asocian ({datos['dips_sin_referencia_por_reglas']} de {datos['dips']}): elige "
-        f"entre {llm.get('candidatos', 6)} referencias candidatas o responde NINGUNA. La "
-        "sugerencia se descarta si no comparte una palabra distintiva con el Fault Name o si "
-        "el intervalo no es compatible. Lo que sugiere queda en REVISAR: nunca decide OK ni "
-        "discrepancia.",
+        tercero,
         "4. **Comparación.** El auditor da OK o discrepancia. El programa marca un DIP si lo "
         "deja con discrepancia o en REVISAR.",
-        f"5. **Modelo local por separado.** {datos['casos_modelo']} Fault Names que las reglas "
-        f"no resuelven, con la referencia correcta, en `{datos['archivo_casos']}`. Miden si el "
-        "modelo acierta y cuánto tarda.",
+        quinto,
     ] + ([f"\n{estimado}"] if estimado else []))
+
+
+def titulo(r: dict) -> str:
+    return f"Benchmark del auditor de DIPs: {MODOS[r['modo']][0].lower()}"
 
 
 def a_markdown(r: dict, base: dict | None, nombre_json: str = "", completo: bool = True) -> str:
     """Reporte legible. `completo=False` es la versión de la consola: sin el método (ya se
     mostró antes de empezar), sin las severidades y sin el detalle por DIP."""
-    m = r["modelo_local"]
+    modelo = r["modelo_local"]
     partes = [
-        "# Benchmark del auditor de DIPs" if completo else "# Resultado del benchmark",
-        f"{_fecha_legible(r['fecha'])} · programa v{r['version_programa']} · modelo local "
-        f"{m['modelo'] if m['disponible'] else 'no disponible'} · duración "
-        f"{duracion(r['tiempos']['total_s'])}",
+        f"# {titulo(r)}" if completo else "# Resultado del benchmark",
+        f"{_fecha_legible(r['fecha'])} · programa v{r['version_programa']} · "
+        + (f"modelo local {modelo}" if modelo else "sin modelo local")
+        + f" · duración {duracion(r['tiempos']['total_s'])}",
     ]
     partes += _resumen(r, base)
     if completo:
         partes += ["## Cómo se audita", como_se_audita(r)]
     partes += _seccion_auditor(r, base)
     partes += _seccion_metodos(r)
-    partes += _seccion_modelo(r, base)
+    partes += _seccion_casos(r, base)
     partes += _seccion_tiempos(r, base)
     partes += _seccion_configuracion(r, completo)
     if completo:
@@ -733,20 +762,16 @@ def a_markdown(r: dict, base: dict | None, nombre_json: str = "", completo: bool
         partes += ["## Línea base",
                    f"Este resultado está en `{nombre_json or 'el JSON de la misma carpeta'}`. "
                    "Si un cambio es intencional y el resultado es el nuevo punto de "
-                   "comparación, copie ese JSON sobre `benchmark/linea_base.json`."]
+                   f"comparación, copie ese JSON sobre `benchmark/linea_base_{r['modo']}.json`."]
     return "\n\n".join(p for p in partes if p) + "\n"
 
 
 def _resumen(r: dict, base: dict | None) -> list[str]:
-    ind, casos, costo = r["auditoria"]["indicadores"], r["casos_modelo"], r["costo_modelo"]
+    ind, costo = r["auditoria"]["indicadores"], r["costo_modelo"]
+    ci = r["casos"]["indicadores"]
+    resueltos = (f"{_de(ci['aciertos_finales'])}, referencias equivocadas aceptadas: "
+                 f"{ci['errores_aceptados']['aciertos']}")
     total = duracion(r["tiempos"]["total_s"])
-    if casos:
-        ci, cs = casos["indicadores"], casos["indicadores_sin_modelo"]
-        modelo = (f"{_de(ci['aciertos_finales'])}, referencias equivocadas aceptadas: "
-                  f"{ci['errores_aceptados']['aciertos']} (sin modelo: "
-                  f"{_de(cs['aciertos_finales'])} y {cs['errores_aceptados']['aciertos']})")
-    else:
-        modelo = "No disponible (ver sección 3)"
     if costo and costo["consultas"]:
         total += (f"; el modelo respondió {costo['consultas']} consultas de "
                   f"{costo['s_por_consulta']:.1f} s en promedio")
@@ -758,30 +783,39 @@ def _resumen(r: dict, base: dict | None) -> list[str]:
     else:
         frente_a_base = f"Ningún indicador empeoró (línea base del {_fecha_legible(base['fecha'])})"
     frente_a_base += (" " + _nota_modelo(r, base)).rstrip()
+    modo = MODOS[r["modo"]][0] + (f": `{r['modelo_local']}`" if r["modelo_local"] else "")
     return ["## Resumen", _tabla(["Indicador", "Resultado"], [
+        ["Modo", modo],
         ["DIPs auditados", f"{r['datos']['dips']} Others"],
         ["Coincide con el auditor (OK o discrepancia)", _de(ind["coincidencia"])],
         ["Discrepancias del auditor que el programa marca", _de(ind["discrepancias_detectadas"])],
         ["OK del auditor que el programa marca con discrepancia",
          _de(ind["falsas_discrepancias"])],
-        ["Modelo local: casos bien resueltos", modelo],
+        ["Casos que las reglas no resuelven: bien resueltos", resueltos],
         ["Tiempo total", total],
         ["Frente a la línea base", frente_a_base],
     ])]
 
 
-def _tabla_indicadores(r: dict, base: dict | None, grupo: str) -> str:
-    return _tabla(["Indicador", "Actual", "Línea base", "Cambio"],
-                  [[d, _de(a), f"{p['pct']:.0f}%" if p else "-", _cambio(a, p, sube)]
-                   for g, d, sube, a, p in _grupos(r, base) if g == grupo], {1, 2, 3})
+def _tabla_indicadores(r: dict, base: dict | None, grupo: str,
+                       extra: list[tuple[str, dict]] = ()) -> str:
+    """Tabla de indicadores del grupo; `extra` agrega columnas (título, indicadores por clave)."""
+    return _tabla(
+        ["Indicador", "Actual"] + [t for t, _ in extra] + ["Línea base", "Cambio"],
+        [[d, _de(a)] + [_de(v[clave]) if clave in v else "-" for _, v in extra]
+         + [f"{p['pct']:.0f}%" if p else "-", _cambio(a, p, sube)]
+         for g, clave, d, sube, a, p in _grupos(r, base) if g == grupo],
+        set(range(1, 4 + len(extra))))
 
 
 def _seccion_auditor(r: dict, base: dict | None) -> list[str]:
     aud = r["auditoria"]
     columnas = list(next(iter(aud["matriz"].values())))
+    extra = ([("Solo reglas", aud["indicadores_solo_reglas"])]
+             if "indicadores_solo_reglas" in aud else [])
     partes = [
         "## 1. Resultado frente al auditor",
-        _tabla_indicadores(r, base, "auditoria"),
+        _tabla_indicadores(r, base, "auditoria", extra),
         "**Matriz** (filas: auditor; columnas: programa)",
         _tabla(["Auditor \\ Programa"] + [_CORTO.get(c, c) for c in columnas],
                [[_CORTO.get(h, h)] + [fila[c] for c in columnas]
@@ -800,7 +834,7 @@ def _seccion_auditor(r: dict, base: dict | None) -> list[str]:
 
 
 def _seccion_metodos(r: dict) -> list[str]:
-    dips, con_modelo = r["auditoria"]["dips"], r["modelo_local"]["disponible"]
+    dips, con_modelo = r["auditoria"]["dips"], r["modelo_local"] is not None
     conteo = {k: sum(d["metodo"] == k for d in dips) for k in METODOS}
     partes = ["## 2. Cómo se asoció cada DIP a su referencia", _tabla(
         ["Método", "DIPs", "Qué pasa con el DIP"],
@@ -808,14 +842,18 @@ def _seccion_metodos(r: dict) -> list[str]:
     sin_reglas = [d for d in dips if d["metodo"] != "reglas"]
     if not sin_reglas:
         return partes
+
+    def fila(d: dict) -> list:
+        modelo = METODOS[d["metodo"]][1] + (f" ({d['propuesta_modelo']})"
+                                            if d["propuesta_modelo"] else "")
+        return ([d["barcode"], d["fault_name"][:60], d["intervalo"]]
+                + ([modelo] if con_modelo else [])
+                + [_CORTO.get(d["programa"], d["programa"]),
+                   _CORTO.get(d["auditor"], d["auditor"])])
     partes += [
         "**DIPs que no asocian las reglas**" + (" (consultados al modelo)" if con_modelo else ""),
-        _tabla(["Barcode", "Fault Name", "Intervalo", "Modelo", "Programa", "Auditor"], [
-            [d["barcode"], d["fault_name"][:60], d["intervalo"],
-             METODOS[d["metodo"]][1] + (f" ({d['propuesta_modelo']})"
-                                        if d["propuesta_modelo"] else ""),
-             _CORTO.get(d["programa"], d["programa"]), _CORTO.get(d["auditor"], d["auditor"])]
-            for d in sin_reglas]),
+        _tabla(["Barcode", "Fault Name", "Intervalo"] + (["Modelo"] if con_modelo else [])
+               + ["Programa", "Auditor"], [fila(d) for d in sin_reglas]),
     ]
     if con_modelo:
         cambiaron = sum(d["programa"] != d["programa_solo_reglas"] for d in sin_reglas)
@@ -824,26 +862,31 @@ def _seccion_metodos(r: dict) -> list[str]:
     return partes
 
 
-def _seccion_modelo(r: dict, base: dict | None) -> list[str]:
-    partes = ["## 3. Modelo local en casos etiquetados"]
-    casos = r["casos_modelo"]
-    if not casos:
-        return partes + [f"No se midió: el modelo no está disponible "
-                         f"({r['modelo_local']['motivo']})."]
+def _seccion_casos(r: dict, base: dict | None) -> list[str]:
+    casos = r["casos"]
     detalle = casos["casos"]
-    sin_modelo = casos["indicadores_sin_modelo"]
-    claves = {d: k for k, d, _ in INDICADORES_MODELO}
+    positivos = sum(d["grupo"] == "positivo" for d in detalle)
+    partes = [
+        "## 3. Casos que las reglas no resuelven",
+        f"{len(detalle)} Fault Names con errores de escritura, abreviaturas, español o sinónimos: "
+        f"{positivos} con referencia en la tabla y {len(detalle) - positivos} sin referencia.",
+    ]
+    if not r["modelo_local"]:
+        asociados = casos["indicadores"]["con_referencia"]["aciertos"]
+        return partes + [
+            _tabla_indicadores(r, base, "casos"),
+            f"Sin modelo, las reglas resuelven {asociados} de los {positivos} casos con referencia "
+            "(errores de escritura y siglas); el resto queda en REVISAR sin referencia y el auditor "
+            "la busca. Los que no tienen referencia quedan bien."]
+    comparacion = casos["comparacion"]
     partes += [
-        f"{len(detalle)} Fault Names que las reglas no resuelven: "
-        f"{sum(d['grupo'] == 'positivo' for d in detalle)} con referencia en la tabla y "
-        f"{sum(d['grupo'] == 'negativo' for d in detalle)} sin referencia. La columna "
-        "*Sin modelo* elige siempre la referencia más parecida al Fault Name y pasa por la "
-        "misma validación: el modelo aporta lo que mejora sobre esa columna.",
-        _tabla(["Indicador", "Modelo", "Sin modelo", "Línea base", "Cambio"],
-               [[d, _de(a), _de(sin_modelo[claves[d]]), f"{p['pct']:.0f}%" if p else "-",
-                 _cambio(a, p, sube)]
-                for g, d, sube, a, p in _grupos(r, base) if g == "casos_modelo"],
-               {1, 2, 3, 4}),
+        "*Actual* es el modelo después de la validación. *Solo reglas* es lo que pasa con los "
+        "mismos casos sin modelo (modo sin modelo). *Más parecido* elige siempre la referencia "
+        "más parecida al Fault Name y pasa por la misma validación que el modelo; el programa "
+        "no la usa.",
+        _tabla_indicadores(r, base, "casos", [("Solo reglas", comparacion["solo_reglas"]),
+                                              ("Más parecido", comparacion.get("mas_parecido",
+                                                                               {}))]),
     ]
     errores = [d for d in detalle if not d["acierto_final"]]
     if errores:
@@ -859,22 +902,26 @@ def _seccion_tiempos(r: dict, base: dict | None) -> list[str]:
     usar_base = base if not comparable(r, base) else {}
     b_t = usar_base.get("tiempos", {})
     b_c = usar_base.get("costo_modelo") or {}
-    auditoria = (duracion(t["auditoria_s"]) if r["modelo_local"]["disponible"]
-                 else "incluida en la preparación")
-    partes = ["## 4. Tiempos y costo computacional", _tabla(
-        ["Etapa", "Tiempo", "Consultas al modelo", "Línea base"], [
-            ["Preparación: lectura de datos y referencias, auditoría solo con reglas",
-             duracion(t["preparacion_s"]), "-", duracion(b_t.get("preparacion_s"))],
+    con_modelo = r["modelo_local"] is not None
+    filas = [["Preparación: lectura de datos y referencias, auditoría solo con reglas",
+              duracion(t["preparacion_s"]), "-", duracion(b_t.get("preparacion_s"))]]
+    if con_modelo:
+        filas += [
             ["Carga del modelo en memoria", duracion(t.get("carga_modelo_s")), "-",
              duracion(b_t.get("carga_modelo_s"))],
-            [f"Auditoría de {n['dips']} DIPs", auditoria, t["auditoria_consultas"],
-             duracion(b_t.get("auditoria_s"))],
-            [f"Casos del modelo local ({n['casos_modelo']})", duracion(t.get("casos_s")),
-             t.get("casos_consultas", 0), duracion(b_t.get("casos_s"))],
-            ["**Total**", f"**{duracion(t['total_s'])}**",
-             t["auditoria_consultas"] + t.get("casos_consultas", 0),
-             duracion(b_t.get("total_s"))],
-        ], {1, 2, 3})]
+            [f"Auditoría de {n['dips']} DIPs", duracion(t["auditoria_s"]),
+             t["auditoria_consultas"], duracion(b_t.get("auditoria_s"))]]
+    filas += [
+        [f"Casos ({n['casos']})", duracion(t.get("casos_s")), t.get("casos_consultas", 0),
+         duracion(b_t.get("casos_s"))],
+        ["**Total**", f"**{duracion(t['total_s'])}**",
+         t["auditoria_consultas"] + t.get("casos_consultas", 0), duracion(b_t.get("total_s"))],
+    ]
+    partes = ["## 4. Tiempos y costo computacional",
+              _tabla(["Etapa", "Tiempo", "Consultas al modelo", "Línea base"], filas, {1, 2, 3})]
+    if not con_modelo:
+        partes.append("Sin modelo no hay consultas ni memoria adicional: todo lo hacen las "
+                      "reglas en Python.")
     if costo and costo["consultas"]:
         def fila(nombre: str, clave: str, formato: str = "{:.1f}", sufijo: str = "") -> list:
             def f(v):
@@ -906,15 +953,14 @@ def _seccion_tiempos(r: dict, base: dict | None) -> list[str]:
 
 def _seccion_configuracion(r: dict, completo: bool) -> list[str]:
     c = r["configuracion"]
-    llm, tol = c["llm"], c["tolerancias"]
+    tol = c["tolerancias"]
 
     def si_no(v: object) -> str:
         return "sí" if v else "no"
-    partes = [
-        "## 5. Configuración usada",
-        "Se cambia en `config/config.yaml`. Después de cambiarla, ejecute el benchmark y "
-        "compare con la línea base.",
-        _tabla(["Parámetro", "Valor", "Clave en config.yaml"], [
+    filas = []
+    if "llm" in c:
+        llm = c["llm"]
+        filas += [
             ["Modelo local", llm.get("modelo"), "llm.modelo"],
             ["Referencias candidatas por consulta", llm.get("candidatos", 6), "llm.candidatos"],
             ["Pedir justificación al modelo", si_no(llm.get("justificacion", True)),
@@ -927,16 +973,25 @@ def _seccion_configuracion(r: dict, completo: bool) -> list[str]:
             ["Solo CPU", si_no(llm.get("solo_cpu")), "llm.solo_cpu"],
             ["Fracción mínima del TA para aceptar una sugerencia",
              llm.get("fraccion_minima_ta", 0.2), "llm.fraccion_minima_ta"],
-            ["Tolerancia en días", tol.get("dias"), "tolerancias.dias"],
-            ["Días por mes", f"{tol.get('meses_min')}-{tol.get('meses_max')}",
-             "tolerancias.meses_min, tolerancias.meses_max"],
-            ["Catálogo Others (palabras clave)", f"{c['catalogo']['entradas']} entradas",
-             c["catalogo"]["archivo"]],
-            ["Tabla de referencias", f"{c['referencias']['filas']} filas",
-             c["referencias"]["archivo"]],
-        ], {1}),
-        "Las instrucciones que recibe el modelo están en `dips_audit/llm.py` (`_SISTEMA`).",
+        ]
+    filas += [
+        ["Tolerancia en días", tol.get("dias"), "tolerancias.dias"],
+        ["Días por mes", f"{tol.get('meses_min')}-{tol.get('meses_max')}",
+         "tolerancias.meses_min, tolerancias.meses_max"],
+        ["Catálogo Others (palabras clave)", f"{c['catalogo']['entradas']} entradas",
+         c["catalogo"]["archivo"]],
+        ["Tabla de referencias", f"{c['referencias']['filas']} filas",
+         c["referencias"]["archivo"]],
     ]
+    partes = [
+        "## 5. Configuración usada",
+        "Se cambia en `config/config.yaml`. Después de cambiarla, ejecute el benchmark y "
+        "compare con la línea base.",
+        _tabla(["Parámetro", "Valor", "Clave en config.yaml"], filas, {1}),
+    ]
+    if "llm" in c:
+        partes.append("Las instrucciones que recibe el modelo están en `dips_audit/llm.py` "
+                      "(`_SISTEMA`).")
     if completo:
         partes += ["**Severidad de cada hallazgo** (`severidades`)", _tabla(
             ["Hallazgo", "Severidad"], [[f"`{k}`", v] for k, v in c["severidades"].items()])]

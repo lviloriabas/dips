@@ -2,8 +2,9 @@
 #
 #   1. Python 3.11+ (lo instala con winget, o desde python.org si no hay winget)
 #   2. Entorno virtual .venv con las librerias de requirements.txt
-#   3. Ollama + modelo local (opcional; solo se usa con la opcion --llm)
-#   4. Pruebas automaticas
+#   3. Microsoft Edge (para leer ICAM) y tabla de referencias
+#   4. Ollama + modelo local (opcional; solo se usa con la opcion --llm)
+#   5. Pruebas automaticas
 #
 # Uso (normalmente mediante setup.bat):
 #   setup.bat                  instalacion completa con el modelo de config.yaml
@@ -116,7 +117,13 @@ if (-not (Test-Path $venvPy)) {
 if ($LASTEXITCODE -ne 0) { Falla "No se pudieron instalar las librerias (revise la conexion a internet o el proxy)." }
 Ok "Librerias instaladas"
 
-# 3. Archivos de datos -----------------------------------------------------
+# 3. Edge y archivos de datos ----------------------------------------------
+Paso "Microsoft Edge (lectura de ICAM)"
+$edge = @("${env:ProgramFiles(x86)}\Microsoft\Edge\Application\msedge.exe",
+          "$env:ProgramFiles\Microsoft\Edge\Application\msedge.exe") | Where-Object { Test-Path $_ } | Select-Object -First 1
+if ($edge) { Ok "Edge encontrado" }
+else { Aviso "No se encontro Microsoft Edge: sin Edge no se puede leer ICAM (use --sin-icam)." }
+
 Paso "Tabla de referencias"
 if (Test-Path (Join-Path $Raiz "DIPs References.xlsx")) {
     Ok "DIPs References.xlsx encontrado"
@@ -191,5 +198,6 @@ if (-not $SinPruebas) {
 
 Write-Host ""
 Write-Host "Instalacion terminada." -ForegroundColor Green
-Write-Host "Para auditar: arrastre el Excel de entrada sobre auditar.bat, o ejecute:"
-Write-Host "    auditar.bat `"ruta\export.xlsx`" [--llm]"
+Write-Host "Para auditar:"
+Write-Host "    1. abrir_icam.bat: inicie sesion en ICAM y deje la ventana abierta."
+Write-Host "    2. Arrastre el Excel de entrada sobre auditar.bat."
