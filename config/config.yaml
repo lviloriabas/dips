@@ -5,6 +5,9 @@ referencias: "DIPs References.xlsx"
 hoja_referencias: "References"
 catalogo: "config/catalogo_others.yaml"
 carpeta_salida: "salidas"
+# Corridas de prueba: un Excel dentro de esta carpeta (o con --prueba) usa pruebas/icam y
+# pruebas/salidas, y sus resultados llevan el prefijo PRUEBA_.
+carpeta_pruebas: "pruebas"
 
 # Tipo de DIP que se audita (columna "Area" o "Type DIP" del Excel de entrada).
 tipos_auditados: ["Others"]
@@ -13,64 +16,20 @@ tolerancias:
   dias: 1          # diferencia aceptada en días (redondeos de hora de apertura)
   meses_min: 30    # 1 mes = entre 30 y 31 días (+/- tolerancia de días)
   meses_max: 31
+  # Cierre: Complete Dt viene en UTC y el due date en hora de Panamá (UTC-5). Los auditores
+  # aceptan cierres hasta 5 h después del due date (criterio a confirmar).
+  horas_cierre: 5
 
-# Severidad asignada a cada tipo de hallazgo.
-# Valores posibles: CRITICA, NO CRITICA, REVISAR, OBSERVACION
-#   REVISAR:     el DIP queda en estado REVISAR (requiere confirmación humana).
-#   OBSERVACION: se anota, pero no cambia el estado del DIP.
-# Calibrado contra el histórico (jul-ago 2026). En el histórico, un intervalo
-# MENOR al de referencia y la falta de S/N se aceptaron en la mayoría de los
-# casos; por eso quedan como OBSERVACION. Cámbielo si el criterio es otro.
-severidades:
-  intervalo_excedido: CRITICA
-  intervalo_menor: OBSERVACION
-  intervalo_cero: NO CRITICA
-  tipo_intervalo_incorrecto: CRITICA
-  parent_assy_incorrecto: CRITICA
-  due_date_posterior_a_intervalo: REVISAR
-  due_date_anterior_a_intervalo: OBSERVACION
-  due_date_posterior_a_vencimiento_item: CRITICA
-  due_date_anterior_a_vencimiento_item: OBSERVACION
-  dip_vencido: CRITICA
-  completado_fuera_de_plazo: CRITICA
-  usage_remaining_mayor_a_intervalo: NO CRITICA
-  deferral_reference_ata: NO CRITICA
-  ata_distinto_a_referencia: OBSERVACION
-  tipo_dip_distinto_a_referencia: OBSERVACION
-  sin_sn_en_descripcion: OBSERVACION
-  sn_repetido: NO CRITICA
-  duplicado: NO CRITICA
-  fault_severity: OBSERVACION
-  # El DIP debe citar la referencia del manual (AMM, MGM, ...) con su revisión y la fecha
-  # de la revisión, en la descripción o en cualquier campo. Se revisa si el Excel de entrada
-  # trae la descripción o las referencias, o con los datos de ICAM (--icam).
-  sin_referencia_tecnica: NO CRITICA         # no cita ninguna referencia del manual
-  referencia_tecnica_incompleta: NO CRITICA  # la cita sin revisión o sin fecha
-  intervalo_de_icam: OBSERVACION             # el Excel no trae intervalo; se usó el de ICAM
-  # RIR en Follow-on Tasks (datos de ICAM). Severidad a confirmar con los auditores.
-  rir_faltante: NO CRITICA                   # la referencia pide RIR y el DIP no tiene
-  rir_intervalo_incorrecto: NO CRITICA       # RIR con intervalo distinto del de la referencia
-  rir_limite_faltante: NO CRITICA            # el T/A tiene un límite que el RIR no tiene
-  rir_inicio_distinto: REVISAR               # el RIR no empieza donde empieza el T/A
-  rir_parent_distinto: NO CRITICA            # RIR en otro Parent Assembly (avión / motor)
-  # Referencia del manual distinta de la de la tabla (solo si la tabla tiene número).
-  referencia_tecnica_equivocada: NO CRITICA  # tiene la de otra referencia de la tabla
-  referencia_tecnica_distinta: REVISAR       # tiene una tarea que la tabla no tiene
-  # Cómo se asoció el DIP a su referencia (se informan, no cambian el estado).
-  asociacion_aproximada: OBSERVACION             # Fault Name con errores de escritura
-  asociacion_por_referencia_tecnica: OBSERVACION # el nombre no alcanza; se usó la ref. técnica
+# Tipos de discrepancia y reglas: cuáles se revisan y cuándo son críticas.
+discrepancias: "config/discrepancias.yaml"
 
-# ---------------------------------------------------------------------------
-# Modelo local (Ollama)
-# ---------------------------------------------------------------------------
-# Solo se usa para asociar a una referencia los DIPs que las reglas no asocian.
-# Elige entre unas pocas referencias candidatas o responde NINGUNA; nunca decide
-# si un DIP está OK o tiene discrepancia, y todo lo que sugiere queda en REVISAR.
-# En "auditar" se activa con --llm. Se mide con benchmark_con_modelo.bat; sin él,
-# benchmark_sin_modelo.bat mide solo las reglas.
-#
-# Para ajustar: cambie un valor, ejecute benchmark_con_modelo.bat y compare el
-# resultado (aciertos, errores aceptados y segundos por consulta) con la línea base.
+referencia_tecnica:
+  # Manuales cuya cita no necesita REV ni fecha de la REV (TASK CARD = task card JIC).
+  # Para exigirlas también en alguno, quítelo de la lista; [] = se exigen en todos.
+  # Otros nombres posibles: FIM, IPC, SWPM, CMM, EC, ECRA, EA, SB, AD...
+  # El MGM no es referencia técnica: citarlo no cuenta como referencia.
+  revision_opcional: [AMM, SRM, TASK CARD]
+
 icam:
   # Lectura de DIPs en ICAM por barcode, solo lectura (auditar --leer-icam, extraer-icam).
   # Usa el Edge de ICAM del programa (abrir_icam.bat): se abre directo en ICAM y la sesión
@@ -78,36 +37,11 @@ icam:
   url: "https://copa.ifs.cloud/maintenix/"
   perfil: ".icam_perfil"          # perfil del Edge de ICAM (no se sube al repositorio)
   puerto: 9222                    # puerto local por el que el programa usa ese Edge
-  carpeta: "data/icam"            # un JSON por DIP leído; no se vuelve a leer
+  carpeta: "data/icam"            # un JSON por DIP leído
+  vigencia_horas: 12              # un DIP leído hace más de esto se vuelve a leer
   tipos: ["Others"]               # tipos de DIP que se leen (extraer-icam --todos: todos)
   paralelo: 3                     # DIPs que se leen a la vez
   intentos: 3                     # reintentos por búsqueda o pestaña que falla
   espera_segundos: 30             # máximo por página
   selector_busqueda: ""           # vacío = el campo Barcode Search se busca solo
   selector_contenido: "body"      # de dónde se copia el texto de cada pestaña
-
-llm:
-  url: "http://localhost:11434"
-  modelo: "ministral-3:8b"   # otros probados: ministral-3:3b (menos RAM, algo menos preciso)
-  timeout_segundos: 300      # por consulta; en CPU una consulta tarda entre 20 s y 1 min
-  solo_cpu: false            # true = no usar GPU aunque exista (en PCs sin GPU no cambia nada)
-
-  # Qué se le pregunta al modelo. Probado en el benchmark (23-09-2026, CPU i7-1265U):
-  # con 4 candidatos y sin justificación cada consulta tarda 24 s en vez de 41 s,
-  # pero el modelo resolvió bien 41 de 46 casos en vez de 44. Cada cambio por
-  # separado perdió 1 caso. Como el modelo se consulta pocas veces al día, se
-  # prefieren los aciertos.
-  candidatos: 6              # referencias candidatas que se le muestran (más = prompt más largo)
-  justificacion: true        # pedir una justificación corta, que se muestra al auditor
-  pensar: false              # modo "thinking" (solo algunos modelos): mucho más lento
-
-  # Cómo responde
-  temperatura: 0             # 0 = siempre la misma respuesta para la misma pregunta
-  contexto_tokens: 2048      # tamaño del contexto; el prompt usa unos 500 tokens
-  max_tokens_respuesta: 300  # corta respuestas demasiado largas
-
-  # Validación de la sugerencia (determinista, se aplica después del modelo)
-  # El intervalo del DIP debe ser al menos esta fracción del TA de la referencia
-  # sugerida (p. ej. 7 días para un TA de 6 meses se descarta). Además, el
-  # Fault Name debe compartir una palabra distintiva con la referencia.
-  fraccion_minima_ta: 0.2

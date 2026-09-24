@@ -3,22 +3,16 @@
 #   1. Python 3.11+ (lo instala con winget, o desde python.org si no hay winget)
 #   2. Entorno virtual .venv con las librerias de requirements.txt
 #   3. Microsoft Edge (para leer ICAM) y tabla de referencias
-#   4. Ollama + modelo local (opcional; solo se usa con la opcion --llm)
-#   5. Pruebas automaticas
+#   4. Pruebas automaticas
 #
 # Uso (normalmente mediante setup.bat):
-#   setup.bat                  instalacion completa con el modelo de config.yaml
-#   setup.bat -ModeloLiviano   usa ministral-3:3b (para PCs con poca RAM)
-#   setup.bat -SinModelo       no instala Ollama ni descarga modelos
+#   setup.bat                  instalacion completa
 #   setup.bat -SinPruebas      no corre las pruebas al final
 #
 # Se puede ejecutar varias veces: lo que ya esta instalado se omite.
 
 param(
-    [switch]$SinModelo,
-    [switch]$ModeloLiviano,
-    [switch]$SinPruebas,
-    [string]$Modelo = ""
+    [switch]$SinPruebas
 )
 
 $ErrorActionPreference = "Stop"
@@ -29,8 +23,6 @@ Set-Location $Raiz
 $PythonMinimo = [Version]"3.11"
 $PythonWinget = "Python.Python.3.12"
 $PythonUrl = "https://www.python.org/ftp/python/3.12.10/python-3.12.10-amd64.exe"
-$OllamaUrl = "https://ollama.com/download/OllamaSetup.exe"
-$ModeloLivianoNombre = "ministral-3:3b"
 
 function Paso($texto) { Write-Host ""; Write-Host "==> $texto" -ForegroundColor Cyan }
 function Ok($texto) { Write-Host "    [OK] $texto" -ForegroundColor Green }
@@ -131,64 +123,7 @@ if (Test-Path (Join-Path $Raiz "DIPs References.xlsx")) {
     Aviso "Falta 'DIPs References.xlsx' en la carpeta del proyecto. Copielo antes de auditar."
 }
 
-# 4. Ollama y modelo local -------------------------------------------------
-if ($SinModelo) {
-    Paso "Modelo local"
-    Aviso "Omitido (-SinModelo). La auditoria funciona sin modelo; solo no estara disponible --llm."
-} else {
-    Paso "Ollama (motor para el modelo local)"
-    $ollama = (Get-Command ollama -ErrorAction SilentlyContinue).Source
-    if (-not $ollama) { $ollama = "$env:LOCALAPPDATA\Programs\Ollama\ollama.exe" }
-    if (-not (Test-Path $ollama)) {
-        if (Tiene-Winget) {
-            winget install --id Ollama.Ollama -e --silent `
-                --accept-package-agreements --accept-source-agreements | Out-Host
-        } else {
-            $instalador = Join-Path $env:TEMP "OllamaSetup.exe"
-            Descargar $OllamaUrl $instalador
-            Start-Process $instalador -Wait -ArgumentList "/VERYSILENT", "/NORESTART"
-            Remove-Item $instalador -ErrorAction SilentlyContinue
-        }
-        Actualizar-Path
-        if (-not (Test-Path $ollama)) { $ollama = (Get-Command ollama -ErrorAction SilentlyContinue).Source }
-        if (-not $ollama -or -not (Test-Path $ollama)) { Falla "No se pudo instalar Ollama. Descarguelo de https://ollama.com" }
-    }
-    Ok "Ollama: $(& $ollama --version)"
-
-    # Servidor de Ollama
-    function Ollama-Activo {
-        try { Invoke-WebRequest "http://localhost:11434/api/version" -UseBasicParsing -TimeoutSec 3 | Out-Null; return $true }
-        catch { return $false }
-    }
-    if (-not (Ollama-Activo)) {
-        Start-Process $ollama -ArgumentList "serve" -WindowStyle Hidden
-        for ($i = 0; $i -lt 30 -and -not (Ollama-Activo); $i++) { Start-Sleep -Seconds 1 }
-        if (-not (Ollama-Activo)) { Falla "El servidor de Ollama no respondio." }
-    }
-    Ok "Servidor de Ollama activo"
-
-    # Modelo: parametro -Modelo, -ModeloLiviano, o el de config/config.yaml
-    if (-not $Modelo) {
-        if ($ModeloLiviano) {
-            $Modelo = $ModeloLivianoNombre
-        } else {
-            $Modelo = (& $venvPy -c "import yaml; print(yaml.safe_load(open('config/config.yaml', encoding='utf-8'))['llm']['modelo'])").Trim()
-        }
-    }
-    $ramGb = [math]::Round((Get-CimInstance Win32_ComputerSystem).TotalPhysicalMemory / 1GB)
-    if ($ramGb -lt 12 -and $Modelo -ne $ModeloLivianoNombre) {
-        Aviso "La PC tiene $ramGb GB de RAM. Si va lenta, use: setup.bat -ModeloLiviano"
-    }
-    Paso "Modelo local: $Modelo (la primera vez descarga varios GB)"
-    & $ollama pull $Modelo
-    if ($LASTEXITCODE -ne 0) { Falla "No se pudo descargar el modelo $Modelo." }
-    if ($Modelo -ne (& $venvPy -c "import yaml; print(yaml.safe_load(open('config/config.yaml', encoding='utf-8'))['llm']['modelo'])").Trim()) {
-        Aviso "Para usar $Modelo por defecto, cambie 'llm: modelo:' en config/config.yaml (o use --modelo $Modelo)."
-    }
-    Ok "Modelo $Modelo listo"
-}
-
-# 5. Pruebas ---------------------------------------------------------------
+# 4. Pruebas ---------------------------------------------------------------
 if (-not $SinPruebas) {
     Paso "Pruebas automaticas"
     & $venvPy -m pytest

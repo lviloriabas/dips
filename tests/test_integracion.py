@@ -40,13 +40,14 @@ def export(tmp_path):
 def test_auditoria_de_punta_a_punta(config, export, tmp_path):
     auditor = Auditor(config, fecha_auditoria=date(2026, 8, 20))
     resultado = auditor.auditar_archivo(export)
-    estados = dict(zip(resultado.filas["Fault Barcode"], resultado.filas["ESTADO IA"]))
+    # Por ahora solo hay dos resultados: OK o POSIBLE DISCREPANCIA.
+    estados = dict(zip(resultado.filas["Fault Barcode"], resultado.filas["RESULTADO"]))
     assert estados == {
         "T1": "OK",
-        "T2": "DISCREPANCIA CRÍTICA",
-        "T3": "REVISAR",
+        "T2": "POSIBLE DISCREPANCIA",
+        "T3": "POSIBLE DISCREPANCIA",
         "T4": "OK",
-        "T5": "DISCREPANCIA NO CRÍTICA",
+        "T5": "POSIBLE DISCREPANCIA",
         "T6": "FUERA DE ALCANCE",
     }
     comentario = resultado.filas.set_index("Fault Barcode").loc["T1", "COMENTARIO SUGERIDO"]
@@ -56,12 +57,18 @@ def test_auditoria_de_punta_a_punta(config, export, tmp_path):
     wb = openpyxl.load_workbook(salida)
     assert wb.sheetnames == ["Dashboard", "Resumen", "Auditoría", "Hallazgos"]
     dashboard = wb["Dashboard"]
-    assert len(dashboard._charts) >= 3            # resultado, DIPs por tipo, tipos de discrepancia
+    assert len(dashboard._charts) >= 3            # resultado, DIPs por tipo, referencias
     assert dashboard["B6"].value == 5             # DIPs auditados (sin el Powerplant)
     ws = wb["Auditoría"]
     encabezado = [c.value for c in ws[1]]
-    assert encabezado[:3] == ["Fila Excel", "RESULTADO", "ESTADO IA"]
-    assert "Fault Barcode" in encabezado  # columnas originales conservadas
+    # Columnas originales primero, con su nombre y orden; las del programa al final.
+    originales = [c.value for c in openpyxl.load_workbook(export)["Export"][1]]
+    assert encabezado[:len(originales)] == originales
+    agregadas = encabezado[len(originales):]
+    assert agregadas[:2] == ["RESULTADO", "COMENTARIO SUGERIDO"] and agregadas[-1] == "Fila Excel"
+    assert ws.cell(1, len(originales)).fill.fgColor.rgb != ws.cell(1, len(originales) + 1).fill.fgColor.rgb
+    assert "TIPO DE DISCREPANCIA" not in encabezado and "ESTADO IA" not in encabezado
+    assert [c.value for c in wb["Hallazgos"][1]].count("Tipo de discrepancia") == 0
     assert ws.max_row == len(FILAS) + 1
     # El archivo original no se modifica.
     assert openpyxl.load_workbook(export).sheetnames == ["Export"]
@@ -71,7 +78,8 @@ def test_cli_auditar(export, tmp_path, capsys):
     salida = tmp_path / "cli.xlsx"
     codigo = main(["auditar", str(export), "--salida", str(salida), "--fecha", "2026-08-20"])
     assert codigo == 0 and salida.exists()
-    assert "DISCREPANCIA CRÍTICA" in capsys.readouterr().out
+    salida_consola = capsys.readouterr().out
+    assert "POSIBLE DISCREPANCIA" in salida_consola and "CRÍTICA" not in salida_consola
 
 
 def test_cli_archivo_inexistente(tmp_path):

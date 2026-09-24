@@ -1,5 +1,5 @@
-# Casos del benchmark para medir el modelo local. Son Fault Names que las reglas
-# exactas no resolvían (errores de escritura, abreviaturas, español, sinónimos). Desde
+# Casos del benchmark para medir la asociación por reglas. Son Fault Names que las
+# reglas exactas no resolvían (errores de escritura, abreviaturas, español, sinónimos). Desde
 # que las reglas toleran errores de escritura y siglas con puntos, resuelven algunos.
 #   esperado: ID del catálogo, o NINGUNA si el DIP no tiene referencia en la tabla.
 #   intervalo: como viene en el Excel de entrada (valor + tipo).

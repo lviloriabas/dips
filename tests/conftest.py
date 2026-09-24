@@ -29,8 +29,8 @@ def catalogo(auditor):
 
 
 @pytest.fixture
-def ctx(config):
-    return Contexto(severidades=config["severidades"], fecha_referencia=date(2026, 8, 20))
+def ctx(auditor):
+    return Contexto(discrepancias=auditor.discrepancias, fecha_referencia=date(2026, 8, 20))
 
 
 def hacer_dip(**cambios) -> dict:

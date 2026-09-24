@@ -8,7 +8,9 @@
 #   excluir:    si el Fault Name contiene alguna de estas frases, no aplica.
 #   intervalos: (opcional) reemplaza el TA de la tabla cuando el texto de la
 #               tabla es condicional (por flota, por presión, etc.).
-#               Unidades: DAY, FH, FC, MONTH.
+#               Unidades: DAY, FH, FC, MONTH. El texto de "variante" y "nombre"
+#               se copia tal cual de la tabla (en inglés, sin traducir).
+#   flotas:     NG (NG-700, NG-800, NG-900) o MAX (matrículas HP-98xx y HP-99xx).
 #   requiere_sn: el Fault Name debería mencionar el S/N del componente.
 #
 # Las frases se escriben en MAYÚSCULAS y sin acentos. Antes de comparar, el
@@ -16,210 +18,210 @@
 # FIRT -> FIRST, OXIGEN -> OXYGEN, CERTIFICADO -> CERTIFICATE).
 
 - id: OXIGENO_TRIPULACION
-  nombre: Botella de oxígeno de tripulación (presión baja)
+  nombre: CREW OXYGEN BOTTLE PRESSURE
   referencias: ["CREW OXYGEN BOTTLE PRESSURE"]
   requiere: [[OXYGEN], [CREW, FLIGHT COMPARTMENT, FLIGHT DECK, COCKPIT]]
   excluir: [PORTABLE, HYDRO, POB, MASK, MASKS]
   intervalos:
-    - variante: "Presión > 200 PSI sobre la mínima de despacho"
+    - variante: "3 DAY IF PRESSURE IS GREATER THAN 200 PSI, ABOVE THE MINIMUM DISPATCH PRESSURE"
       limites: [{valor: 3, unidad: DAY}]
-    - variante: "Presión 100-200 PSI sobre la mínima de despacho"
+    - variante: "1 DAY IF PRESSURE IS BETWEEN 100-200 PSI, ABOVE THE MINIMUM DISPATCH PRESSURE"
       limites: [{valor: 1, unidad: DAY}]
-    - variante: "Presión 50-100 PSI sobre la mínima de despacho"
+    - variante: "1 FC IF PRESSURE IS BETWEEN 50-100 PSI ABOVE THE MINIMUM DISPATCH PRESSURE"
       limites: [{valor: 1, unidad: FC}]
 
 - id: OXIGENO_HYDRO
-  nombre: Fecha de prueba hidrostática de botella de oxígeno
+  nombre: OXYGEN BOTTLE HYDRO DATE
   referencias: ["OXYGEN BOTTLE HYDRO DATE"]
   requiere: [[OXYGEN], [HYDRO]]
   requiere_sn: true
 
 - id: OXIGENO_PORTATIL
-  nombre: Botella portátil de oxígeno (POB)
+  nombre: CABIN PORTABLE OXYGEN BOTTLE (POB)
   referencias: ["CABIN PORTABLE OXYGEN BOTTLE (POB)"]
   requiere: [[PORTABLE OXYGEN, POB]]
   requiere_sn: true
 
 - id: ELT_PORTATIL
-  nombre: ELT portátil (emergency locator transmitter)
+  nombre: PORTABLE ELT BATTERY
   referencias: ["PORTABLE ELT BATTERY"]
   requiere: [[ELT, EMERGENCY LOCATOR]]
   excluir: [FIXED]
   requiere_sn: true
 
 - id: ELT_FIJO
-  nombre: ELT fijo
+  nombre: FIXED ELT BATTERY
   referencias: ["FIXED ELT BATTERY"]
   requiere: [[ELT, EMERGENCY LOCATOR], [FIXED]]
   requiere_sn: true
 
 - id: EMK
-  nombre: Emergency Medical Kit (kit médico de emergencia)
+  nombre: EMK LESS THAN 130 DAYS DUE DATE
   referencias: ["EMK LESS THAN 130 DAYS DUE DATE"]
   requiere: [[EMK, EMERGENCY MEDICAL KIT]]
   requiere_sn: true
 
 - id: FAK
-  nombre: First Aid Kit (botiquín de primeros auxilios)
+  nombre: FIRST AID KIT LESS THAN 130 DAYS DUE DATE
   referencias: ["FIRST AID KIT LESS THAN 130 DAYS DUE DATE"]
   requiere: [[FAK, FIRST AID KIT]]
   requiere_sn: true
 
 - id: UPK
-  nombre: Universal Precaution Kit (kit de protección universal)
+  nombre: UPK LESS THAN 130 DAYS DUE DATE
   referencias: ["UPK LESS THAN 130 DAYS DUE DATE"]
   # Sin exigir KIT: a veces viene cortado ("UNIVERSAL PRECAUTION KI").
   requiere: [[UPK, UNIVERSAL PROTECTION, UNIVERSAL PRECAUTION]]
   requiere_sn: true
 
 - id: SURVIVAL_KIT
-  nombre: Survival Kit (kit de supervivencia)
+  nombre: SURVIVAL KIT LESS THAN 130 DAYS DUE DATE
   referencias: ["SURVIVAL KIT LESS THAN 130 DAYS DUE DATE"]
   requiere: [[SURVIVAL KIT]]
   requiere_sn: true
 
 - id: FDR
-  nombre: FDR Report (flight data recorder)
+  nombre: FDR REPORT
   referencias: ["FDR REPORT"]
-  requiere: [[FDR]]
+  requiere: [[FDR, FLIGHT DATA RECORDER]]
   excluir: [UNDERWATER, ULB, BEACON]
 
 - id: HALON_PORTATIL
-  nombre: Extintor de halón (portátil, cabina, etc.)
+  nombre: HALON FIRE EXTINGUISHER DUE OR WEIGHT (PORTABLE, CABIN, ETC)
   referencias: ["HALON FIRE EXTINGUISHER DUE OR WEIGHT (PORTABLE, CABIN, ETC)"]
   requiere: [[HALON, EXTINGUISHER]]
   excluir: [WATER, SQUIB, CARGO, APU, ENGINE]
   requiere_sn: true
 
 - id: EXTINTOR_AGUA
-  nombre: Extintor portátil de agua
+  nombre: PORTABLE WATER FE LESS THAN 130 DAYS WEIGHT CHECK
   referencias: ["PORTABLE WATER FE LESS THAN 130 DAYS WEIGHT CHECK"]
   requiere: [[WATER], [EXTINGUISHER, FE]]
   requiere_sn: true
 
 - id: SQUIB_MOTOR_APU
-  nombre: Squib de extintor de motor/APU
+  nombre: ENGINE/APU FIRE EXTINGUIHSER SQUIB DUE IN 4 MONTHS OR LESS
   referencias: ["ENGINE/APU FIRE EXTINGUIHSER SQUIB DUE IN 4 MONTHS OR LESS"]
   requiere: [[SQUIB], [ENGINE, APU]]
 
 - id: SQUIB
-  nombre: Squibs de extintor
+  nombre: FIRE EXTINGUISHER SQUIBS
   referencias: ["FIRE EXTINGUISHER SQUIBS"]
   requiere: [[SQUIB]]
 
 - id: EXTINTOR_CARGO
-  nombre: Botella de extintor de carga
+  nombre: CARGO FIRE EXT. BOTTLE
   referencias: ["CARGO FIRE EXT. BOTTLE"]
   requiere: [[CARGO], [EXTINGUISHER, FIRE BOTTLE]]
 
 - id: CRECIMIENTO_MICROBIANO
-  nombre: Inspección de crecimiento microbiano en combustible
+  nombre: FUEL MICROBIAL GROWTH
   referencias: ["FUEL MICROBIAL GROWTH"]
   requiere: [[MICROBIAL, MICROBMONITOR]]
 
 - id: FILTRO_COMBUSTIBLE_MOTOR
-  nombre: Filtro de combustible de motor
+  nombre: ENGINE FUEL FILTER
   referencias: ["ENGINE FUEL FILTER"]
   requiere: [[FUEL FILTER]]
 
 - id: FUMIGACION
-  nombre: Certificado de fumigación
+  nombre: CERTIFICATE OF FUMIGATION
   referencias: ["CERTIFICATE OF FUMIGATION"]
   requiere: [[FUMIGATION]]
 
 - id: LICENCIA_RADIO
-  nombre: Licencia de radio
+  nombre: RADIO LICENSE
   referencias: ["RADIO LICENSE"]
   requiere: [[RADIO LICENSE]]
 
 - id: DESCONTAMINACION_HID_INICIAL
-  nombre: Descontaminación hidráulica inicial
+  nombre: HYDRAULIC DECONTAMINATION - INITIAL
   referencias: ["HYDRAULIC DECONTAMINATION - INITIAL"]
   requiere: [[HYDRAULIC DECONTAMINATION], [INITIAL]]
 
 - id: DESCONTAMINACION_HID_TERMINAL
-  nombre: Descontaminación hidráulica terminal
+  nombre: HYDRAULIC DECONTAMINATION - TERMINAL
   referencias: ["HYDRAULIC DECONTAMINATION - TERMINAL"]
   requiere: [[HYDRAULIC DECONTAMINATION], [TERMINAL]]
 
 - id: BACKFLOW
-  nombre: Primary backflow prevention check valve
+  nombre: PRIMARY BACKFLOW PREVENTION CHECK VALVE
   referencias: ["PRIMARY BACKFLOW PREVENTION CHECK VALVE"]
   requiere: [[BACKFLOW]]
 
 - id: DPI
-  nombre: Differential pressure indicator
+  nombre: DIFFERENTIAL PRESSURE INDICATOR
   referencias: ["DIFFERENTIAL PRESSURE INDICATOR"]
   requiere: [[DIFFERENTIAL PRESSURE INDICATOR, DPI]]
 
 - id: AMORTIGUADOR_NLG
-  nombre: Amortiguador del tren de nariz
+  nombre: NOSE LANDING GEAR SHOCK STRUT
   referencias: ["NOSE LANDING GEAR SHOCK STRUT"]
   requiere: [[NLG, NOSE LANDING GEAR, NOSE GEAR], [STRUT]]
   excluir: [SWIVEL]   # fuga en el swivel del NLG no es servicio del amortiguador
   intervalos: &intervalos_amortiguador
-    - variante: "NG: después de 5 aterrizajes, no más de 20"
-      flotas: [NG-700, NG-800, NG-900]
+    - variante: "NG: 20 FC (AFTER 5 LANDINGS, NOT LATER THAN 20 LANDINGS)"
+      flotas: [NG, NG-700, NG-800, NG-900]
       limites: [{valor: 20, unidad: FC}]
-    - variante: "MAX: 5 a 10 aterrizajes después de servicio completo"
+    - variante: "MAX: 10 FC (FIVE TO TEN IN-SERVICE LANDINGS AFTER A COMPLETE OIL AND NITROGEN SERVICING)"
       flotas: [MAX]
       limites: [{valor: 10, unidad: FC}]
 
 - id: AMORTIGUADOR_MLG
-  nombre: Amortiguador del tren principal
+  nombre: MAIN LANDING GEAR SHOCK STRUT
   referencias: ["MAIN LANDING GEAR SHOCK STRUT"]
   requiere: [[MLG, MAIN LANDING GEAR, MAIN GEAR], [STRUT]]
   intervalos: *intervalos_amortiguador
 
 - id: AMORTIGUADOR_GENERICO
-  nombre: Amortiguador (tren no especificado)
+  nombre: SHOCK STRUT (NOSE OR MAIN LANDING GEAR)
   referencias: ["MAIN LANDING GEAR SHOCK STRUT", "NOSE LANDING GEAR SHOCK STRUT"]
   requiere: [[SHOCK STRUT]]
   excluir: [SWIVEL]
   intervalos: *intervalos_amortiguador
 
 - id: DESGASTE_FRENOS
-  nombre: Desgaste de frenos (brake wear pin)
+  nombre: CARBON BREAK WEAR PIN LENGTH UNDER 1/16"
   referencias: ["CARBON BREAK WEAR PIN LENGTH UNDER 1/16\""]
   requiere: [[BRAKE]]
   excluir: [PARKING BRAKE]
   intervalos:
-    - variante: "737NG-700: después de 27 FC, antes de 37 FC"
+    - variante: "737NG-700: AFTER 27 FC, BEFORE 37 FC"
       flotas: [NG-700]
       limites: [{valor: 37, unidad: FC}]
-    - variante: "737NG-800: después de 12 FC, antes de 20 FC"
+    - variante: "737NG-800: AFTER 12 FC, BEFORE 20 FC"
       flotas: [NG-800, NG-900]
       limites: [{valor: 20, unidad: FC}]
-    - variante: "737NG-800 con wear pin < 1/32\" en overnight check: 5 FC"
+    - variante: "737NG-800: IF OVERNIGHT CHECK AT LESS THAN 1/32\": 5 FC"
       flotas: [NG-800, NG-900]
       limites: [{valor: 5, unidad: FC}]
-    - variante: "B737MAX-8/9: después de 34 FC, antes de 42 FC"
+    - variante: "B737MAX-9/8: AFTER 34 FC, BEFORE 42 FC"
       flotas: [MAX]
       limites: [{valor: 42, unidad: FC}]
 
 - id: FRENO_PARQUEO
-  nombre: Freno de parqueo (FNC FAIL / hold check)
+  nombre: PARKING BREAK SYSTEM FNC FAIL / HOLD CHECK
   referencias:
     - "PARKING BREAK SYSTEM FNC FAIL / HOLD CHECK [1]"
     - "PARKING BREAK SYSTEM FNC FAIL / HOLD CHECK [2]"
   requiere: [[PARKING BRAKE]]
 
 - id: CABLES_ALERON
-  nombre: Re-tensión de cables de alerón
+  nombre: AILERON WING CABLE RE-TENSION CHECK
   referencias:
     - "AILERON WING CABLE RE-TENSION CHECK (AJUSTED)"
     - "AILERON WING CABLE RE-TENSION CHECK (NEW CABLE)"
   requiere: [[AILERON, ABSA, ABSB], [CABLE, CABLES, RETENSION, TENSION]]
 
 - id: CABLES_TIMON
-  nombre: Re-tensión de cables de timón
+  nombre: RUDDER CONTROL CABLES RE-TENSION CHECK AND ADJUSTMENT
   referencias:
     - "RUDDER CONTROL CABLES RE-TENSION CHECK AND ADJUSTMENT (ADJUSTED)"
     - "RUDDER CONTROL CABLES RE-TENSION CHECK AND ADJUSTMENT (NEW CABLE)"
   requiere: [[RUDDER], [CABLE, CABLES]]
 
 - id: CABLES_ELEVADOR
-  nombre: Re-tensión de cables de elevador
+  nombre: ELEVATOR CONTROL CABLES RE-TENSION CHECK AND ADJUSTMENT
   referencias: &ref_cables_elevador
     - "ELEVATOR/HORIZONTAL STABILIZER CONTROL CABLES RE-TENSION CHECK AND ADJUSTMENT (AJUSTED)"
     - "ELEVATOR/HORIZONTAL STABILIZER CONTROL CABLES RE-TENSION CHECK AND ADJUSTMENT (NEW CABLE)"
@@ -228,72 +230,72 @@
 # Misma referencia que el elevador, pero son cables distintos (STA/STB): se
 # separa para que no se marquen como duplicados entre sí.
 - id: CABLES_ESTABILIZADOR
-  nombre: Re-tensión de cables de estabilizador horizontal
+  nombre: HORIZONTAL STABILIZER CONTROL CABLES RE-TENSION CHECK AND ADJUSTMENT
   referencias: *ref_cables_elevador
   requiere: [[HORIZONTAL STABILIZER, STA STB, STABILIZER], [CABLE, CABLES]]
 
 - id: LLANTA
-  nombre: Llanta con segunda capa visible
+  nombre: MAIN WHEEL TIRE ASSY SECOND PLY THREAD VISIBLE
   referencias: ["MAIN WHEEL TIRE ASSY SECOND PLY THREAD VISIBLE"]
   requiere: [[TIRE, WHEEL, CANVAS, PLY, PLIES]]
   excluir: [BRAKE, STRUT]
 
 - id: CHALECO
-  nombre: Seguro de puerta de chaleco salvavidas
+  nombre: LIFEVEST DOOR LATCH DAMAGED
   referencias: ["LIFEVEST DOOR LATCH DAMAGED"]
   requiere: [[LIFEVEST], [LATCH, DOOR]]
 
 - id: RAYO
-  nombre: Impacto de rayo fase II
+  nombre: LIGHTNING STRIKE PHASE II
   referencias: ["LIGHTNING STRIKE PHASE II"]
   requiere: [[LIGHTNING]]
 
 - id: RADOMO
-  nombre: Inspección interna de radomo por birdstrike
+  nombre: RADOME INTERNAL INSPECTION DUE TO BIRDSTRIKE
   referencias: ["RADOME INTERNAL INSPECTION DUE TO BIRDSTRIKE"]
   requiere: [[RADOME]]
 
 - id: PACK_CANAL
-  nombre: Pack control channel
+  nombre: PACK CONTROL CHANNEL
   referencias: ["PACK CONTROL CHANNEL"]
   requiere: [[PACK], [CONTROL CHANNEL]]
 
 - id: PACK_RAM_AIR
-  nombre: Pack ram air sensor
+  nombre: PACK RAM AIR SENSOR
   referencias: ["PACK RAM AIR SENSOR"]
   requiere: [[RAM AIR SENSOR]]
 
 - id: ZONA_TEMPERATURA
-  nombre: Temp zone control
+  nombre: TEMP ZONE CTRL
   referencias: ["TEMP ZONE CTRL"]
   requiere: [[TEMP ZONE, ZONE TEMP]]
 
 - id: BLEED_CTRL_CARD
-  nombre: Bleed control card
+  nombre: BLEED CTRL CARD
   referencias: ["BLEED CTRL CARD"]
   requiere: [[BLEED], [CTRL CARD, CONTROL CARD]]
 
 - id: BLEED_FAMV
-  nombre: Bleed FAMV
+  nombre: BLEED FAMV
   referencias: ["BLEED FAMV"]
   requiere: [[FAMV]]
 
 - id: BLEED_PM_SENSOR
-  nombre: Bleed PM sensor
+  nombre: BLEED PM SENSOR
   referencias: ["BLEED PM SENSOR"]
   requiere: [[BLEED], [PM SENSOR]]
 
 - id: BLEED_PRSOV
-  nombre: Bleed PRSOV control
+  nombre: BLEED PRSOV CTRL
   referencias: ["BLEED PRSOV CTRL"]
   requiere: [[PRSOV]]
 
 - id: BLEED_TM_SENSOR
-  nombre: Bleed TM sensor
+  nombre: BLEED TM SENSOR
   referencias: ["BLEED TM SENSOR"]
   requiere: [[BLEED], [TM SENSOR]]
 
 - id: FLAPS_TAKEOFF_CONFIG
-  nombre: Takeoff config flaps
+  nombre: TAKEOFF CONFIG FLAPS
   referencias: ["TAKEOFF CONFIG FLAPS"]
   requiere: [[TAKEOFF CONFIG]]

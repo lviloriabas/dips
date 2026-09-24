@@ -115,7 +115,7 @@ flowchart TD
 | RIR con Start distinto del T/A | POSIBLE DISCREPANCIA |
 | Sin referencia en la tabla, sin intervalo, due date dudoso | POSIBLE DISCREPANCIA |
 
-La severidad de cada regla se cambia en `config/config.yaml`.
+Qué tipos de discrepancia y reglas se revisan, y la severidad de cada regla, se configuran en `config/discrepancias.yaml`.
 
 ## RIR en ICAM
 
@@ -152,17 +152,6 @@ pie showData
     "Sin REV o sin fecha" : 32
     "Sin referencia del manual" : 26
 ```
-
-## Modelo local
-
-| 915 DIPs | Sin modelo | Con modelo |
-| --- | ---: | ---: |
-| Tiempo de auditoría | 2.4 s | 30 min (CPU) |
-| Coincide con el auditor | 64.6% | 64.6% |
-| DIPs que cambian de estado | – | 7, todos a peor |
-| Referencias equivocadas aceptadas | 0 | 11 |
-
-Se usa sin modelo. Detalle: [comparacion_modos.md](comparacion_modos.md).
 
 ## Pendiente
 

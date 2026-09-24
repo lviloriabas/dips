@@ -214,3 +214,20 @@ def test_sin_sesion_avisa_y_no_se_queda_en_el_login(icam, tmp_path):
     with pytest.raises(ErrorSesion, match="No hay sesión iniciada en ICAM"):
         _extraer(["T40S009T000"], icam, tmp_path / "icam")
     assert not list((tmp_path / "icam").glob("*.json"))
+
+
+def test_dip_leido_hace_mas_de_la_vigencia_se_vuelve_a_leer(tmp_path):
+    """Un DIP leído en la apertura se vuelve a leer para el cierre (vigencia_horas)."""
+    from datetime import datetime, timedelta, timezone
+
+    from dips_audit.extractor_icam import _vigente
+
+    ruta = tmp_path / "T1.json"
+    for horas, vigente in ((1, True), (13, False)):
+        leido = datetime.now(timezone.utc) - timedelta(hours=horas)
+        ruta.write_text(json.dumps({"barcode": "T1", "captured_at_utc": leido.isoformat()}),
+                        encoding="utf-8")
+        assert _vigente(ruta, 12) is vigente
+    ruta.write_text(json.dumps({"barcode": "T1"}), encoding="utf-8")
+    assert not _vigente(ruta, 12)  # sin fecha de lectura: se vuelve a leer
+    assert not _vigente(tmp_path / "no_existe.json", 12)

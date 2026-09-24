@@ -1,3 +1,4 @@
+from dataclasses import replace
 from datetime import datetime
 
 from dips_audit.reglas import auditar_dip, buscar_duplicados, buscar_sn_repetidos, estado_final
@@ -24,7 +25,7 @@ def test_intervalo_excedido_es_critico(catalogo, ctx):
     r = auditar(catalogo, ctx, "FDR", nombre="FDR - REPORT", intervalo=45.0, ata=31,
                 deferral_ref="31-DIP", due_date=datetime(2026, 10, 2, 23, 59))
     assert "intervalo_excedido" in codigos(r, "CRITICA")
-    assert estado_final(r.hallazgos) == "DISCREPANCIA CRÍTICA"
+    assert estado_final(r.hallazgos) == "POSIBLE DISCREPANCIA"
 
 
 def test_intervalo_menor_es_observacion(catalogo, ctx):
@@ -93,7 +94,7 @@ def test_due_date_posterior_al_vencimiento_del_item(catalogo, ctx):
 def test_due_date_inconsistente_con_intervalo(catalogo, ctx):
     r = auditar(catalogo, ctx, "OXIGENO_TRIPULACION", due_date=datetime(2026, 8, 30, 23, 59))
     assert "due_date_posterior_a_intervalo" in codigos(r, "REVISAR")
-    assert estado_final(r.hallazgos) == "REVISAR"
+    assert estado_final(r.hallazgos) == "POSIBLE DISCREPANCIA"
 
 
 def test_dip_vencido(catalogo, ctx):
@@ -112,6 +113,68 @@ def test_completado_fuera_de_plazo(catalogo, ctx):
     r = auditar(catalogo, ctx, "OXIGENO_TRIPULACION", estado="COMPLETE",
                 complete_date=datetime(2026, 8, 23))
     assert "completado_fuera_de_plazo" in codigos(r, "CRITICA")
+
+
+def test_vencido_segun_la_hora_de_auditoria(catalogo, ctx):
+    # Vence el 20-ago 23:59: auditado ese día no está vencido; al día siguiente, sí.
+    ctx.fecha_referencia = datetime(2026, 8, 20, 18, 0)
+    r = auditar(catalogo, ctx, "OXIGENO_TRIPULACION", found_date=datetime(2026, 8, 17),
+                due_date=datetime(2026, 8, 20, 23, 59))
+    assert "dip_vencido" not in codigos(r)
+    ctx.fecha_referencia = datetime(2026, 8, 21, 0, 30)
+    r = auditar(catalogo, ctx, "OXIGENO_TRIPULACION", found_date=datetime(2026, 8, 17),
+                due_date=datetime(2026, 8, 20, 23, 59))
+    assert "dip_vencido" in codigos(r, "CRITICA")
+
+
+def test_cierre_con_tolerancia_de_horas(catalogo, ctx):
+    ctx.horas_cierre = 5  # Complete Dt en UTC, due en hora local
+    cierre = dict(estado="COMPLETE", due_date=datetime(2026, 8, 21, 23, 59))
+    r = auditar(catalogo, ctx, "OXIGENO_TRIPULACION", complete_date=datetime(2026, 8, 22, 4, 12), **cierre)
+    assert "completado_fuera_de_plazo" not in codigos(r)
+    r = auditar(catalogo, ctx, "OXIGENO_TRIPULACION", complete_date=datetime(2026, 8, 22, 6, 0), **cierre)
+    assert "completado_fuera_de_plazo" in codigos(r, "CRITICA")
+
+
+def test_cierre_despues_del_due_original(catalogo, ctx):
+    r = auditar(catalogo, ctx, "OXIGENO_TRIPULACION", estado="COMPLETE",
+                due_date=datetime(2026, 8, 25, 23, 59), orig_due_date=datetime(2026, 8, 21, 23, 59),
+                complete_date=datetime(2026, 8, 24, 10, 0))
+    assert codigos(r) >= {"cierre_deadline_extendido"}
+    assert "completado_fuera_de_plazo" not in codigos(r)
+
+
+def test_cierre_con_datos_de_icam(catalogo, ctx):
+    base = dict(estado="COMPLETE", complete_date=datetime(2026, 8, 21, 10, 0),
+                descripcion="CREW OXYGEN BOTTLE S/N ABC123 950 PSI")
+    r = auditar(catalogo, ctx, "OXIGENO_TRIPULACION", accion_correctiva="BOTTLE REPLACED",
+                sn_removidos=[("801307-00", "XYZ999")], adjuntos=[], **base)
+    assert codigos(r) >= {"cierre_sin_referencia_tecnica", "cierre_sn_distinto", "cierre_sin_adjuntos"}
+    r = auditar(catalogo, ctx, "OXIGENO_TRIPULACION",
+                accion_correctiva="REPLACED IAW AMM 35-11-11-000-801 REV 75 DATED 15-JUN-2026",
+                sn_removidos=[("801307-00", "ABC123")], adjuntos=["EVIDENCIA.PDF"], **base)
+    assert not codigos(r) & {"cierre_sin_referencia_tecnica", "cierre_referencia_incompleta",
+                             "cierre_sn_distinto", "cierre_sin_adjuntos"}
+
+
+def test_cierre_con_mgm_o_amm_sin_revision(catalogo, ctx):
+    base = dict(estado="COMPLETE", complete_date=datetime(2026, 8, 21, 10, 0), adjuntos=["A.PDF"])
+    r = auditar(catalogo, ctx, "OXIGENO_TRIPULACION",
+                accion_correctiva="BOTTLE REPLACED IAW MGM 7.7 REV 12 15-MAY-2026", **base)
+    h = next(h for h in r.hallazgos if h.codigo == "cierre_sin_referencia_tecnica")
+    assert "el MGM no es referencia técnica" in h.mensaje
+    accion = "BOTTLE REPLACED IAW AMM 35-11-11-000-801"
+    assert "cierre_referencia_incompleta" in codigos(
+        auditar(catalogo, ctx, "OXIGENO_TRIPULACION", accion_correctiva=accion, **base))
+    opcional = replace(ctx, revision_opcional=frozenset({"AMM"}))
+    assert "cierre_referencia_incompleta" not in codigos(
+        auditar(catalogo, opcional, "OXIGENO_TRIPULACION", accion_correctiva=accion, **base))
+
+
+def test_cierre_sin_icam_no_revisa_accion_correctiva(catalogo, ctx):
+    r = auditar(catalogo, ctx, "OXIGENO_TRIPULACION", estado="COMPLETE",
+                complete_date=datetime(2026, 8, 21, 10, 0))
+    assert not {c for c in codigos(r) if c.startswith("cierre_")}
 
 
 def test_usage_remaining_mayor_que_intervalo(catalogo, ctx):

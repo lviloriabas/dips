@@ -1,0 +1,163 @@
+# Tipos de discrepancia y reglas de la auditoría.
+#
+# Por cada tipo de discrepancia:
+#   activo: true | false     false = no se revisa ninguna regla de ese tipo.
+# Por cada regla:
+#   activa: true | false     false = la regla no se revisa.
+#   severidad:               qué pasa con el DIP cuando la regla falla:
+#     CRITICA, NO CRITICA, REVISAR -> POSIBLE DISCREPANCIA
+#     OBSERVACION                  -> se anota en HALLAZGOS, pero no cambia el resultado del DIP
+#
+# Por ahora el resultado es solo OK o POSIBLE DISCREPANCIA: los niveles (crítica / no crítica)
+# y los tipos de discrepancia todavía no coinciden con el proceso de los auditores, y no se
+# muestran. CRITICA, NO CRITICA y REVISAR se conservan para volver a separar niveles cuando
+# se definan; hoy solo ordenan los hallazgos.
+#
+# Para revisar solo algunos tipos en una ejecución, sin cambiar este archivo:
+#   auditar.bat "entrada.xlsx" --categorias "Incorrect DIP Interval" RIR
+#   auditar.bat "entrada.xlsx" --excluir-categorias "Missing S/N"
+# (python -m dips_audit categorias muestra los nombres).
+#
+# El resultado de un DIP es el de su hallazgo más grave. Una regla desactivada no aparece
+# en HALLAZGOS ni en la hoja Hallazgos. Después de un cambio, ejecute el benchmark
+# (benchmark.bat) y compare con la línea base.
+#
+# Calibrado contra el histórico (jul-ago 2026). En el histórico, un intervalo MENOR al de
+# referencia y la falta de S/N se aceptaron en la mayoría de los casos; por eso quedan
+# como OBSERVACION. Las marcadas "a confirmar" se definen con los auditores.
+
+tipos:
+
+  # --- Auditoría de apertura -------------------------------------------------
+
+  Incorrect DIP Interval:
+    activo: true
+    reglas:
+      intervalo_excedido:                {activa: true, severidad: CRITICA}     # mayor que el TA de la referencia
+      intervalo_menor:                   {activa: true, severidad: OBSERVACION} # menor que el TA de la referencia
+      intervalo_cero:                    {activa: true, severidad: NO CRITICA}  # T/A con intervalo 0
+      tipo_intervalo_incorrecto:         {activa: true, severidad: CRITICA}     # días en vez de FH/FC, etc.
+      variante_condicional:              {activa: true, severidad: OBSERVACION} # coincide con una condición de la referencia (p. ej. PSI)
+      usage_remaining_mayor_a_intervalo: {activa: true, severidad: NO CRITICA}  # T/A de scheduling distinto
+
+  Deferral Interval Not Documented:
+    activo: true
+    reglas:
+      datos_incompletos:                 {activa: true, severidad: REVISAR}     # sin intervalo o tipo de intervalo en el Excel
+
+  Missing Data:
+    activo: true
+    reglas:
+      intervalo_de_icam:                 {activa: true, severidad: OBSERVACION} # el Excel no trae intervalo; se usó el de ICAM
+
+  Incorrect Due Date:
+    activo: true
+    reglas:
+      due_date_posterior_a_intervalo:        {activa: true, severidad: REVISAR}     # due > apertura + intervalo
+      due_date_anterior_a_intervalo:         {activa: true, severidad: OBSERVACION} # due < apertura + intervalo
+      due_date_posterior_a_vencimiento_item: {activa: true, severidad: CRITICA}     # due después del vencimiento del ítem
+      due_date_anterior_a_vencimiento_item:  {activa: true, severidad: OBSERVACION} # due antes del vencimiento del ítem
+
+  Overdue DIP:
+    activo: true
+    reglas:
+      dip_vencido:                       {activa: true, severidad: CRITICA}     # DIP activo con due date vencido
+
+  Incorrect Parent Assembly:
+    activo: true
+    reglas:
+      # Si la referencia admite AIRCRAFT y ENGINE (se transfiere al robar el motor), el
+      # hallazgo queda siempre como OBSERVACION.
+      parent_assy_incorrecto:            {activa: true, severidad: CRITICA}
+
+  Incorrect ATA:
+    activo: true
+    reglas:
+      deferral_reference_ata:            {activa: true, severidad: NO CRITICA}  # Deferral Reference distinto del ATA
+      ata_distinto_a_referencia:         {activa: true, severidad: OBSERVACION} # ATA distinto al de la referencia
+
+  Missing S/N:
+    activo: true
+    reglas:
+      sin_sn_en_descripcion:             {activa: true, severidad: OBSERVACION} # la referencia pide S/N y no está
+
+  Incorrect S/N:
+    activo: true
+    reglas:
+      sn_repetido:                       {activa: true, severidad: NO CRITICA}  # mismo S/N en otro DIP activo del avión
+      cierre_sn_distinto:                {activa: true, severidad: NO CRITICA}  # cierre: S/N removido distinto del de la descripción
+
+  Duplicated DIP:
+    activo: true
+    reglas:
+      duplicado:                         {activa: true, severidad: NO CRITICA}  # mismo avión, componente y abiertos a la vez
+
+  Incorrect Fault Severity:
+    activo: true
+    reglas:
+      fault_severity:                    {activa: true, severidad: OBSERVACION} # Fault Severity distinto de DIP
+
+  # Apertura: sirve la referencia cargada en ICAM (Technical References), una captura
+  # adjunta o la cita en la descripción, como la acepta el auditor (calibrado con la
+  # auditoría del 23-sep-2026). Sin datos de ICAM no se marca: queda para verificar.
+  # Cierre: la acción correctiva debe citar el manual, salvo que remita a otra tarea o
+  # que el DIP se haya cerrado sin trabajo (abierto por error, ya hecho, sin acción).
+  # El MGM no es referencia técnica. AMM, SRM y task card no necesitan revisión ni fecha
+  # (referencia_tecnica.revision_opcional en config.yaml).
+  Missing Technical Reference:
+    activo: true
+    reglas:
+      sin_referencia_tecnica:            {activa: true, severidad: NO CRITICA}  # sin referencia cargada, sin captura y sin cita
+      referencia_tecnica_incompleta:     {activa: true, severidad: OBSERVACION} # la cita sin revisión o sin fecha (el auditor no la marca)
+      cierre_sin_referencia_tecnica:     {activa: true, severidad: NO CRITICA}  # cierre: la acción correctiva no cita el manual
+      cierre_referencia_incompleta:      {activa: true, severidad: OBSERVACION} # cierre: la cita sin revisión o sin fecha
+
+  # Solo si la tabla de referencias tiene el número de tarea.
+  Incorrect Technical Reference:
+    activo: true
+    reglas:
+      referencia_tecnica_equivocada:     {activa: true, severidad: NO CRITICA}  # tiene la de otra referencia de la tabla
+      referencia_tecnica_distinta:       {activa: true, severidad: REVISAR}     # tiene una tarea que la tabla no tiene
+      referencia_tecnica_mismo_tema:     {activa: true, severidad: OBSERVACION} # otra tarea del mismo capítulo-sección-tema (el auditor la acepta)
+
+  # RIR en Follow-on Tasks (datos de ICAM o columnas Rir del Excel). A confirmar.
+  RIR:
+    activo: true
+    reglas:
+      rir_faltante:                      {activa: true, severidad: NO CRITICA}  # la referencia pide RIR y el DIP no tiene
+      rir_intervalo_incorrecto:          {activa: true, severidad: NO CRITICA}  # intervalo distinto del de la referencia
+      rir_limite_faltante:               {activa: true, severidad: NO CRITICA}  # el T/A tiene un límite que el RIR no tiene
+      rir_inicio_distinto:               {activa: true, severidad: REVISAR}     # el RIR no empieza donde empieza el T/A
+      rir_parent_distinto:               {activa: true, severidad: NO CRITICA}  # RIR en otro Parent Assembly (avión / motor)
+
+  # --- Auditoría de cierre (DIP COMPLETE). A confirmar. ------------------------
+
+  Late Completion:
+    activo: true
+    reglas:
+      completado_fuera_de_plazo:         {activa: true, severidad: CRITICA}     # cerrado después del due date
+      cierre_deadline_extendido:         {activa: true, severidad: REVISAR}     # después del due original, con extensión
+
+  Missing Attachment:
+    activo: true
+    reglas:
+      cierre_sin_adjuntos:               {activa: true, severidad: OBSERVACION} # sin attachments en ICAM
+
+  # --- Asociación del DIP a su referencia --------------------------------------
+  # Si se desactivan, un DIP asociado por aproximación puede quedar OK sin que nadie lo revise.
+
+  Reference Match:
+    activo: true
+    reglas:
+      asociacion_aproximada:             {activa: true, severidad: OBSERVACION} # Fault Name con errores de escritura
+      asociacion_por_referencia_tecnica: {activa: true, severidad: OBSERVACION} # el nombre no alcanza; se usó la ref. técnica
+
+  Missing Reference in Table:
+    activo: true
+    reglas:
+      sin_referencia:                    {activa: true, severidad: REVISAR}     # no está en la tabla o coincide con varias
+
+  Incorrect DIP Type:
+    activo: true
+    reglas:
+      tipo_dip_distinto_a_referencia:    {activa: true, severidad: OBSERVACION} # parece una referencia de otro tipo de DIP

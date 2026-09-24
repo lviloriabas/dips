@@ -1,10 +1,13 @@
 # Auditor preliminar de DIPs
 
-Audita los DIPs del Excel de entrada con los datos de ICAM y la tabla de referencias. Entrega un Excel con el resultado de cada DIP: **DISCREPANCIA**, **POSIBLE DISCREPANCIA** u **OK**. El auditor confirma cada resultado.
+Revisa los DIPs Others del Excel de entrada con los datos de **ICAM** y la **tabla de referencias** (`DIPs References.xlsx`). Entrega un Excel con el resultado de cada DIP: **POSIBLE DISCREPANCIA** u **OK**, y el motivo. El auditor confirma cada resultado.
 
-Proceso en diagramas: [docs/proceso.md](docs/proceso.md).
+- **No usa inteligencia artificial.** Todas las decisiones salen de reglas fijas y verificables.
+- **Lee ICAM.** Por cada DIP abre su página en ICAM, solo para leer, con la sesión que usted inicia. No modifica nada en ICAM.
 
-## Instalación
+Explicación detallada de cada paso: [docs/tecnico.md](docs/tecnico.md).
+
+## Instalación (una sola vez)
 
 ```bat
 git clone https://github.com/lviloriabas/dips-ai.git
@@ -12,128 +15,149 @@ cd dips-ai
 setup.bat
 ```
 
-`setup.bat` instala Python y las librerías, verifica Edge y `DIPs References.xlsx`, instala Ollama con el modelo local (opcional) y corre las pruebas. Se puede correr varias veces. Opciones: `-SinModelo`, `-ModeloLiviano`, `-Modelo NOMBRE`, `-SinPruebas`.
+`setup.bat` instala Python y las librerías, verifica Edge y `DIPs References.xlsx`, y corre las pruebas. Se puede ejecutar de nuevo sin problema.
 
-## Uso
+## Auditar
 
-1. `abrir_icam.bat`: abre ICAM en el Edge del programa. Iniciar sesión y dejar la ventana abierta.
-2. Arrastrar el Excel de entrada sobre `auditar.bat`.
-3. Abrir el Excel de salida en `salidas/` y filtrar la columna `RESULTADO`.
+1. **Abrir ICAM:** doble clic en `abrir_icam.bat`. Se abre una ventana de Edge en ICAM: inicie sesión y déjela abierta.
+2. **Auditar:** arrastre el Excel de entrada (por ejemplo `DIPs Audit (23SEP2026).xlsx`) sobre `auditar.bat`. El programa lee en ICAM los DIPs Others del archivo (unos 5 minutos para 380 DIPs) y los audita.
+3. **Ver el resultado:** abra el Excel que se crea en `salidas/` y filtre la columna `RESULTADO`.
 
-Sin sesión en ICAM, el programa avisa y termina.
+La fecha y hora de auditoría es el momento en que se ejecuta. Un DIP abierto (ACTV) recibe la **auditoría de apertura**; un DIP cerrado (COMPLETE), además, la **auditoría de cierre**.
 
-| Opción de `auditar.bat` | Uso |
+## Comparar con la auditoría manual
+
+Sirve para medir qué tan cerca está el programa de los auditores.
+
+1. Abra ICAM con `abrir_icam.bat`, como arriba.
+2. Arrastre el Excel `DIPs Audit (...)` sobre `comparar.bat`.
+3. Abra el Excel `..._COMPARACION_....xlsx` que se crea en `salidas/` (o en `pruebas/salidas/`, ver abajo).
+
+El programa audita cada DIP a la misma fecha y hora en que lo auditó el auditor: la de apertura (`DIP Open - RT Audit Completed`) y la de cierre (`DIP Closed - RT Audit Completed`).
+
+La hoja **Resumen** tiene tablas cortas, cada una responde una pregunta:
+
+| Tabla | Pregunta |
 | --- | --- |
-| `--sin-icam` | Auditar solo con el Excel de entrada |
-| `--hoja NOMBRE` | Hoja a leer. Por defecto, la que tiene `Fault Barcode` y `Fault Name` |
-| `--fecha AAAA-MM-DD` | Fecha de auditoría. Por defecto, hoy |
-| `--icam RUTA` | Datos de ICAM ya leídos (`data/icam/`, JSON o CSV) |
-| `--llm` | Modelo local. Experimental: no mejora el resultado ([detalle](docs/comparacion_modos.md)) |
-| `--sin-excel` | Resultado solo en consola |
+| Qué se comparó | Cuántos DIPs y auditorías, cuántos se leyeron en ICAM |
+| ¿El programa llega al mismo resultado que el auditor? | Sí / no |
+| DIPs que el auditor dio sin discrepancia | Qué dijo el programa de esos DIPs (lo ideal: OK) |
+| DIPs en que el auditor encontró discrepancia | Qué dijo el programa de esos DIPs (lo ideal: posible discrepancia) |
+| Auditoría de apertura / de cierre | Resultado del programa en cada auditoría |
+| Por qué el programa marca DIPs que el auditor dio sin discrepancia | Los motivos, por separado para apertura y cierre |
+| Discrepancias encontradas por el auditor | Cada una, con lo que encontró el programa |
 
-## Lectura de ICAM
+La hoja **Detalle por DIP** muestra, por barcode, lo que dijo el auditor, lo que dijo el programa y si coinciden.
 
-Por barcode, con la sesión del Edge de ICAM:
+## Pruebas con datos que no son reales
 
-1. Barcode Search (`POST /maintenix/servlet/ScanBarcode`) abre el DIP.
-2. Se leen las pestañas Task Execution, Fault Information, Task Information, Scheduling e History.
-3. RIR: se lee Follow-on Tasks con "Show Historical Tasks" (RIR cerrados) y la página de cada RIR vigente (Scheduling y Task Information).
-4. Se guarda `data/icam/<barcode>.json`. Un DIP ya leído no se vuelve a leer.
+Para probar el programa sin que parezca una auditoría real, ponga el Excel en `pruebas/entrada/` y arrástrelo sobre `auditar.bat` o `comparar.bat`. El programa entra solo en **modo prueba**:
 
-| Control | Cómo |
+- guarda los datos de ICAM en `pruebas/icam/` (no en `data/icam/`);
+- deja los resultados en `pruebas/salidas/`, con el prefijo `PRUEBA_`;
+- lo indica en la consola y en el Excel ("PRUEBA: datos de prueba, no es una auditoría real").
+
+Con un Excel de otra carpeta se puede forzar con `--prueba`. El contenido de `pruebas/` no se sube al repositorio.
+
+## Cómo leer el resultado
+
+| `RESULTADO` | Qué significa | Qué hacer |
+| --- | --- | --- |
+| POSIBLE DISCREPANCIA | Falló una regla, falta un dato o el DIP no está en la tabla de referencias | Leer `HALLAZGOS`: dice qué se encontró y qué corresponde. El auditor decide si es discrepancia |
+| OK | No falló ninguna regla | Hacer las verificaciones de `VERIFICACIÓN MANUAL` |
+
+Por ahora el programa no clasifica la discrepancia (crítica o no crítica) ni su tipo, porque esos criterios todavía no coinciden con el proceso de los auditores.
+
+En la hoja **Auditoría** van primero las columnas del Excel de entrada, sin cambios, y al final las que agrega el programa (encabezado morado, celdas lila). Columnas útiles del programa:
+
+| Columna | Contenido |
 | --- | --- |
-| Solo lectura | Las únicas consultas a ICAM son la búsqueda y la lectura de las pestañas. No se abre ningún formulario de edición ni corre código de ICAM |
-| Rapidez | Sin dibujar páginas ni descargar imágenes. 3 DIPs a la vez, pestañas en paralelo |
-| Sin errores | Cada respuesta se valida (DIP, barcode y contenido). 3 reintentos por consulta. Un DIP incompleto no se guarda. Si la sesión vence, se detiene y lo leído queda guardado |
-
-Solo leer ICAM: `.venv\Scripts\python -m dips_audit extraer-icam "entrada.xlsx"`. Probar un DIP: `extraer-icam --barcode T40S0099FC1`. Ajustes en la sección `icam` de `config/config.yaml`. `data/` y `.icam_perfil/` no se suben al repositorio.
-
-## Qué revisa
-
-| Regla | Si falla |
-| --- | --- |
-| Intervalo mayor que el TA de la referencia | CRÍTICA |
-| Tipo de intervalo distinto (días, FH, FC) | CRÍTICA |
-| Parent Assy distinto (AIRCRAFT / ENGINE) | CRÍTICA |
-| Due date después del vencimiento del ítem | CRÍTICA |
-| DIP activo vencido o cerrado fuera de plazo | CRÍTICA |
-| Referencia técnica sin manual, REV o fecha de la REV | NO CRÍTICA |
-| Referencia técnica de otra referencia de la tabla | NO CRÍTICA |
-| Intervalo 0 o Usage Remaining mayor que el intervalo | NO CRÍTICA |
-| DIP duplicado, S/N repetido o Deferral Reference distinto del ATA | NO CRÍTICA |
-| RIR faltante (la tabla pide RIR) o con intervalo distinto | NO CRÍTICA |
-| RIR sin un límite del T/A (p. ej. CYCLES y CDY) o en otro Parent Assembly | NO CRÍTICA |
-| RIR con Start distinto del T/A | Revisar |
-| Sin referencia en la tabla, sin intervalo, due date dudoso, tarea que la tabla no tiene | Revisar |
-
-- La referencia se reconoce por palabras clave del Fault Name (`config/catalogo_others.yaml`), con errores de escritura (`FUNIGATION`) y siglas con puntos (`P.O.B`). Si el Fault Name no alcanza, se usa el número de tarea de la referencia técnica.
-- La referencia técnica (manual + REV + fecha) se busca en la descripción y en el resto del DIP, en cualquier orden: `AMM TASK 12-15-21-200-801 … REV 28, 15-MAY-2026`.
-- RIR: en ICAM son Follow-on Tasks ADHOC del DIP (las REQ, como el servicio de taller, no son RIR). El intervalo sale de la página del RIR o de la diferencia entre la tarea ACTV y la FORECAST (594 → 1394 CYCLES = 800 FC). La columna `RIR EN ICAM` muestra cada RIR con su intervalo.
-- Attachments quedan como verificación manual. La columna `ADJUNTOS EN ICAM` muestra los attachments del DIP.
-- La severidad de cada regla se cambia en `config/config.yaml`.
-
-## Resultado
-
-| `RESULTADO` | Significa |
-| --- | --- |
-| DISCREPANCIA | Falló una regla, crítica o no crítica. `HALLAZGOS` indica lo encontrado y lo que corresponde |
-| POSIBLE DISCREPANCIA | Falta un dato o la referencia no está en la tabla. Revisar a mano |
-| OK | No falló ninguna regla. Quedan las verificaciones manuales |
-
-Hojas del Excel de salida:
-
-| Hoja | Contenido |
-| --- | --- |
-| Dashboard | Indicadores y gráficos: % de DISCREPANCIA, POSIBLE DISCREPANCIA y OK; DIPs por tipo; tipos de discrepancia; referencias con más discrepancias |
-| Resumen | Archivo, fecha, conteo por estado y por tipo de discrepancia |
-| Auditoría | Un DIP por fila: `RESULTADO`, `ESTADO IA`, `HALLAZGOS`, `COMENTARIO SUGERIDO`, referencia, TA, `REFERENCIA TÉCNICA DEL DIP`, `RIR EN ICAM`, `ADJUNTOS EN ICAM` y las columnas del Excel de entrada |
-| Hallazgos | Un hallazgo por fila, con severidad |
+| `HALLAZGOS` | Cada hallazgo, marcado `[POSIBLE DISCREPANCIA]` u `[OBSERVACIÓN]`. Los de cierre dicen `[CIERRE]` |
+| `COMENTARIO SUGERIDO` | Texto listo para copiar en el registro de la auditoría |
+| `AUDITORÍA` | APERTURA o CIERRE |
+| `ESTADO APERTURA` / `ESTADO CIERRE` | Resultado de cada auditoría por separado |
+| `REFERENCIA ASOCIADA` / `TA SEGÚN REFERENCIA` | Fila de la tabla de referencias que corresponde al DIP |
+| `REFERENCIA TÉCNICA DEL DIP` | La referencia cargada en ICAM, la cita encontrada y los adjuntos |
+| `RIR EN ICAM` / `ADJUNTOS EN ICAM` | RIR y attachments leídos en ICAM |
 
 El Excel de entrada no se modifica.
 
-## Benchmark
+## Qué revisa
 
-| Modo | Comando | Tarda |
-| --- | --- | --- |
-| Sin modelo | `benchmark_sin_modelo.bat` | 1 s |
-| Con modelo | `benchmark_con_modelo.bat` (necesita Ollama) | 15 min en CPU |
+Si falla cualquiera de estas reglas, el DIP queda en **POSIBLE DISCREPANCIA**.
 
-Audita 50 DIPs Others ya auditados (`benchmark/dips_auditados.xlsx`, copia anónima del histórico) y 46 Fault Names de prueba (`benchmark/casos_modelo_local.yaml`). Compara con la línea base de su modo (`benchmark/linea_base_<modo>.json`): si un indicador empeora, lo avisa y termina con código 2. Si el cambio es intencional, copiar el JSON del resultado sobre la línea base. Resultados en `benchmark/resultados/<modo>/`.
+**Apertura** (todo DIP):
 
-Resultado actual (Ryzen 5 3600, sin GPU): `sin_modelo/2026-09-23_234440.md` y `con_modelo/2026-09-24_000003.md`.
+- Intervalo mayor que el TA de la tabla, o tipo de intervalo distinto (días, FH, FC).
+- Parent Assembly distinto del de la tabla (avión o motor).
+- Due date posterior al vencimiento del ítem, o que no coincide con apertura + intervalo.
+- DIP vencido a la hora de la auditoría.
+- Sin referencia técnica: no está cargada en ICAM, no hay captura adjunta y no se cita en la descripción.
+- Referencia técnica de otro ítem de la tabla, o una tarea que la tabla no tiene.
+- Intervalo 0, o Usage Remaining mayor que el intervalo.
+- DIP duplicado, S/N repetido, o Deferral Reference distinto del ATA.
+- RIR que pide la tabla y no está, o con otro intervalo.
+- DIP que no está en la tabla de referencias, o que coincide con varias.
 
-| Indicador | Sin modelo | Con modelo |
-| --- | ---: | ---: |
-| Coincide con el auditor | 40 de 50 | 40 de 50 |
-| OK del auditor con discrepancia del programa | 3 de 44 | 3 de 44 |
-| OK del auditor en Revisar | 3 de 44 | 3 de 44 |
-| Discrepancias del auditor que el programa marca | 2 de 6 | 2 de 6 |
-| Fault Names de prueba bien asociados | 24 de 46 | 44 de 46 |
-| Referencias equivocadas aceptadas | 0 | 0 |
-| Tiempo | 1 s | 15 min (20 s por consulta, 5.3 GB de RAM) |
+**Cierre** (DIP COMPLETE):
 
-- La muestra tiene solo 6 discrepancias; cada una vale 17 puntos. Con los 915 DIPs del histórico, el modelo cambia 7 DIPs y los 7 a peor ([docs/comparacion_modos.md](docs/comparacion_modos.md)).
-- Las discrepancias que no se marcan dependen sobre todo de datos de ICAM (referencia técnica, S/N, attachments) y de criterios por acordar ([docs/automatizacion_auditoria.md](docs/automatizacion_auditoria.md)).
-- Regenerar la muestra (requiere el histórico en la carpeta del proyecto): `.venv\Scripts\python -m dips_audit anonimizar`. Después, correr los dos modos y copiar los resultados como línea base.
+- Cerrado después del due date (con 5 h de tolerancia: el cierre viene en UTC).
+- Cerrado después del due date original, con el deadline extendido.
+- La acción correctiva no cita el manual (se acepta si remite a otra tarea o si no hubo trabajo).
+- S/N removido distinto del S/N de la descripción.
 
-## Configuración
+El MGM no cuenta como referencia técnica. Las citas de AMM, SRM y task card no necesitan revisión ni fecha (se puede cambiar en `config/config.yaml`, `referencia_tecnica.revision_opcional`). Referencias técnicas de otros manuales sin revisión o sin fecha, intervalos menores que el de la tabla y DIPs cerrados sin attachments se anotan como **observación**: aparecen en `HALLAZGOS`, pero no cambian el resultado.
 
-| Archivo | Contenido |
+## Ajustes
+
+| Qué cambiar | Dónde |
 | --- | --- |
-| `DIPs References.xlsx` | Tabla de referencias: TA, Parent Assy, AMM/ECRA |
-| `config/catalogo_others.yaml` | Palabras clave de cada referencia Others e intervalos por flota o condición |
-| `config/config.yaml` | Severidades, tolerancias, ICAM y modelo local |
+| Qué reglas se revisan y cuáles son solo observación | `config/discrepancias.yaml` |
+| Tolerancias (días, horas del cierre), lectura de ICAM | `config/config.yaml` |
+| Manuales que no necesitan REV ni fecha en la cita (AMM, SRM, task card) | `config/config.yaml` (`referencia_tecnica`) |
+| Palabras con las que se reconoce cada referencia Others | `config/catalogo_others.yaml` |
+| TA, Parent Assembly, AMM/ECRA y RIR de cada ítem | `DIPs References.xlsx` |
 
-`python -m dips_audit referencias` muestra cómo se leyó la tabla y avisa si falta una fila Others en el catálogo.
+Después de cambiar una regla, ejecute `benchmark.bat` y compare con la línea base (ver [docs/tecnico.md](docs/tecnico.md#10-benchmark)).
+
+## Opciones de `auditar.bat`
+
+| Opción | Uso |
+| --- | --- |
+| `--sin-icam` | Auditar solo con el Excel, sin leer ICAM (menos reglas) |
+| `--hoja NOMBRE` | Hoja a leer. Por defecto, la que tiene `Fault Barcode` y `Fault Name` |
+| `--fecha "AAAA-MM-DD HH:MM"` | Auditar como si fuera esa fecha y hora |
+| `--sin-excel` | Mostrar el resultado solo en la consola |
+| `--categorias TIPO ...` | Revisar solo esos tipos de discrepancia. Basta una parte del nombre: `"technical reference"` toma Missing e Incorrect Technical Reference |
+| `--excluir-categorias TIPO ...` | Revisar todos menos esos tipos |
+
+Ejemplos en consola:
+
+```
+auditar.bat "DIPs Audit (23SEP2026).xlsx" --sin-icam
+auditar.bat "DIPs Audit (23SEP2026).xlsx" --categorias "Incorrect DIP Interval" RIR
+auditar.bat "DIPs Audit (23SEP2026).xlsx" --excluir-categorias "Missing S/N"
+```
+
+Los nombres de los tipos: `.venv\Scripts\python -m dips_audit categorias`. `comparar.bat` acepta las mismas dos opciones. El filtro vale solo para esa ejecución; para desactivar un tipo siempre, use `config/discrepancias.yaml`.
+
+## Problemas frecuentes
+
+| Mensaje | Solución |
+| --- | --- |
+| "No hay sesión iniciada en ICAM" | Abra `abrir_icam.bat`, inicie sesión y vuelva a arrastrar el archivo |
+| "La sesión de ICAM venció" | Inicie sesión de nuevo en esa ventana. Lo ya leído queda guardado |
+| "Permission denied" al guardar | Cierre el Excel de salida si está abierto |
+| "Faltan columnas obligatorias" | El Excel no tiene el formato esperado; ver [docs/tecnico.md](docs/tecnico.md#1-lectura-del-excel-de-entrada) |
 
 ## Documentos
 
 | Documento | Tema |
 | --- | --- |
+| [tecnico.md](docs/tecnico.md) | Cómo funciona cada parte, en detalle |
 | [proceso.md](docs/proceso.md) | Proceso en diagramas |
-| [automatizacion_auditoria.md](docs/automatizacion_auditoria.md) | Cómo acercar el programa al auditor: métodos probados y plan |
-| [comparacion_modos.md](docs/comparacion_modos.md) | Con y sin modelo local, 915 DIPs |
-| [analisis_modelo_local.md](docs/analisis_modelo_local.md) | Análisis del modelo local |
-| [analisis_icam_others.md](docs/analisis_icam_others.md), [flujo_auditoria_icam.md](docs/flujo_auditoria_icam.md) | ICAM: datos y flujo del auditor |
+| [flujo_auditoria_icam.md](docs/flujo_auditoria_icam.md), [analisis_icam_others.md](docs/analisis_icam_others.md) | ICAM: flujo del auditor y datos |
+| [automatizacion_auditoria.md](docs/automatizacion_auditoria.md) | Cómo acercar el programa al auditor |
+| [comparacion_modos.md](docs/comparacion_modos.md) | Registro: el auditor con y sin agente (modelo local), y por qué se eliminó |
 
 Pruebas: `.venv\Scripts\python -m pytest`.

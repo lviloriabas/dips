@@ -51,6 +51,19 @@ _MARCAS = {
 _LEER = """(pestana) => {
     const texto = (sel) => (document.querySelector(sel)?.textContent || '').replace(/\\s+/g, ' ').trim();
     const nodo = document.querySelector('#idTab' + pestana);
+    // Las pestañas no activas vienen ocultas (display:none) y las tablas con visibility:hidden
+    // (las muestran los scripts de ICAM, que aquí no corren). Oculto, innerText sale sin tabs
+    // ni filas de tabla: se muestran la pestaña, su contenido y sus contenedores.
+    const mostrar = (el) => {
+        if (!el.style) return;
+        if (el.style.display === 'none') el.style.display = '';
+        if (el.style.visibility === 'hidden') el.style.visibility = 'visible';
+        el.removeAttribute('hidden');
+    };
+    if (nodo) {
+        for (let el = nodo; el && el.style; el = el.parentElement) mostrar(el);
+        nodo.querySelectorAll('[style], [hidden]').forEach(mostrar);
+    }
     return {
         titulo: document.title,
         barcode: texto('#idBarcode'),
@@ -359,9 +372,22 @@ async def _extraer(pendientes: list[str], config: dict, carpeta: Path,
         await asyncio.gather(*(trabajador() for _ in range(paralelo)))
 
 
+def _vigente(ruta: Path, horas: float) -> bool:
+    """El DIP ya se leyó hace menos de `horas` (según captured_at_utc del JSON)."""
+    if not ruta.exists():
+        return False
+    try:
+        leido = datetime.fromisoformat(json.loads(ruta.read_text(encoding="utf-8"))["captured_at_utc"])
+    except (ValueError, KeyError, OSError):
+        return False
+    return (datetime.now(timezone.utc) - leido).total_seconds() < horas * 3600
+
+
 def extraer(barcodes: list[str], config: dict, carpeta: Path, actualizar: bool = False,
             al_avanzar: Callable[[str], None] | None = None) -> dict[str, str]:
-    """Lee en ICAM los barcodes que no están en `carpeta` (o todos si `actualizar`).
+    """Lee en ICAM los barcodes que no están en `carpeta`, o que se leyeron hace más de
+    `vigencia_horas` (config; por defecto 12), o todos si `actualizar`. Así un DIP leído
+    en la apertura se vuelve a leer para la auditoría de cierre.
 
     Devuelve {barcode: "leido" | "en cache" | "error: ..."}. Sin sesión, o si la sesión
     vence, lanza ErrorSesion (lo ya leído queda guardado).
@@ -369,7 +395,9 @@ def extraer(barcodes: list[str], config: dict, carpeta: Path, actualizar: bool =
     avisar = al_avanzar or (lambda _: None)
     carpeta = Path(carpeta)
     carpeta.mkdir(parents=True, exist_ok=True)
-    estado = {b: "en cache" for b in barcodes if not actualizar and ruta_cache(carpeta, b).exists()}
+    horas = float(config.get("vigencia_horas", 12))
+    estado = {b: "en cache" for b in barcodes
+              if not actualizar and _vigente(ruta_cache(carpeta, b), horas)}
     pendientes = [b for b in dict.fromkeys(barcodes) if b not in estado]
     if pendientes:
         asyncio.run(_extraer(pendientes, config, carpeta, avisar, estado))

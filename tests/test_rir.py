@@ -157,6 +157,24 @@ def test_auditoria_con_rir_de_icam(config, tmp_path):
     assert f.loc["P1", "RESULTADO"] == "OK"
     assert f.loc["P1", "RIR EN ICAM"] == "RIR - PARK BRAKE (P1A, P1B): 1 DAY"
     assert "la referencia pide 1 DAY" in f.loc["P2", "HALLAZGOS"]
-    assert f.loc["P2", "RESULTADO"] == "DISCREPANCIA"
+    assert f.loc["P2", "RESULTADO"] == "POSIBLE DISCREPANCIA"
     assert "Sin RIR en Follow-on Tasks" in f.loc["P3", "HALLAZGOS"]
     assert f.loc["P3", "RIR EN ICAM"] == "Sin RIR"
+
+
+def test_tablas_de_abiertas_e_historicas_en_la_misma_pagina():
+    """ICAM trae seguidas la tabla de tareas abiertas y la de históricas, cada una con su
+    encabezado: el segundo encabezado no es una tarea."""
+    texto = ("Name\tID\tTask Class\tTask Subclass\tTask Status1\tDue2\n"
+             "RIR - PARK BRAKE\tP1B\tADHOC (Ad-Hoc Task)\t\xa0\tACTV\t02-OCT-2026 23:59 UTC\n"
+             "TASK-03-02-SHOP-REQ (SHOP)\tT1\tREQ (Requirement)\t\xa0\tACTV\t\xa0\n"
+             "Name\tID\tTask Class\tTask Subclass\tTask Status\tCompleted\n"
+             "RIR - PARK BRAKE\tP1A\tADHOC (Ad-Hoc Task)\t\xa0\tCOMPLETE\t01-OCT-2026 10:00 UTC\n"
+             "\n"
+             "Component Faults\n")
+    tareas = leer_tareas_siguientes(texto)
+    assert [(t.id, t.estado) for t in tareas] == [("P1B", "ACTV"), ("T1", "ACTV"), ("P1A", "COMPLETE")]
+    assert [t.id for t in tareas if t.es_rir] == ["P1B", "P1A"]
+    assert tareas[0].fecha == "02-OCT-2026 23:59 UTC"
+    sin_historicas = texto.split("RIR - PARK BRAKE\tP1A")[0] + "There are no historical tasks.\n\n"
+    assert [t.id for t in leer_tareas_siguientes(sin_historicas)] == ["P1B", "T1"]

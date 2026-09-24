@@ -138,37 +138,45 @@ _FECHA_ICAM = re.compile(r"\d{2}-[A-Z]{3}-\d{4}(?:\s+\d{2}:\d{2}\s+UTC)?")
 
 def leer_tareas_siguientes(texto: str) -> list[TareaSiguiente]:
     """Filas de la tabla Follow-on Tasks. La columna Due puede seguir en la línea
-    siguiente ("594 CYCLES" y abajo "10-FEB-2027 23:59 UTC")."""
+    siguiente ("594 CYCLES" y abajo "10-FEB-2027 23:59 UTC"). La página puede traer
+    dos tablas seguidas, abiertas e históricas, cada una con su encabezado."""
+    def es_encabezado(linea: str) -> bool:
+        return {"Name", "ID", "Task Class"} <= {_limpio(c) for c in linea.split("\t")}
+
     lineas = texto.splitlines()
-    inicio = next((i for i, l in enumerate(lineas)
-                   if {"Name", "ID", "Task Class"} <= {_limpio(c) for c in l.split("\t")}), None)
+    inicio = next((i for i, l in enumerate(lineas) if es_encabezado(l)), None)
     if inicio is None:
         return []
-    enc = [_limpio(c) for c in lineas[inicio].split("\t")]
-    col = {c.rstrip("0123456789"): i for i, c in enumerate(enc)}   # "Task Status1" -> "Task Status"
     tareas: list[TareaSiguiente] = []
-    for linea in lineas[inicio + 1:]:
+    col: dict[str, int] = {}
+    ultima: TareaSiguiente | None = None   # tarea a la que sigue una línea de continuación
+    for linea in lineas[inicio:]:
         if not _limpio(linea):
             break
+        if es_encabezado(linea):
+            enc = [_limpio(c) for c in linea.split("\t")]
+            col = {c.rstrip("0123456789"): i for i, c in enumerate(enc)}  # "Task Status1"
+            ultima = None
+            continue
         if "\t" not in linea:
-            if not tareas:
-                break
-            t = tareas[-1]      # continuación de la columna Due
-            t.due = f"{t.due} {_limpio(linea)}".strip()
+            if ultima is None:  # p. ej. "There are no historical tasks."
+                continue
+            ultima.due = f"{ultima.due} {_limpio(linea)}".strip()   # continuación de Due
             m = _FECHA_ICAM.search(linea)
-            if m and not t.fecha:
-                t.fecha = m.group(0)
+            if m and not ultima.fecha:
+                ultima.fecha = m.group(0)
             continue
         celdas = [_limpio(c) for c in linea.split("\t")]
         due = _celda(celdas, col.get("Due"))
         fecha = _FECHA_ICAM.search(due)
         # "594 CYCLES" = uso restante; "02-OCT-2026 23:59 UTC" = solo fecha.
         m = None if due[:1].isdigit() and fecha and fecha.start() == 0 else _DUE_USO.match(due)
-        tareas.append(TareaSiguiente(
+        ultima = TareaSiguiente(
             nombre=_celda(celdas, col.get("Name")), id=_celda(celdas, col.get("ID")),
             clase=_celda(celdas, col.get("Task Class")), estado=_celda(celdas, col.get("Task Status")),
             due=due, restante=_numero(m.group(1)) if m else None, unidad=m.group(2) if m else "",
-            fecha=fecha.group(0) if fecha else ""))
+            fecha=fecha.group(0) if fecha else "")
+        tareas.append(ultima)
     return [t for t in tareas if t.id]
 
 

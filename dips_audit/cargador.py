@@ -27,12 +27,18 @@ COLUMNAS = {
     "severidad": ["Fault Severity"],
     "deferral_ref": ["Deferral Reference"],
     "due_date": ["Fault Due Date"],
-    "found_date": ["Fault Found on Date"],
+    "orig_due_date": ["Orig Fault Due Date"],
+    "found_date": ["Found On Date", "Fault Found on Date"],
     "scheduled_date": ["Scheduled Date"],
     "usage_remaining": ["Usage Remaining"],
-    "complete_date": ["Completed Date", "Fault Completed Date", "Completion Date"],
+    "complete_date": ["Complete Dt", "Completed Date", "Fault Completed Date", "Completion Date"],
     "referencia_tecnica": ["Technical References", "Technical Reference", "technical_references",
                            "Referencias Técnicas", "Referencia Técnica", "Referencia Tecnica"],
+    # RIR activo del DIP (formato "DIPs Audit (23SEP2026)"): uno por fila.
+    "rir_barcode": ["Rir Barcode"],
+    "rir_nombre": ["Rir Name"],
+    "rir_intervalo": ["Rir Driver Interval"],
+    "rir_tipo": ["Rir Driver Type"],
 }
 OBLIGATORIAS = ["barcode", "nombre", "intervalo", "tipo_intervalo", "estado", "avion"]
 
@@ -49,6 +55,7 @@ class Lote:
     original: pd.DataFrame          # columnas tal como vienen en el Excel de entrada
     datos: pd.DataFrame             # columnas estándar ya interpretadas
     notas: list[str] = field(default_factory=list)
+    prueba: bool = False            # datos de prueba (carpeta pruebas/): los reportes lo dicen
 
 
 # --------------------------------------------------------------------------
@@ -58,7 +65,7 @@ class Lote:
 _FORMATOS_FECHA = [
     "%b/%d/%y %H:%M", "%b/%d/%Y %H:%M", "%m/%d/%Y %I:%M:%S %p", "%m/%d/%Y %H:%M",
     "%m/%d/%Y", "%d/%b/%Y", "%d-%b-%Y", "%d-%b-%y", "%Y-%m-%d %H:%M:%S", "%Y-%m-%d",
-    "%d/%b/%Y %H:%M",
+    "%d/%b/%Y %H:%M", "%d-%b-%Y %H:%M",
 ]
 
 
@@ -112,6 +119,23 @@ def flota_de_modelo(texto: str) -> str | None:
     return None
 
 
+def flota_de_matricula(texto: str) -> str | None:
+    """HP-9804CMP / HP-9901CMP -> MAX (matrículas 98xx y 99xx); HP-1837CMP -> NG."""
+    m = re.search(r"\bHP-?(\d{2})\d{2}", texto.upper())
+    if not m:
+        return None
+    return "MAX" if m.group(1) in ("98", "99") else "NG"
+
+
+def flota(avion: str, parent_assy: str) -> str | None:
+    """La matrícula decide MAX o NG; el modelo del parent assy precisa el NG (NG-700...)."""
+    por_matricula = flota_de_matricula(avion) or flota_de_matricula(parent_assy)
+    por_modelo = flota_de_modelo(parent_assy)
+    if por_matricula == "NG" and por_modelo and por_modelo.startswith("NG"):
+        return por_modelo
+    return por_matricula or por_modelo
+
+
 def tipo_parent(texto: str) -> str:
     t = texto.upper()
     if re.search(r"\bENGINE\b|CFM|LEAP", t):
@@ -161,15 +185,25 @@ def cargar_export(ruta: Path, hoja: str | None = None) -> Lote:
         else:
             vistos[e] = 1
     col_barcode = next(n for n, e in enumerate(encabezado) if e.lower() == "fault barcode")
-    cuerpo, numeros_fila = [], []
+    cuerpo, numeros_fila, vistos_barcode, repetidos = [], [], set(), 0
     for n, f in enumerate(filas[i + 1:], start=i + 2):  # n = número de fila en Excel
         f = (list(f) + [None] * len(encabezado))[:len(encabezado)]
-        if parse_texto(f[col_barcode]):
-            cuerpo.append(f)
-            numeros_fila.append(n)
+        barcode = parse_texto(f[col_barcode])
+        if not barcode:
+            continue
+        # El mismo DIP puede venir en dos filas (p. ej. auditado dos veces): se audita una vez.
+        if barcode in vistos_barcode:
+            repetidos += 1
+            continue
+        vistos_barcode.add(barcode)
+        cuerpo.append(f)
+        numeros_fila.append(n)
     original = pd.DataFrame(cuerpo, columns=encabezado, index=numeros_fila, dtype=object)
 
     datos, notas = normalizar_lote(original)
+    if repetidos:
+        notas.append(f"{repetidos} fila(s) con un Fault Barcode repetido se omitieron "
+                     "(se audita la primera fila de cada DIP).")
     return Lote(ruta=ruta, hoja=nombre, fila_encabezado=i + 1, original=original,
                 datos=datos, notas=notas)
 
@@ -183,6 +217,20 @@ def _mapear_columnas(columnas: list[str]) -> dict[str, str]:
                 mapa[estandar] = minusculas[a.lower()]
                 break
     return mapa
+
+
+def _rirs_del_excel(v) -> list:
+    """RIR activo de la fila (columnas Rir del Excel). Sin Rir Barcode: el DIP no tiene RIR activo."""
+    from .rir import RIR, Limite, unidad
+
+    barcode = parse_texto(v("rir_barcode"))
+    if not barcode:
+        return []
+    rir = RIR(parse_texto(v("rir_nombre")), [barcode], ["ACTV"], fuente="Excel")
+    valor, tipo = parse_numero(v("rir_intervalo")), parse_texto(v("rir_tipo"))
+    if valor is not None and tipo:
+        rir.limites = [Limite(valor, unidad(tipo))]
+    return [rir]
 
 
 def normalizar_lote(original: pd.DataFrame) -> tuple[pd.DataFrame, list[str]]:
@@ -233,6 +281,7 @@ def normalizar_lote(original: pd.DataFrame) -> tuple[pd.DataFrame, list[str]]:
             "severidad": parse_texto(v("severidad")).upper(),
             "deferral_ref": parse_texto(v("deferral_ref")),
             "due_date": due,
+            "orig_due_date": parse_fecha(v("orig_due_date")),
             "found_date": found,
             "scheduled_date": parse_fecha(v("scheduled_date")),
             "usage_remaining": parse_numero(v("usage_remaining")),
@@ -247,10 +296,16 @@ def normalizar_lote(original: pd.DataFrame) -> tuple[pd.DataFrame, list[str]]:
             "intervalo_de_icam": False,
             "notas_diferimiento": "",
             "adjuntos": None,          # lista de nombres si se leyó ICAM; None = sin dato
-            "rirs": None,              # RIR en Follow-on Tasks si se leyó ICAM; None = sin dato
+            # RIR del DIP (columnas Rir del Excel o Follow-on Tasks de ICAM); None = sin dato
+            "rirs": _rirs_del_excel(v) if "rir_barcode" in mapa else None,
             "historico_rir": False,    # se leyó Show Historical Tasks
             "icam_intervalos": None,   # T/A en Scheduling de ICAM (valor, parámetro, Start)
             "parent_icam": "",
+            # Auditoría de cierre (datos de ICAM); None = no se leyó ICAM.
+            "accion_correctiva": None,
+            "sn_removidos": None,
+            "cambios_deadline": None,
+            "marcas_auditoria": None,
         })
     # dtype=object conserva los None: si no, pandas los vuelve NaT/NaN, que son
     # verdaderos en un if y pasan los controles "is None" de las reglas.
@@ -258,17 +313,16 @@ def normalizar_lote(original: pd.DataFrame) -> tuple[pd.DataFrame, list[str]]:
     if datos.empty:
         return datos, notas
 
-    # Flota por avión: se toma del parent assy cuando es el avión, y se propaga
-    # a los DIPs del mismo avión cuyo parent es un motor.
+    # Flota por avión: la matrícula dice si es MAX o NG, y el parent assy (cuando
+    # es el avión) precisa el modelo NG; se propaga a los DIPs cuyo parent es un motor.
+    def _flota(r) -> str | None:
+        return flota(r["avion"], r["parent_assy"] if r["parent_tipo"] == "AIRCRAFT" else "")
     flotas: dict[str, str] = {}
     for _, r in datos.iterrows():
-        f = flota_de_modelo(r["parent_assy"]) if r["parent_tipo"] == "AIRCRAFT" else None
-        if f and r["avion"]:
-            flotas.setdefault(r["avion"], f)
-    datos["flota"] = [
-        (flota_de_modelo(r["parent_assy"]) if r["parent_tipo"] == "AIRCRAFT" else None)
-        or flotas.get(r["avion"]) for _, r in datos.iterrows()
-    ]
+        f = _flota(r)
+        if f and r["avion"] and (r["avion"] not in flotas or f.startswith("NG-")):
+            flotas[r["avion"]] = f
+    datos["flota"] = [flotas.get(r["avion"]) or _flota(r) for _, r in datos.iterrows()]
     corregidas = int((datos["correccion_fecha"] != "").sum())
     if corregidas:
         notas.append(f"{corregidas} fecha(s) de apertura con día/mes invertidos fueron corregidas.")
@@ -319,6 +373,11 @@ def _registros_icam(ruta: Path) -> dict[str, dict]:
                 "rirs": agrupar(ficha.tareas_siguientes, detalles),
                 "historico_rir": bool((secciones.get("FollowOnHistorico") or {}).get("text")),
                 "parent_icam": ficha.parent_assembly,
+                "accion_correctiva": ficha.accion_correctiva,
+                "sn_removidos": ficha.sn_removidos,
+                "cambios_deadline": ficha.cambios_deadline,
+                "marcas_auditoria": ficha.marcas_auditoria,
+                "fin_real": ficha.fin_real,
             }
         return salida
     if ruta.suffix.lower() == ".csv":
@@ -363,10 +422,17 @@ def completar_con_icam(lote: Lote, ruta: Path) -> int:
             datos.at[i, "descripcion"] = r["descripcion"]
         datos.at[i, "notas_diferimiento"] = r["notas_diferimiento"]
         datos.at[i, "adjuntos"] = r["adjuntos"]
-        datos.at[i, "rirs"] = r.get("rirs")
+        if r.get("rirs") is not None:  # ICAM manda; si no trae RIR, quedan los del Excel
+            datos.at[i, "rirs"] = r["rirs"]
         datos.at[i, "historico_rir"] = r.get("historico_rir", False)
         datos.at[i, "icam_intervalos"] = r["intervalos"]
         datos.at[i, "parent_icam"] = r.get("parent_icam", "")
+        for clave in ("accion_correctiva", "sn_removidos", "cambios_deadline", "marcas_auditoria"):
+            if clave in r:
+                datos.at[i, clave] = r[clave]
+        # Fecha de cierre: si el Excel no la trae, la de ICAM (Actual End Date, en UTC).
+        if datos.at[i, "complete_date"] is None and r.get("fin_real"):
+            datos.at[i, "complete_date"] = parse_fecha(r["fin_real"].replace(" UTC", ""))
         if datos.at[i, "intervalo"] is None and r["intervalos"]:
             primero = r["intervalos"][0]
             valor = parse_numero(primero.get("value") or primero.get("interval"))

@@ -172,7 +172,7 @@ def posiciones(texto_normalizado: str) -> frozenset[str]:
 
 
 _REF_TECNICA_RE = re.compile(
-    r"\b(AMM|SRM|FIM|IPC|ECRA|EC|EA|RA|MGM|TASK CARD)\b[\s:]*(TASK|SUBTASK)?\s*[A-Z0-9]*\d{2}-\d{2}",
+    r"\b(AMM|SRM|FIM|IPC|ECRA|EC|EA|RA|TASK CARD)\b[\s:]*(TASK|SUBTASK)?\s*[A-Z0-9]*\d{2}-\d{2}",
 )
 
 

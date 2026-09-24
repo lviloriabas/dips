@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import re
 import warnings
-from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import date, datetime
 from pathlib import Path
@@ -15,7 +14,8 @@ from .auditor import Auditor, ResultadoAuditoria
 from .cargador import cargar_export, parse_fecha
 
 ESTADOS_HUMANOS = ["OK", "DISCREPANCIA NO CRÍTICA", "DISCREPANCIA CRÍTICA"]
-ESTADOS_IA = ["OK", "REVISAR", "DISCREPANCIA NO CRÍTICA", "DISCREPANCIA CRÍTICA"]
+# Por ahora el programa da solo dos resultados (ver reglas.ESTADOS).
+ESTADOS_IA = ["OK", "POSIBLE DISCREPANCIA"]
 # Temas de los comentarios humanos (en orden de prioridad). Los primeros dependen
 # de información que no viene en el Excel de entrada (attachments, RIRs, tarjetas).
 TEMAS = [
@@ -47,12 +47,11 @@ class Evaluacion:
 
 
 def evaluar(auditor: Auditor, ruta_historico: Path, hoja_entrada: str = "DIPs",
-            hoja_veredictos: str = "DIPs", progreso: Callable[[int], None] | None = None
-            ) -> Evaluacion:
+            hoja_veredictos: str = "DIPs") -> Evaluacion:
     """Audita los DIPs de `hoja_entrada` y los compara con los veredictos de `hoja_veredictos`.
 
     El benchmark anónimo trae ambos en la misma hoja; el histórico original, en las
-    hojas Busqueda y Datos. `progreso(i)` se llama después de asociar el DIP i.
+    hojas Busqueda y Datos.
     """
     lote = cargar_export(ruta_historico, hoja_entrada)
     with warnings.catch_warnings():
@@ -67,7 +66,7 @@ def evaluar(auditor: Auditor, ruta_historico: Path, hoja_entrada: str = "DIPs",
         # Hay fechas vacías guardadas como 01-ene-1900.
         fechas.append(f.date() if isinstance(f, datetime) and f.year >= 2000
                       else auditor.fecha_auditoria)
-    resultado = auditor.auditar_lote(lote, fechas, progreso)
+    resultado = auditor.auditar_lote(lote, fechas)
 
     filas = resultado.filas.copy()
     filas["ESTADO HUMANO"] = filas["Fault Barcode"].map(humanos["STATUS - Apertura"])
@@ -76,7 +75,7 @@ def evaluar(auditor: Auditor, ruta_historico: Path, hoja_entrada: str = "DIPs",
                  & filas["ESTADO HUMANO"].isin(ESTADOS_HUMANOS)].copy()
 
     comp["HUMANO DISCREPANCIA"] = comp["ESTADO HUMANO"] != "OK"
-    comp["IA DISCREPANCIA"] = comp["ESTADO IA"].str.startswith("DISCREPANCIA")
+    comp["IA DISCREPANCIA"] = comp["ESTADO IA"] == "POSIBLE DISCREPANCIA"
     comp["IA MARCA"] = comp["ESTADO IA"] != "OK"
     comp["TEMA HUMANO"] = comp["COMENTARIO HUMANO"].map(tema)
     comp["NO DETECTABLE DESDE EXCEL"] = comp["TEMA HUMANO"].isin(_NO_DETECTABLE)
@@ -116,7 +115,6 @@ def evaluar(auditor: Auditor, ruta_historico: Path, hoja_entrada: str = "DIPs",
         "humano_ok": len(humano_ok),
         "humano_ok_ia_ok": int((~humano_ok["IA MARCA"]).sum()),
         "humano_ok_ia_discrepancia": int(humano_ok["IA DISCREPANCIA"].sum()),
-        "humano_ok_ia_revisar": int((humano_ok["ESTADO IA"] == "REVISAR").sum()),
         "codigos_en_humano_ok": h["Código"].value_counts().to_dict(),
         "por_tema": {
             t: (int(len(g)), int(g["IA MARCA"].sum()), int(g["IA ALGÚN HALLAZGO"].sum()))
@@ -136,10 +134,8 @@ INDICADORES = [
      ("asociados_por_reglas", "dips_comparados"), True),
     ("ok_correctos", "OK del auditor que el programa también da OK",
      ("humano_ok_ia_ok", "humano_ok"), True),
-    ("falsas_discrepancias", "OK del auditor que el programa marca con discrepancia",
+    ("falsas_discrepancias", "OK del auditor que el programa marca con posible discrepancia",
      ("humano_ok_ia_discrepancia", "humano_ok"), False),
-    ("revisar_de_mas", "OK del auditor que el programa deja en REVISAR",
-     ("humano_ok_ia_revisar", "humano_ok"), False),
     ("discrepancias_detectadas", "Discrepancias del auditor que el programa marca",
      ("humano_disc_marcadas_ia", "humano_discrepancias"), True),
     ("detectables_detectadas", "Ídem, sin contar attachments ni RIR (no vienen en el Excel)",

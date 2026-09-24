@@ -2,8 +2,8 @@ from datetime import datetime
 
 import pytest
 
-from dips_audit.cargador import (ErrorCarga, cargar_export, flota_de_modelo, parse_fecha,
-                                 tipo_parent)
+from dips_audit.cargador import (ErrorCarga, cargar_export, flota, flota_de_matricula,
+                                 flota_de_modelo, parse_fecha, tipo_parent)
 from tests.conftest import crear_export
 
 FILA = ["T40S0099FC1", 35, "Others", "CREW OXYGEN", 3, "DAY", "COMPLETE", "HP-9924CMP",
@@ -32,6 +32,21 @@ def test_parse_fecha(valor, esperado):
 ])
 def test_flota_de_modelo(texto, flota):
     assert flota_de_modelo(texto) == flota
+
+
+@pytest.mark.parametrize("avion, esperado", [
+    ("HP-9804CMP", "MAX"), ("HP-9901CMP", "MAX"), ("HP-1837CMP", "NG"), ("HP1531CMP", "NG"), ("", None),
+])
+def test_flota_de_matricula(avion, esperado):
+    assert flota_de_matricula(avion) == esperado
+
+
+def test_flota_por_matricula_y_modelo():
+    # La matrícula decide MAX o NG; el modelo solo precisa el NG.
+    assert flota("HP-9804CMP", "") == "MAX"
+    assert flota("HP-1837CMP", "Boeing 737-8V3 - HP-1837CMP") == "NG-800"
+    assert flota("HP-1837CMP", "") == "NG"
+    assert flota("", "Boeing 737-7V3") == "NG-700"
 
 
 def test_tipo_parent():
@@ -81,3 +96,38 @@ def test_sin_hoja_valida(tmp_path):
     ruta = crear_export(tmp_path / "e.xlsx", [], encabezado=["A", "B"])
     with pytest.raises(ErrorCarga, match="Fault Barcode"):
         cargar_export(ruta)
+
+
+# Formato "DIPs Audit (23SEP2026)": fechas con otro nombre, RIR por fila y Datatime.
+ENCABEZADO_AUDIT = [
+    "Index", "Fault Barcode", "Area", "ATA", "Fault Name", "Fault Description", "Fault Severity",
+    "Fault Status", "Found On Date", "Fault Due Date", "Complete Dt", "Dip Interval",
+    "Interval Type", "Usage Remaining", "Aircraft", "Task Parent Assy", "Rir Barcode", "Rir Name",
+    "Rir Driver Interval", "Rir Driver Type", "Datatime",
+]
+
+
+def _fila_audit(barcode, rir=(" ", " ", None, " ")):
+    return [1, barcode, "Structures", 57, "DENT ON FLAP", "DENT FOUND", "DIP", "ACTV",
+            datetime(2026, 9, 10, 21, 57), datetime(2026, 12, 1, 23, 59),
+            datetime(2026, 9, 20, 8, 0), 600, "CYCLES", 580, "HP-9901CMP",
+            "Boeing 737-9 MAX9 - HP-9901CMP", *rir, datetime(2026, 9, 23, 6, 54)]
+
+
+def test_formato_dips_audit(tmp_path):
+    filas = [_fila_audit("T1", ("R1", "RIR FLAP DENT", 25, "CYCLES")), _fila_audit("T2"),
+             _fila_audit("T1")]
+    lote = cargar_export(crear_export(tmp_path / "e.xlsx", filas, encabezado=ENCABEZADO_AUDIT))
+    assert list(lote.datos["barcode"]) == ["T1", "T2"]  # la fila repetida se omite
+    assert any("repetido" in n for n in lote.notas)
+    d = lote.datos.iloc[0]
+    assert d["found_date"] == datetime(2026, 9, 10, 21, 57)
+    assert d["complete_date"] == datetime(2026, 9, 20, 8, 0)
+    assert d["intervalo"] == 600 and d["unidad"] == "FC"
+    assert [str(r) for r in d["rirs"]] == ["RIR FLAP DENT (R1): 25 FC"]
+    assert lote.datos.iloc[1]["rirs"] == []
+
+
+def test_formato_anterior_sin_datos_de_rir(tmp_path):
+    lote = cargar_export(crear_export(tmp_path / "e.xlsx", [FILA]))
+    assert lote.datos.iloc[0]["rirs"] is None

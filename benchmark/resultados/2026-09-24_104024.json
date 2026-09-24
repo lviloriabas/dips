@@ -1,7 +1,6 @@
 {
-  "formato": 2,
-  "modo": "sin_modelo",
-  "fecha": "2026-09-23 23:44",
+  "formato": 3,
+  "fecha": "2026-09-24 10:40",
   "version_programa": "0.1.0",
   "datos": {
     "archivo": "benchmark/dips_auditados.xlsx",
@@ -11,44 +10,273 @@
       "DISCREPANCIA NO CRÍTICA": 5,
       "DISCREPANCIA CRÍTICA": 1
     },
-    "archivo_casos": "benchmark/casos_modelo_local.yaml",
+    "archivo_casos": "benchmark/casos_asociacion.yaml",
     "casos": 46,
     "dips_sin_referencia_por_reglas": 4
   },
-  "modelo_local": null,
   "configuracion": {
     "tolerancias": {
       "dias": 1,
       "meses_min": 30,
-      "meses_max": 31
+      "meses_max": 31,
+      "horas_cierre": 5
     },
-    "severidades": {
-      "intervalo_excedido": "CRITICA",
-      "intervalo_menor": "OBSERVACION",
-      "intervalo_cero": "NO CRITICA",
-      "tipo_intervalo_incorrecto": "CRITICA",
-      "parent_assy_incorrecto": "CRITICA",
-      "due_date_posterior_a_intervalo": "REVISAR",
-      "due_date_anterior_a_intervalo": "OBSERVACION",
-      "due_date_posterior_a_vencimiento_item": "CRITICA",
-      "due_date_anterior_a_vencimiento_item": "OBSERVACION",
-      "dip_vencido": "CRITICA",
-      "completado_fuera_de_plazo": "CRITICA",
-      "usage_remaining_mayor_a_intervalo": "NO CRITICA",
-      "deferral_reference_ata": "NO CRITICA",
-      "ata_distinto_a_referencia": "OBSERVACION",
-      "tipo_dip_distinto_a_referencia": "OBSERVACION",
-      "sin_sn_en_descripcion": "OBSERVACION",
-      "sn_repetido": "NO CRITICA",
-      "duplicado": "NO CRITICA",
-      "fault_severity": "OBSERVACION",
-      "sin_referencia_tecnica": "NO CRITICA",
-      "referencia_tecnica_incompleta": "NO CRITICA",
-      "intervalo_de_icam": "OBSERVACION",
-      "referencia_tecnica_equivocada": "NO CRITICA",
-      "referencia_tecnica_distinta": "REVISAR",
-      "asociacion_aproximada": "OBSERVACION",
-      "asociacion_por_referencia_tecnica": "OBSERVACION"
+    "discrepancias": {
+      "Incorrect DIP Interval": {
+        "activo": true,
+        "reglas": {
+          "intervalo_excedido": {
+            "activa": true,
+            "severidad": "CRITICA"
+          },
+          "intervalo_menor": {
+            "activa": true,
+            "severidad": "OBSERVACION"
+          },
+          "intervalo_cero": {
+            "activa": true,
+            "severidad": "NO CRITICA"
+          },
+          "tipo_intervalo_incorrecto": {
+            "activa": true,
+            "severidad": "CRITICA"
+          },
+          "variante_condicional": {
+            "activa": true,
+            "severidad": "OBSERVACION"
+          },
+          "usage_remaining_mayor_a_intervalo": {
+            "activa": true,
+            "severidad": "NO CRITICA"
+          }
+        }
+      },
+      "Deferral Interval Not Documented": {
+        "activo": true,
+        "reglas": {
+          "datos_incompletos": {
+            "activa": true,
+            "severidad": "REVISAR"
+          }
+        }
+      },
+      "Missing Data": {
+        "activo": true,
+        "reglas": {
+          "intervalo_de_icam": {
+            "activa": true,
+            "severidad": "OBSERVACION"
+          }
+        }
+      },
+      "Incorrect Due Date": {
+        "activo": true,
+        "reglas": {
+          "due_date_posterior_a_intervalo": {
+            "activa": true,
+            "severidad": "REVISAR"
+          },
+          "due_date_anterior_a_intervalo": {
+            "activa": true,
+            "severidad": "OBSERVACION"
+          },
+          "due_date_posterior_a_vencimiento_item": {
+            "activa": true,
+            "severidad": "CRITICA"
+          },
+          "due_date_anterior_a_vencimiento_item": {
+            "activa": true,
+            "severidad": "OBSERVACION"
+          }
+        }
+      },
+      "Overdue DIP": {
+        "activo": true,
+        "reglas": {
+          "dip_vencido": {
+            "activa": true,
+            "severidad": "CRITICA"
+          }
+        }
+      },
+      "Incorrect Parent Assembly": {
+        "activo": true,
+        "reglas": {
+          "parent_assy_incorrecto": {
+            "activa": true,
+            "severidad": "CRITICA"
+          }
+        }
+      },
+      "Incorrect ATA": {
+        "activo": true,
+        "reglas": {
+          "deferral_reference_ata": {
+            "activa": true,
+            "severidad": "NO CRITICA"
+          },
+          "ata_distinto_a_referencia": {
+            "activa": true,
+            "severidad": "OBSERVACION"
+          }
+        }
+      },
+      "Missing S/N": {
+        "activo": true,
+        "reglas": {
+          "sin_sn_en_descripcion": {
+            "activa": true,
+            "severidad": "OBSERVACION"
+          }
+        }
+      },
+      "Incorrect S/N": {
+        "activo": true,
+        "reglas": {
+          "sn_repetido": {
+            "activa": true,
+            "severidad": "NO CRITICA"
+          },
+          "cierre_sn_distinto": {
+            "activa": true,
+            "severidad": "NO CRITICA"
+          }
+        }
+      },
+      "Duplicated DIP": {
+        "activo": true,
+        "reglas": {
+          "duplicado": {
+            "activa": true,
+            "severidad": "NO CRITICA"
+          }
+        }
+      },
+      "Incorrect Fault Severity": {
+        "activo": true,
+        "reglas": {
+          "fault_severity": {
+            "activa": true,
+            "severidad": "OBSERVACION"
+          }
+        }
+      },
+      "Missing Technical Reference": {
+        "activo": true,
+        "reglas": {
+          "sin_referencia_tecnica": {
+            "activa": true,
+            "severidad": "NO CRITICA"
+          },
+          "referencia_tecnica_incompleta": {
+            "activa": true,
+            "severidad": "OBSERVACION"
+          },
+          "cierre_sin_referencia_tecnica": {
+            "activa": true,
+            "severidad": "NO CRITICA"
+          },
+          "cierre_referencia_incompleta": {
+            "activa": true,
+            "severidad": "OBSERVACION"
+          }
+        }
+      },
+      "Incorrect Technical Reference": {
+        "activo": true,
+        "reglas": {
+          "referencia_tecnica_equivocada": {
+            "activa": true,
+            "severidad": "NO CRITICA"
+          },
+          "referencia_tecnica_distinta": {
+            "activa": true,
+            "severidad": "REVISAR"
+          },
+          "referencia_tecnica_mismo_tema": {
+            "activa": true,
+            "severidad": "OBSERVACION"
+          }
+        }
+      },
+      "RIR": {
+        "activo": true,
+        "reglas": {
+          "rir_faltante": {
+            "activa": true,
+            "severidad": "NO CRITICA"
+          },
+          "rir_intervalo_incorrecto": {
+            "activa": true,
+            "severidad": "NO CRITICA"
+          },
+          "rir_limite_faltante": {
+            "activa": true,
+            "severidad": "NO CRITICA"
+          },
+          "rir_inicio_distinto": {
+            "activa": true,
+            "severidad": "REVISAR"
+          },
+          "rir_parent_distinto": {
+            "activa": true,
+            "severidad": "NO CRITICA"
+          }
+        }
+      },
+      "Late Completion": {
+        "activo": true,
+        "reglas": {
+          "completado_fuera_de_plazo": {
+            "activa": true,
+            "severidad": "CRITICA"
+          },
+          "cierre_deadline_extendido": {
+            "activa": true,
+            "severidad": "REVISAR"
+          }
+        }
+      },
+      "Missing Attachment": {
+        "activo": true,
+        "reglas": {
+          "cierre_sin_adjuntos": {
+            "activa": true,
+            "severidad": "OBSERVACION"
+          }
+        }
+      },
+      "Reference Match": {
+        "activo": true,
+        "reglas": {
+          "asociacion_aproximada": {
+            "activa": true,
+            "severidad": "OBSERVACION"
+          },
+          "asociacion_por_referencia_tecnica": {
+            "activa": true,
+            "severidad": "OBSERVACION"
+          }
+        }
+      },
+      "Missing Reference in Table": {
+        "activo": true,
+        "reglas": {
+          "sin_referencia": {
+            "activa": true,
+            "severidad": "REVISAR"
+          }
+        }
+      },
+      "Incorrect DIP Type": {
+        "activo": true,
+        "reglas": {
+          "tipo_dip_distinto_a_referencia": {
+            "activa": true,
+            "severidad": "OBSERVACION"
+          }
+        }
+      }
     },
     "catalogo": {
       "archivo": "config/catalogo_others.yaml",
@@ -60,9 +288,9 @@
     }
   },
   "equipo": {
-    "procesador": "AMD Ryzen 5 3600 6-Core Processor",
+    "procesador": "12th Gen Intel(R) Core(TM) i7-1265U",
     "hilos": 12,
-    "ram_gb": 31.9,
+    "ram_gb": 15.7,
     "sistema": "Windows-11"
   },
   "auditoria": {
@@ -83,14 +311,9 @@
         "pct": 86.4
       },
       "falsas_discrepancias": {
-        "aciertos": 3,
+        "aciertos": 6,
         "total": 44,
-        "pct": 6.8
-      },
-      "revisar_de_mas": {
-        "aciertos": 3,
-        "total": 44,
-        "pct": 6.8
+        "pct": 13.6
       },
       "discrepancias_detectadas": {
         "aciertos": 2,
@@ -106,21 +329,15 @@
     "matriz": {
       "OK": {
         "OK": 38,
-        "REVISAR": 3,
-        "DISCREPANCIA NO CRÍTICA": 1,
-        "DISCREPANCIA CRÍTICA": 2
+        "POSIBLE DISCREPANCIA": 6
       },
       "DISCREPANCIA NO CRÍTICA": {
         "OK": 4,
-        "REVISAR": 1,
-        "DISCREPANCIA NO CRÍTICA": 0,
-        "DISCREPANCIA CRÍTICA": 0
+        "POSIBLE DISCREPANCIA": 1
       },
       "DISCREPANCIA CRÍTICA": {
         "OK": 0,
-        "REVISAR": 0,
-        "DISCREPANCIA NO CRÍTICA": 0,
-        "DISCREPANCIA CRÍTICA": 1
+        "POSIBLE DISCREPANCIA": 1
       }
     },
     "por_tema": {
@@ -158,14 +375,11 @@
         "comentario_auditor": "T/A aperturado correctamente",
         "tema_auditor": "Intervalo / due date",
         "programa": "OK",
-        "programa_solo_reglas": "OK",
         "acuerdo": "Ambos OK",
         "metodo": "reglas",
-        "referencia": "Botella de oxígeno de tripulación (presión baja)",
-        "propuesta_modelo": null,
-        "detalle_modelo": "",
+        "referencia": "CREW OXYGEN BOTTLE PRESSURE",
         "hallazgos": [
-          "[OBSERVACION] El intervalo 3 DAY corresponde a la condición 'Presión > 200 PSI sobre la mínima de despacho'. Verificar que aplique. Presión reportada: 900 PSI."
+          "[OBSERVACIÓN] El intervalo 3 DAY corresponde a la condición '3 DAY IF PRESSURE IS GREATER THAN 200 PSI, ABOVE THE MINIMUM DISPATCH PRESSURE'. Verificar que aplique. Presión reportada: 900 PSI."
         ]
       },
       {
@@ -176,14 +390,11 @@
         "comentario_auditor": "T/A aperturado correctamente",
         "tema_auditor": "Intervalo / due date",
         "programa": "OK",
-        "programa_solo_reglas": "OK",
         "acuerdo": "Ambos OK",
         "metodo": "reglas",
-        "referencia": "Botella de oxígeno de tripulación (presión baja)",
-        "propuesta_modelo": null,
-        "detalle_modelo": "",
+        "referencia": "CREW OXYGEN BOTTLE PRESSURE",
         "hallazgos": [
-          "[OBSERVACION] El intervalo 3 DAY corresponde a la condición 'Presión > 200 PSI sobre la mínima de despacho'. Verificar que aplique."
+          "[OBSERVACIÓN] El intervalo 3 DAY corresponde a la condición '3 DAY IF PRESSURE IS GREATER THAN 200 PSI, ABOVE THE MINIMUM DISPATCH PRESSURE'. Verificar que aplique."
         ]
       },
       {
@@ -194,14 +405,11 @@
         "comentario_auditor": "T/A aperturado correctamente",
         "tema_auditor": "Intervalo / due date",
         "programa": "OK",
-        "programa_solo_reglas": "OK",
         "acuerdo": "Ambos OK",
         "metodo": "reglas",
-        "referencia": "Botella de oxígeno de tripulación (presión baja)",
-        "propuesta_modelo": null,
-        "detalle_modelo": "",
+        "referencia": "CREW OXYGEN BOTTLE PRESSURE",
         "hallazgos": [
-          "[OBSERVACION] El intervalo 3 DAY corresponde a la condición 'Presión > 200 PSI sobre la mínima de despacho'. Verificar que aplique. Presión reportada: 950 PSI."
+          "[OBSERVACIÓN] El intervalo 3 DAY corresponde a la condición '3 DAY IF PRESSURE IS GREATER THAN 200 PSI, ABOVE THE MINIMUM DISPATCH PRESSURE'. Verificar que aplique. Presión reportada: 950 PSI."
         ]
       },
       {
@@ -212,14 +420,11 @@
         "comentario_auditor": "T/A aperturado correctamente",
         "tema_auditor": "Intervalo / due date",
         "programa": "OK",
-        "programa_solo_reglas": "OK",
         "acuerdo": "Ambos OK",
         "metodo": "reglas",
-        "referencia": "Botella de oxígeno de tripulación (presión baja)",
-        "propuesta_modelo": null,
-        "detalle_modelo": "",
+        "referencia": "CREW OXYGEN BOTTLE PRESSURE",
         "hallazgos": [
-          "[OBSERVACION] El intervalo 3 DAY corresponde a la condición 'Presión > 200 PSI sobre la mínima de despacho'. Verificar que aplique. Presión reportada: 1000 PSI."
+          "[OBSERVACIÓN] El intervalo 3 DAY corresponde a la condición '3 DAY IF PRESSURE IS GREATER THAN 200 PSI, ABOVE THE MINIMUM DISPATCH PRESSURE'. Verificar que aplique. Presión reportada: 1000 PSI."
         ]
       },
       {
@@ -230,12 +435,9 @@
         "comentario_auditor": "T/A aperturado correctamente",
         "tema_auditor": "Intervalo / due date",
         "programa": "OK",
-        "programa_solo_reglas": "OK",
         "acuerdo": "Ambos OK",
         "metodo": "reglas",
-        "referencia": "Universal Precaution Kit (kit de protección universal)",
-        "propuesta_modelo": null,
-        "detalle_modelo": "",
+        "referencia": "UPK LESS THAN 130 DAYS DUE DATE",
         "hallazgos": []
       },
       {
@@ -246,14 +448,11 @@
         "comentario_auditor": "EVENTO SE ENCUENTRA ACTIVO",
         "tema_auditor": "Otro",
         "programa": "OK",
-        "programa_solo_reglas": "OK",
         "acuerdo": "Ambos OK",
         "metodo": "reglas",
-        "referencia": "Universal Precaution Kit (kit de protección universal)",
-        "propuesta_modelo": null,
-        "detalle_modelo": "",
+        "referencia": "UPK LESS THAN 130 DAYS DUE DATE",
         "hallazgos": [
-          "[OBSERVACION] No se menciona el S/N del componente en la descripción."
+          "[OBSERVACIÓN] Sin S/N del componente en la descripción."
         ]
       },
       {
@@ -264,14 +463,11 @@
         "comentario_auditor": "DIP con T/A Incorrecto para Sep-2026 // UPK tiene shelf life expiry Sep- 2027",
         "tema_auditor": "Intervalo / due date",
         "programa": "OK",
-        "programa_solo_reglas": "OK",
         "acuerdo": "Solo el auditor marca",
         "metodo": "reglas",
-        "referencia": "Universal Precaution Kit (kit de protección universal)",
-        "propuesta_modelo": null,
-        "detalle_modelo": "",
+        "referencia": "UPK LESS THAN 130 DAYS DUE DATE",
         "hallazgos": [
-          "[OBSERVACION] No se menciona el S/N del componente en la descripción."
+          "[OBSERVACIÓN] Sin S/N del componente en la descripción."
         ]
       },
       {
@@ -282,14 +478,11 @@
         "comentario_auditor": "",
         "tema_auditor": "Sin comentario",
         "programa": "OK",
-        "programa_solo_reglas": "OK",
         "acuerdo": "Ambos OK",
         "metodo": "reglas",
-        "referencia": "Desgaste de frenos (brake wear pin)",
-        "propuesta_modelo": null,
-        "detalle_modelo": "",
+        "referencia": "CARBON BREAK WEAR PIN LENGTH UNDER 1/16\"",
         "hallazgos": [
-          "[OBSERVACION] El intervalo 20 FC corresponde a la condición '737NG-800: después de 12 FC, antes de 20 FC'. Verificar que aplique."
+          "[OBSERVACIÓN] El intervalo 20 FC corresponde a la condición '737NG-800: AFTER 12 FC, BEFORE 20 FC'. Verificar que aplique."
         ]
       },
       {
@@ -300,14 +493,11 @@
         "comentario_auditor": "DIP SN INCORRECTO, SE PIDIÓ CORRECIÓN DE TARJETA DE LECTURA",
         "tema_auditor": "S/N",
         "programa": "OK",
-        "programa_solo_reglas": "OK",
         "acuerdo": "Solo el auditor marca",
         "metodo": "reglas",
-        "referencia": "First Aid Kit (botiquín de primeros auxilios)",
-        "propuesta_modelo": null,
-        "detalle_modelo": "",
+        "referencia": "FIRST AID KIT LESS THAN 130 DAYS DUE DATE",
         "hallazgos": [
-          "[OBSERVACION] No se menciona el S/N del componente en la descripción."
+          "[OBSERVACIÓN] Sin S/N del componente en la descripción."
         ]
       },
       {
@@ -318,12 +508,9 @@
         "comentario_auditor": "DIP completado bajo los intervalos correctos",
         "tema_auditor": "Intervalo / due date",
         "programa": "OK",
-        "programa_solo_reglas": "OK",
         "acuerdo": "Ambos OK",
         "metodo": "reglas",
-        "referencia": "Certificado de fumigación",
-        "propuesta_modelo": null,
-        "detalle_modelo": "",
+        "referencia": "CERTIFICATE OF FUMIGATION",
         "hallazgos": []
       },
       {
@@ -334,14 +521,11 @@
         "comentario_auditor": "T/A aperturado correctamente.",
         "tema_auditor": "Intervalo / due date",
         "programa": "OK",
-        "programa_solo_reglas": "OK",
         "acuerdo": "Ambos OK",
         "metodo": "reglas",
-        "referencia": "Botella portátil de oxígeno (POB)",
-        "propuesta_modelo": null,
-        "detalle_modelo": "",
+        "referencia": "CABIN PORTABLE OXYGEN BOTTLE (POB)",
         "hallazgos": [
-          "[OBSERVACION] No se menciona el S/N del componente en la descripción."
+          "[OBSERVACIÓN] Sin S/N del componente en la descripción."
         ]
       },
       {
@@ -351,15 +535,12 @@
         "auditor": "DISCREPANCIA CRÍTICA",
         "comentario_auditor": "AMM indica RIR cada 70FH y no tiene, con TA de 3,000FH que discrepa en tarjeta active // SOLO SE REPORTA DIP INTERVAL INCORRECTO FALTA CONFIRMAR RIRs de 70 FH",
         "tema_auditor": "RIR",
-        "programa": "DISCREPANCIA CRÍTICA",
-        "programa_solo_reglas": "DISCREPANCIA CRÍTICA",
+        "programa": "POSIBLE DISCREPANCIA",
         "acuerdo": "Ambos marcan",
         "metodo": "reglas",
-        "referencia": "Bleed control card",
-        "propuesta_modelo": null,
-        "detalle_modelo": "",
+        "referencia": "BLEED CTRL CARD",
         "hallazgos": [
-          "[CRITICA] T/A aperturado con 2930 FH, mayor que la referencia (2902 FH)."
+          "[POSIBLE DISCREPANCIA] T/A aperturado con 2930 FH, mayor que la referencia (2902 FH)."
         ]
       },
       {
@@ -370,14 +551,11 @@
         "comentario_auditor": "8130-3 INSP 24-OCT-2025 EN AIRVAULT",
         "tema_auditor": "Otro",
         "programa": "OK",
-        "programa_solo_reglas": "OK",
         "acuerdo": "Ambos OK",
         "metodo": "reglas",
-        "referencia": "Extintor de halón (portátil, cabina, etc.)",
-        "propuesta_modelo": null,
-        "detalle_modelo": "",
+        "referencia": "HALON FIRE EXTINGUISHER DUE OR WEIGHT (PORTABLE, CABIN, ETC)",
         "hallazgos": [
-          "[OBSERVACION] No se menciona el S/N del componente en la descripción."
+          "[OBSERVACIÓN] Sin S/N del componente en la descripción."
         ]
       },
       {
@@ -387,15 +565,12 @@
         "auditor": "OK",
         "comentario_auditor": "Se abrió DIP y se completó el mismo día, no hizo referencia a intervalos",
         "tema_auditor": "Intervalo / due date",
-        "programa": "DISCREPANCIA NO CRÍTICA",
-        "programa_solo_reglas": "DISCREPANCIA NO CRÍTICA",
+        "programa": "POSIBLE DISCREPANCIA",
         "acuerdo": "Solo el programa marca",
         "metodo": "reglas",
-        "referencia": "Llanta con segunda capa visible",
-        "propuesta_modelo": null,
-        "detalle_modelo": "",
+        "referencia": "MAIN WHEEL TIRE ASSY SECOND PLY THREAD VISIBLE",
         "hallazgos": [
-          "[NO CRITICA] El DIP se abrió con intervalo 0 DAY."
+          "[POSIBLE DISCREPANCIA] T/A aperturado con intervalo 0 DAY."
         ]
       },
       {
@@ -406,14 +581,11 @@
         "comentario_auditor": "EVENTO SE ENCUENTRA ACTIVO",
         "tema_auditor": "Otro",
         "programa": "OK",
-        "programa_solo_reglas": "OK",
         "acuerdo": "Ambos OK",
         "metodo": "reglas",
-        "referencia": "Universal Precaution Kit (kit de protección universal)",
-        "propuesta_modelo": null,
-        "detalle_modelo": "",
+        "referencia": "UPK LESS THAN 130 DAYS DUE DATE",
         "hallazgos": [
-          "[OBSERVACION] No se menciona el S/N del componente en la descripción."
+          "[OBSERVACIÓN] Sin S/N del componente en la descripción."
         ]
       },
       {
@@ -424,14 +596,11 @@
         "comentario_auditor": "T/A aperturado correctamente // Fecha de vencimiento",
         "tema_auditor": "Intervalo / due date",
         "programa": "OK",
-        "programa_solo_reglas": "OK",
         "acuerdo": "Ambos OK",
         "metodo": "reglas",
-        "referencia": "First Aid Kit (botiquín de primeros auxilios)",
-        "propuesta_modelo": null,
-        "detalle_modelo": "",
+        "referencia": "FIRST AID KIT LESS THAN 130 DAYS DUE DATE",
         "hallazgos": [
-          "[OBSERVACION] No se menciona el S/N del componente en la descripción."
+          "[OBSERVACIÓN] Sin S/N del componente en la descripción."
         ]
       },
       {
@@ -441,15 +610,12 @@
         "auditor": "OK",
         "comentario_auditor": "DIP COMPLETADO // T/A aperturado correctamente",
         "tema_auditor": "Intervalo / due date",
-        "programa": "REVISAR",
-        "programa_solo_reglas": "REVISAR",
+        "programa": "POSIBLE DISCREPANCIA",
         "acuerdo": "Solo el programa marca",
         "metodo": "sin_referencia",
         "referencia": "",
-        "propuesta_modelo": null,
-        "detalle_modelo": "",
         "hallazgos": [
-          "[REVISAR] El DIP no se encontró en el catálogo de referencias Others. Revisar manualmente."
+          "[POSIBLE DISCREPANCIA] El DIP no se encontró en el catálogo de referencias Others. Revisar manualmente."
         ]
       },
       {
@@ -460,12 +626,9 @@
         "comentario_auditor": "DIP ABIERTO Y COMPLETADO DENTRO DEL LÍMITE, NO SE ADJUNTA CERT DE FUMIGACIÓN VENCIDO",
         "tema_auditor": "Attachments / ref. técnica",
         "programa": "OK",
-        "programa_solo_reglas": "OK",
         "acuerdo": "Ambos OK",
         "metodo": "reglas",
-        "referencia": "Certificado de fumigación",
-        "propuesta_modelo": null,
-        "detalle_modelo": "",
+        "referencia": "CERTIFICATE OF FUMIGATION",
         "hallazgos": []
       },
       {
@@ -476,14 +639,11 @@
         "comentario_auditor": "",
         "tema_auditor": "Sin comentario",
         "programa": "OK",
-        "programa_solo_reglas": "OK",
         "acuerdo": "Ambos OK",
         "metodo": "reglas",
-        "referencia": "Extintor de halón (portátil, cabina, etc.)",
-        "propuesta_modelo": null,
-        "detalle_modelo": "",
+        "referencia": "HALON FIRE EXTINGUISHER DUE OR WEIGHT (PORTABLE, CABIN, ETC)",
         "hallazgos": [
-          "[OBSERVACION] No se menciona el S/N del componente en la descripción."
+          "[OBSERVACIÓN] Sin S/N del componente en la descripción."
         ]
       },
       {
@@ -494,12 +654,9 @@
         "comentario_auditor": "DIP ABIERTO Y COMPLETADO DENTRO DEL LÍMITE, NO SE ADJUNTA CERT DE FUMIGACIÓN VENCIDO",
         "tema_auditor": "Attachments / ref. técnica",
         "programa": "OK",
-        "programa_solo_reglas": "OK",
         "acuerdo": "Ambos OK",
         "metodo": "reglas",
-        "referencia": "Certificado de fumigación",
-        "propuesta_modelo": null,
-        "detalle_modelo": "",
+        "referencia": "CERTIFICATE OF FUMIGATION",
         "hallazgos": []
       },
       {
@@ -510,14 +667,11 @@
         "comentario_auditor": "",
         "tema_auditor": "Sin comentario",
         "programa": "OK",
-        "programa_solo_reglas": "OK",
         "acuerdo": "Ambos OK",
         "metodo": "reglas",
-        "referencia": "Desgaste de frenos (brake wear pin)",
-        "propuesta_modelo": null,
-        "detalle_modelo": "",
+        "referencia": "CARBON BREAK WEAR PIN LENGTH UNDER 1/16\"",
         "hallazgos": [
-          "[OBSERVACION] El intervalo 20 FC corresponde a la condición '737NG-800: después de 12 FC, antes de 20 FC'. Verificar que aplique."
+          "[OBSERVACIÓN] El intervalo 20 FC corresponde a la condición '737NG-800: AFTER 12 FC, BEFORE 20 FC'. Verificar que aplique."
         ]
       },
       {
@@ -527,15 +681,12 @@
         "auditor": "OK",
         "comentario_auditor": "DIP COMPLETADO // T/A doblelimitante aperturado correctamente al ESN 864293",
         "tema_auditor": "Intervalo / due date",
-        "programa": "REVISAR",
-        "programa_solo_reglas": "REVISAR",
+        "programa": "POSIBLE DISCREPANCIA",
         "acuerdo": "Solo el programa marca",
         "metodo": "sin_referencia",
         "referencia": "",
-        "propuesta_modelo": null,
-        "detalle_modelo": "",
         "hallazgos": [
-          "[REVISAR] El DIP no se encontró en el catálogo de referencias Others. Revisar manualmente."
+          "[POSIBLE DISCREPANCIA] El DIP no se encontró en el catálogo de referencias Others. Revisar manualmente."
         ]
       },
       {
@@ -545,15 +696,12 @@
         "auditor": "OK",
         "comentario_auditor": "DIP COMPLETADO // T/A aperturado correctamente",
         "tema_auditor": "Intervalo / due date",
-        "programa": "DISCREPANCIA CRÍTICA",
-        "programa_solo_reglas": "DISCREPANCIA CRÍTICA",
+        "programa": "POSIBLE DISCREPANCIA",
         "acuerdo": "Solo el programa marca",
         "metodo": "reglas",
-        "referencia": "Amortiguador del tren principal",
-        "propuesta_modelo": null,
-        "detalle_modelo": "",
+        "referencia": "MAIN LANDING GEAR SHOCK STRUT",
         "hallazgos": [
-          "[CRITICA] T/A aperturado con 15 FC, mayor que la referencia (10 FC [MAX])."
+          "[POSIBLE DISCREPANCIA] T/A aperturado con 15 FC, mayor que la referencia (10 FC [MAX])."
         ]
       },
       {
@@ -564,14 +712,11 @@
         "comentario_auditor": "T/A aperturado correctamente // Fecha de vencimiento",
         "tema_auditor": "Intervalo / due date",
         "programa": "OK",
-        "programa_solo_reglas": "OK",
         "acuerdo": "Ambos OK",
         "metodo": "reglas",
-        "referencia": "Botella de oxígeno de tripulación (presión baja)",
-        "propuesta_modelo": null,
-        "detalle_modelo": "",
+        "referencia": "CREW OXYGEN BOTTLE PRESSURE",
         "hallazgos": [
-          "[OBSERVACION] El intervalo 3 DAY corresponde a la condición 'Presión > 200 PSI sobre la mínima de despacho'. Verificar que aplique. Presión reportada: 1100 PSI."
+          "[OBSERVACIÓN] El intervalo 3 DAY corresponde a la condición '3 DAY IF PRESSURE IS GREATER THAN 200 PSI, ABOVE THE MINIMUM DISPATCH PRESSURE'. Verificar que aplique. Presión reportada: 1100 PSI."
         ]
       },
       {
@@ -582,12 +727,9 @@
         "comentario_auditor": "T/A Diferio correctamente dentro de los 4 días habiles y por un QC",
         "tema_auditor": "Intervalo / due date",
         "programa": "OK",
-        "programa_solo_reglas": "OK",
         "acuerdo": "Ambos OK",
         "metodo": "reglas",
-        "referencia": "Inspección de crecimiento microbiano en combustible",
-        "propuesta_modelo": null,
-        "detalle_modelo": "",
+        "referencia": "FUEL MICROBIAL GROWTH",
         "hallazgos": []
       },
       {
@@ -598,14 +740,11 @@
         "comentario_auditor": "No S/N de botella en la descripción",
         "tema_auditor": "S/N",
         "programa": "OK",
-        "programa_solo_reglas": "OK",
         "acuerdo": "Solo el auditor marca",
         "metodo": "reglas",
-        "referencia": "Survival Kit (kit de supervivencia)",
-        "propuesta_modelo": null,
-        "detalle_modelo": "",
+        "referencia": "SURVIVAL KIT LESS THAN 130 DAYS DUE DATE",
         "hallazgos": [
-          "[OBSERVACION] No se menciona el S/N del componente en la descripción."
+          "[OBSERVACIÓN] Sin S/N del componente en la descripción."
         ]
       },
       {
@@ -615,16 +754,13 @@
         "auditor": "OK",
         "comentario_auditor": "",
         "tema_auditor": "Sin comentario",
-        "programa": "REVISAR",
-        "programa_solo_reglas": "REVISAR",
+        "programa": "POSIBLE DISCREPANCIA",
         "acuerdo": "Solo el programa marca",
         "metodo": "sin_referencia",
         "referencia": "",
-        "propuesta_modelo": null,
-        "detalle_modelo": "",
         "hallazgos": [
-          "[REVISAR] El DIP no se encontró en el catálogo de referencias Others. Revisar manualmente. Parecido en la tabla: 'SEALANT' (STRUCTURES, fila 67); 'PITOT PROBE SEALANT' (STRUCTURES, fila 73).",
-          "[OBSERVACION] Abierto como Others, pero se parece a una referencia STRUCTURES."
+          "[POSIBLE DISCREPANCIA] El DIP no se encontró en el catálogo de referencias Others. Revisar manualmente. Parecido en la tabla: 'SEALANT' (STRUCTURES, fila 67); 'PITOT PROBE SEALANT' (STRUCTURES, fila 73).",
+          "[OBSERVACIÓN] Abierto como Others, pero se parece a una referencia STRUCTURES."
         ]
       },
       {
@@ -635,14 +771,11 @@
         "comentario_auditor": "T/A aperturado correctamente // Fecha de vencimiento",
         "tema_auditor": "Intervalo / due date",
         "programa": "OK",
-        "programa_solo_reglas": "OK",
         "acuerdo": "Ambos OK",
         "metodo": "reglas",
-        "referencia": "Extintor de halón (portátil, cabina, etc.)",
-        "propuesta_modelo": null,
-        "detalle_modelo": "",
+        "referencia": "HALON FIRE EXTINGUISHER DUE OR WEIGHT (PORTABLE, CABIN, ETC)",
         "hallazgos": [
-          "[OBSERVACION] No se menciona el S/N del componente en la descripción."
+          "[OBSERVACIÓN] Sin S/N del componente en la descripción."
         ]
       },
       {
@@ -653,14 +786,11 @@
         "comentario_auditor": "DIP COMPLETADO // T/A aperturado correctamente",
         "tema_auditor": "Intervalo / due date",
         "programa": "OK",
-        "programa_solo_reglas": "OK",
         "acuerdo": "Ambos OK",
         "metodo": "reglas",
-        "referencia": "Botella de oxígeno de tripulación (presión baja)",
-        "propuesta_modelo": null,
-        "detalle_modelo": "",
+        "referencia": "CREW OXYGEN BOTTLE PRESSURE",
         "hallazgos": [
-          "[OBSERVACION] El intervalo 3 DAY corresponde a la condición 'Presión > 200 PSI sobre la mínima de despacho'. Verificar que aplique. Presión reportada: 800 PSI."
+          "[OBSERVACIÓN] El intervalo 3 DAY corresponde a la condición '3 DAY IF PRESSURE IS GREATER THAN 200 PSI, ABOVE THE MINIMUM DISPATCH PRESSURE'. Verificar que aplique. Presión reportada: 800 PSI."
         ]
       },
       {
@@ -671,12 +801,9 @@
         "comentario_auditor": "T/A aperturado correctamente // Fecha de vencimiento",
         "tema_auditor": "Intervalo / due date",
         "programa": "OK",
-        "programa_solo_reglas": "OK",
         "acuerdo": "Ambos OK",
         "metodo": "reglas",
-        "referencia": "Certificado de fumigación",
-        "propuesta_modelo": null,
-        "detalle_modelo": "",
+        "referencia": "CERTIFICATE OF FUMIGATION",
         "hallazgos": []
       },
       {
@@ -687,12 +814,9 @@
         "comentario_auditor": "T/A aperturado correctamente // Fecha de vencimiento",
         "tema_auditor": "Intervalo / due date",
         "programa": "OK",
-        "programa_solo_reglas": "OK",
         "acuerdo": "Ambos OK",
         "metodo": "reglas",
-        "referencia": "Universal Precaution Kit (kit de protección universal)",
-        "propuesta_modelo": null,
-        "detalle_modelo": "",
+        "referencia": "UPK LESS THAN 130 DAYS DUE DATE",
         "hallazgos": []
       },
       {
@@ -703,12 +827,9 @@
         "comentario_auditor": "T/A aperturado correctamente",
         "tema_auditor": "Intervalo / due date",
         "programa": "OK",
-        "programa_solo_reglas": "OK",
         "acuerdo": "Ambos OK",
         "metodo": "reglas",
-        "referencia": "FDR Report (flight data recorder)",
-        "propuesta_modelo": null,
-        "detalle_modelo": "",
+        "referencia": "FDR REPORT",
         "hallazgos": []
       },
       {
@@ -719,14 +840,11 @@
         "comentario_auditor": "DIP COMPLETE, T/A aperturado correctamente",
         "tema_auditor": "Intervalo / due date",
         "programa": "OK",
-        "programa_solo_reglas": "OK",
         "acuerdo": "Ambos OK",
         "metodo": "reglas",
-        "referencia": "Botella de oxígeno de tripulación (presión baja)",
-        "propuesta_modelo": null,
-        "detalle_modelo": "",
+        "referencia": "CREW OXYGEN BOTTLE PRESSURE",
         "hallazgos": [
-          "[OBSERVACION] El intervalo 3 DAY corresponde a la condición 'Presión > 200 PSI sobre la mínima de despacho'. Verificar que aplique. Presión reportada: 850 PSI."
+          "[OBSERVACIÓN] El intervalo 3 DAY corresponde a la condición '3 DAY IF PRESSURE IS GREATER THAN 200 PSI, ABOVE THE MINIMUM DISPATCH PRESSURE'. Verificar que aplique. Presión reportada: 850 PSI."
         ]
       },
       {
@@ -737,14 +855,11 @@
         "comentario_auditor": "T/A aperturado correctamente",
         "tema_auditor": "Intervalo / due date",
         "programa": "OK",
-        "programa_solo_reglas": "OK",
         "acuerdo": "Ambos OK",
         "metodo": "reglas",
-        "referencia": "Amortiguador del tren de nariz",
-        "propuesta_modelo": null,
-        "detalle_modelo": "",
+        "referencia": "NOSE LANDING GEAR SHOCK STRUT",
         "hallazgos": [
-          "[OBSERVACION] ATA 12 distinto al de la referencia (32)."
+          "[OBSERVACIÓN] ATA 12 distinto al de la referencia (32)."
         ]
       },
       {
@@ -755,12 +870,9 @@
         "comentario_auditor": "DIP COMPLETADO // T/A aperturado correctamente // No EC/RA Extension",
         "tema_auditor": "Intervalo / due date",
         "programa": "OK",
-        "programa_solo_reglas": "OK",
         "acuerdo": "Ambos OK",
         "metodo": "reglas",
-        "referencia": "Inspección interna de radomo por birdstrike",
-        "propuesta_modelo": null,
-        "detalle_modelo": "",
+        "referencia": "RADOME INTERNAL INSPECTION DUE TO BIRDSTRIKE",
         "hallazgos": []
       },
       {
@@ -771,14 +883,11 @@
         "comentario_auditor": "T/A aperturado correctamente",
         "tema_auditor": "Intervalo / due date",
         "programa": "OK",
-        "programa_solo_reglas": "OK",
         "acuerdo": "Ambos OK",
         "metodo": "reglas",
-        "referencia": "Botella de oxígeno de tripulación (presión baja)",
-        "propuesta_modelo": null,
-        "detalle_modelo": "",
+        "referencia": "CREW OXYGEN BOTTLE PRESSURE",
         "hallazgos": [
-          "[OBSERVACION] El intervalo 3 DAY corresponde a la condición 'Presión > 200 PSI sobre la mínima de despacho'. Verificar que aplique. Presión reportada: 1020 PSI."
+          "[OBSERVACIÓN] El intervalo 3 DAY corresponde a la condición '3 DAY IF PRESSURE IS GREATER THAN 200 PSI, ABOVE THE MINIMUM DISPATCH PRESSURE'. Verificar que aplique. Presión reportada: 1020 PSI."
         ]
       },
       {
@@ -789,12 +898,9 @@
         "comentario_auditor": "T/A aperturado correctamente",
         "tema_auditor": "Intervalo / due date",
         "programa": "OK",
-        "programa_solo_reglas": "OK",
         "acuerdo": "Ambos OK",
         "metodo": "reglas",
-        "referencia": "Re-tensión de cables de elevador",
-        "propuesta_modelo": null,
-        "detalle_modelo": "",
+        "referencia": "ELEVATOR CONTROL CABLES RE-TENSION CHECK AND ADJUSTMENT",
         "hallazgos": []
       },
       {
@@ -805,15 +911,12 @@
         "comentario_auditor": "T/A aperturado correctamente // Fecha de vencimiento",
         "tema_auditor": "Intervalo / due date",
         "programa": "OK",
-        "programa_solo_reglas": "OK",
         "acuerdo": "Ambos OK",
         "metodo": "reglas",
-        "referencia": "ELT fijo",
-        "propuesta_modelo": null,
-        "detalle_modelo": "",
+        "referencia": "FIXED ELT BATTERY",
         "hallazgos": [
-          "[OBSERVACION] No se menciona el S/N del componente en la descripción.",
-          "[OBSERVACION] ATA 23 distinto al de la referencia (25)."
+          "[OBSERVACIÓN] Sin S/N del componente en la descripción.",
+          "[OBSERVACIÓN] ATA 23 distinto al de la referencia (25)."
         ]
       },
       {
@@ -824,12 +927,9 @@
         "comentario_auditor": "T/A aperturado correctamente // Fecha de vencimiento",
         "tema_auditor": "Intervalo / due date",
         "programa": "OK",
-        "programa_solo_reglas": "OK",
         "acuerdo": "Ambos OK",
         "metodo": "reglas",
-        "referencia": "Certificado de fumigación",
-        "propuesta_modelo": null,
-        "detalle_modelo": "",
+        "referencia": "CERTIFICATE OF FUMIGATION",
         "hallazgos": []
       },
       {
@@ -840,14 +940,11 @@
         "comentario_auditor": "T/A aperturado correctamente // Fecha de vencimiento",
         "tema_auditor": "Intervalo / due date",
         "programa": "OK",
-        "programa_solo_reglas": "OK",
         "acuerdo": "Ambos OK",
         "metodo": "reglas",
-        "referencia": "ELT portátil (emergency locator transmitter)",
-        "propuesta_modelo": null,
-        "detalle_modelo": "",
+        "referencia": "PORTABLE ELT BATTERY",
         "hallazgos": [
-          "[OBSERVACION] No se menciona el S/N del componente en la descripción."
+          "[OBSERVACIÓN] Sin S/N del componente en la descripción."
         ]
       },
       {
@@ -858,14 +955,11 @@
         "comentario_auditor": "NO MENCIONA INTERVALS - REVISAR AMM TASK 36-00-00-710-801 REV. 28- 15-MAY-26",
         "tema_auditor": "Intervalo / due date",
         "programa": "OK",
-        "programa_solo_reglas": "OK",
         "acuerdo": "Ambos OK",
         "metodo": "reglas",
-        "referencia": "Bleed control card",
-        "propuesta_modelo": null,
-        "detalle_modelo": "",
+        "referencia": "BLEED CTRL CARD",
         "hallazgos": [
-          "[OBSERVACION] T/A aperturado con 150 FH, distinto de la referencia (2902 FH)."
+          "[OBSERVACIÓN] T/A aperturado con 150 FH, distinto de la referencia (2902 FH)."
         ]
       },
       {
@@ -876,14 +970,11 @@
         "comentario_auditor": "DIP ACTIVE. T/A aperturado correctamente",
         "tema_auditor": "Intervalo / due date",
         "programa": "OK",
-        "programa_solo_reglas": "OK",
         "acuerdo": "Ambos OK",
         "metodo": "reglas",
-        "referencia": "Botella de oxígeno de tripulación (presión baja)",
-        "propuesta_modelo": null,
-        "detalle_modelo": "",
+        "referencia": "CREW OXYGEN BOTTLE PRESSURE",
         "hallazgos": [
-          "[OBSERVACION] El intervalo 3 DAY corresponde a la condición 'Presión > 200 PSI sobre la mínima de despacho'. Verificar que aplique. Presión reportada: 950 PSI."
+          "[OBSERVACIÓN] El intervalo 3 DAY corresponde a la condición '3 DAY IF PRESSURE IS GREATER THAN 200 PSI, ABOVE THE MINIMUM DISPATCH PRESSURE'. Verificar que aplique. Presión reportada: 950 PSI."
         ]
       },
       {
@@ -894,14 +985,11 @@
         "comentario_auditor": "DIP ACTIVE. T/A Aperturado correctamente",
         "tema_auditor": "Intervalo / due date",
         "programa": "OK",
-        "programa_solo_reglas": "OK",
         "acuerdo": "Ambos OK",
         "metodo": "reglas",
-        "referencia": "Extintor portátil de agua",
-        "propuesta_modelo": null,
-        "detalle_modelo": "",
+        "referencia": "PORTABLE WATER FE LESS THAN 130 DAYS WEIGHT CHECK",
         "hallazgos": [
-          "[OBSERVACION] No se menciona el S/N del componente en la descripción."
+          "[OBSERVACIÓN] Sin S/N del componente en la descripción."
         ]
       },
       {
@@ -912,14 +1000,11 @@
         "comentario_auditor": "",
         "tema_auditor": "Sin comentario",
         "programa": "OK",
-        "programa_solo_reglas": "OK",
         "acuerdo": "Ambos OK",
         "metodo": "reglas",
-        "referencia": "Universal Precaution Kit (kit de protección universal)",
-        "propuesta_modelo": null,
-        "detalle_modelo": "",
+        "referencia": "UPK LESS THAN 130 DAYS DUE DATE",
         "hallazgos": [
-          "[OBSERVACION] No se menciona el S/N del componente en la descripción."
+          "[OBSERVACIÓN] Sin S/N del componente en la descripción."
         ]
       },
       {
@@ -930,12 +1015,9 @@
         "comentario_auditor": "",
         "tema_auditor": "Sin comentario",
         "programa": "OK",
-        "programa_solo_reglas": "OK",
         "acuerdo": "Ambos OK",
         "metodo": "reglas",
-        "referencia": "Certificado de fumigación",
-        "propuesta_modelo": null,
-        "detalle_modelo": "",
+        "referencia": "CERTIFICATE OF FUMIGATION",
         "hallazgos": []
       },
       {
@@ -946,12 +1028,9 @@
         "comentario_auditor": "",
         "tema_auditor": "Sin comentario",
         "programa": "OK",
-        "programa_solo_reglas": "OK",
         "acuerdo": "Solo el auditor marca",
         "metodo": "reglas",
-        "referencia": "Re-tensión de cables de timón",
-        "propuesta_modelo": null,
-        "detalle_modelo": "",
+        "referencia": "RUDDER CONTROL CABLES RE-TENSION CHECK AND ADJUSTMENT",
         "hallazgos": []
       },
       {
@@ -962,12 +1041,9 @@
         "comentario_auditor": "",
         "tema_auditor": "Sin comentario",
         "programa": "OK",
-        "programa_solo_reglas": "OK",
         "acuerdo": "Ambos OK",
         "metodo": "reglas",
-        "referencia": "Certificado de fumigación",
-        "propuesta_modelo": null,
-        "detalle_modelo": "",
+        "referencia": "CERTIFICATE OF FUMIGATION",
         "hallazgos": []
       },
       {
@@ -977,15 +1053,12 @@
         "auditor": "DISCREPANCIA NO CRÍTICA",
         "comentario_auditor": "",
         "tema_auditor": "Sin comentario",
-        "programa": "REVISAR",
-        "programa_solo_reglas": "REVISAR",
+        "programa": "POSIBLE DISCREPANCIA",
         "acuerdo": "Ambos marcan",
         "metodo": "sin_referencia",
         "referencia": "",
-        "propuesta_modelo": null,
-        "detalle_modelo": "",
         "hallazgos": [
-          "[REVISAR] El DIP no se encontró en el catálogo de referencias Others. Revisar manualmente."
+          "[POSIBLE DISCREPANCIA] El DIP no se encontró en el catálogo de referencias Others. Revisar manualmente."
         ]
       },
       {
@@ -996,12 +1069,9 @@
         "comentario_auditor": "",
         "tema_auditor": "Sin comentario",
         "programa": "OK",
-        "programa_solo_reglas": "OK",
         "acuerdo": "Ambos OK",
         "metodo": "reglas",
-        "referencia": "FDR Report (flight data recorder)",
-        "propuesta_modelo": null,
-        "detalle_modelo": "",
+        "referencia": "FDR REPORT",
         "hallazgos": []
       },
       {
@@ -1011,16 +1081,13 @@
         "auditor": "OK",
         "comentario_auditor": "",
         "tema_auditor": "Sin comentario",
-        "programa": "DISCREPANCIA CRÍTICA",
-        "programa_solo_reglas": "DISCREPANCIA CRÍTICA",
+        "programa": "POSIBLE DISCREPANCIA",
         "acuerdo": "Solo el programa marca",
         "metodo": "reglas",
-        "referencia": "Bleed PM sensor",
-        "propuesta_modelo": null,
-        "detalle_modelo": "",
+        "referencia": "BLEED PM SENSOR",
         "hallazgos": [
-          "[CRITICA] T/A aperturado con 75 FH, mayor que la referencia (30 FH).",
-          "[OBSERVACION] ATA 28 distinto al de la referencia (36)."
+          "[POSIBLE DISCREPANCIA] T/A aperturado con 75 FH, mayor que la referencia (30 FH).",
+          "[OBSERVACIÓN] ATA 28 distinto al de la referencia (36)."
         ]
       }
     ]
@@ -1028,14 +1095,14 @@
   "casos": {
     "indicadores": {
       "aciertos_finales": {
-        "aciertos": 24,
+        "aciertos": 25,
         "total": 46,
-        "pct": 52.2
+        "pct": 54.3
       },
       "con_referencia": {
-        "aciertos": 4,
+        "aciertos": 5,
         "total": 26,
-        "pct": 15.4
+        "pct": 19.2
       },
       "sin_referencia": {
         "aciertos": 20,
@@ -1054,12 +1121,9 @@
         "fault_name": "CREW 02 BOTLE LOW",
         "intervalo": "3 DAY",
         "esperado": "OXIGENO_TRIPULACION",
-        "respuesta_modelo": "(reglas)",
         "final": "NINGUNA",
-        "acierto_modelo": null,
         "acierto_final": false,
         "error_aceptado": false,
-        "segundos": 0.01,
         "detalle": ""
       },
       {
@@ -1067,12 +1131,9 @@
         "fault_name": "CAPT O2 CYLINDER PRESS 900",
         "intervalo": "3 DAY",
         "esperado": "OXIGENO_TRIPULACION",
-        "respuesta_modelo": "(reglas)",
         "final": "NINGUNA",
-        "acierto_modelo": null,
         "acierto_final": false,
         "error_aceptado": false,
-        "segundos": 0.01,
         "detalle": ""
       },
       {
@@ -1080,12 +1141,9 @@
         "fault_name": "DIP - NOSE INTERNAL INSPECTION",
         "intervalo": "3 FC",
         "esperado": "RADOMO",
-        "respuesta_modelo": "(reglas)",
         "final": "NINGUNA",
-        "acierto_modelo": null,
         "acierto_final": false,
         "error_aceptado": false,
-        "segundos": 0.01,
         "detalle": ""
       },
       {
@@ -1093,25 +1151,19 @@
         "fault_name": "DIP-EMERGENCY LOCATER TRANSMITER BATERY",
         "intervalo": "150 DAY",
         "esperado": "ELT_PORTATIL",
-        "respuesta_modelo": "(reglas)",
         "final": "ELT_PORTATIL",
-        "acierto_modelo": null,
         "acierto_final": true,
         "error_aceptado": false,
-        "segundos": 0.0,
-        "detalle": "Coincidencia aproximada: 'EMERGENCY LOCATER' por 'EMERGENCY LOCATOR'."
+        "detalle": "'EMERGENCY LOCATER' se leyó como 'EMERGENCY LOCATOR'."
       },
       {
         "grupo": "positivo",
         "fault_name": "HIDRAULIC DECONTAMINATION FINAL",
         "intervalo": "300 FH",
         "esperado": "DESCONTAMINACION_HID_TERMINAL",
-        "respuesta_modelo": "(reglas)",
         "final": "NINGUNA",
-        "acierto_modelo": null,
         "acierto_final": false,
         "error_aceptado": false,
-        "segundos": 0.01,
         "detalle": ""
       },
       {
@@ -1119,12 +1171,9 @@
         "fault_name": "HIDRAULIC DECONTAMINATION FIRST STAGE",
         "intervalo": "150 FH",
         "esperado": "DESCONTAMINACION_HID_INICIAL",
-        "respuesta_modelo": "(reglas)",
         "final": "NINGUNA",
-        "acierto_modelo": null,
         "acierto_final": false,
         "error_aceptado": false,
-        "segundos": 0.01,
         "detalle": ""
       },
       {
@@ -1132,12 +1181,9 @@
         "fault_name": "BOTIQUIN DE PRIMEROS AUXILIOS VENCE 30-NOV-2026",
         "intervalo": "100 DAY",
         "esperado": "FAK",
-        "respuesta_modelo": "(reglas)",
         "final": "NINGUNA",
-        "acierto_modelo": null,
         "acierto_final": false,
         "error_aceptado": false,
-        "segundos": 0.01,
         "detalle": ""
       },
       {
@@ -1145,12 +1191,9 @@
         "fault_name": "KIT MEDICO DE EMERGENCIA PROXIMO A VENCER",
         "intervalo": "120 DAY",
         "esperado": "EMK",
-        "respuesta_modelo": "(reglas)",
         "final": "NINGUNA",
-        "acierto_modelo": null,
         "acierto_final": false,
         "error_aceptado": false,
-        "segundos": 0.01,
         "detalle": ""
       },
       {
@@ -1158,38 +1201,29 @@
         "fault_name": "HALOM EXTINGISHER COCKPIT WEIGHT DUE",
         "intervalo": "60 DAY",
         "esperado": "HALON_PORTATIL",
-        "respuesta_modelo": "(reglas)",
         "final": "HALON_PORTATIL",
-        "acierto_modelo": null,
         "acierto_final": true,
         "error_aceptado": false,
-        "segundos": 0.0,
-        "detalle": "Coincidencia aproximada: 'EXTINGISHER' por 'EXTINGUISHER'."
+        "detalle": "'EXTINGISHER' se leyó como 'EXTINGUISHER'."
       },
       {
         "grupo": "positivo",
         "fault_name": "FUMIGATON CERT EXPIRING",
         "intervalo": "5 DAY",
         "esperado": "FUMIGACION",
-        "respuesta_modelo": "(reglas)",
         "final": "FUMIGACION",
-        "acierto_modelo": null,
         "acierto_final": true,
         "error_aceptado": false,
-        "segundos": 0.0,
-        "detalle": "Coincidencia aproximada: 'FUMIGATON' por 'FUMIGATION'."
+        "detalle": "'FUMIGATON' se leyó como 'FUMIGATION'."
       },
       {
         "grupo": "positivo",
         "fault_name": "MICROBIOLOGICAL CONTAMINATION TEST FUEL TANKS",
         "intervalo": "4 DAY",
         "esperado": "CRECIMIENTO_MICROBIANO",
-        "respuesta_modelo": "(reglas)",
         "final": "NINGUNA",
-        "acierto_modelo": null,
         "acierto_final": false,
         "error_aceptado": false,
-        "segundos": 0.01,
         "detalle": ""
       },
       {
@@ -1197,12 +1231,9 @@
         "fault_name": "FLIGHT DATA RECORDER DATA REVIEW",
         "intervalo": "30 DAY",
         "esperado": "FDR",
-        "respuesta_modelo": "(reglas)",
-        "final": "NINGUNA",
-        "acierto_modelo": null,
-        "acierto_final": false,
+        "final": "FDR",
+        "acierto_final": true,
         "error_aceptado": false,
-        "segundos": 0.01,
         "detalle": ""
       },
       {
@@ -1210,12 +1241,9 @@
         "fault_name": "NOSE STRUT X DIMENSION LOW",
         "intervalo": "10 FC",
         "esperado": "AMORTIGUADOR_NLG",
-        "respuesta_modelo": "(reglas)",
         "final": "NINGUNA",
-        "acierto_modelo": null,
         "acierto_final": false,
         "error_aceptado": false,
-        "segundos": 0.01,
         "detalle": ""
       },
       {
@@ -1223,12 +1251,9 @@
         "fault_name": "MAIN GEAR #2 RUBBER CORD VISIBLE",
         "intervalo": "5 FC",
         "esperado": "LLANTA",
-        "respuesta_modelo": "(reglas)",
         "final": "NINGUNA",
-        "acierto_modelo": null,
         "acierto_final": false,
         "error_aceptado": false,
-        "segundos": 0.01,
         "detalle": ""
       },
       {
@@ -1236,12 +1261,9 @@
         "fault_name": "PARK BRK FAIL HOLD CHECK",
         "intervalo": "3 DAY",
         "esperado": "FRENO_PARQUEO",
-        "respuesta_modelo": "(reglas)",
         "final": "NINGUNA",
-        "acierto_modelo": null,
         "acierto_final": false,
         "error_aceptado": false,
-        "segundos": 0.01,
         "detalle": ""
       },
       {
@@ -1249,12 +1271,9 @@
         "fault_name": "LEFT WING AIL CABLE TENSION RECHECK",
         "intervalo": "184 DAY",
         "esperado": "CABLES_ALERON",
-        "respuesta_modelo": "(reglas)",
         "final": "NINGUNA",
-        "acierto_modelo": null,
         "acierto_final": false,
         "error_aceptado": false,
-        "segundos": 0.01,
         "detalle": ""
       },
       {
@@ -1262,12 +1281,9 @@
         "fault_name": "IDG DELTA P INDICATOR POPPED",
         "intervalo": "400 FH",
         "esperado": "DPI",
-        "respuesta_modelo": "(reglas)",
         "final": "NINGUNA",
-        "acierto_modelo": null,
         "acierto_final": false,
         "error_aceptado": false,
-        "segundos": 0.01,
         "detalle": ""
       },
       {
@@ -1275,12 +1291,9 @@
         "fault_name": "SURVIVOR KIT RAFT DUE DATE",
         "intervalo": "50 DAY",
         "esperado": "SURVIVAL_KIT",
-        "respuesta_modelo": "(reglas)",
         "final": "NINGUNA",
-        "acierto_modelo": null,
         "acierto_final": false,
         "error_aceptado": false,
-        "segundos": 0.01,
         "detalle": ""
       },
       {
@@ -1288,12 +1301,9 @@
         "fault_name": "BACK FLOW CHECK VALVE INERT GAS SYS",
         "intervalo": "90 DAY",
         "esperado": "BACKFLOW",
-        "respuesta_modelo": "(reglas)",
         "final": "NINGUNA",
-        "acierto_modelo": null,
         "acierto_final": false,
         "error_aceptado": false,
-        "segundos": 0.01,
         "detalle": ""
       },
       {
@@ -1301,25 +1311,19 @@
         "fault_name": "STROKE OF LIGHTING PHASE 2 INSPECTION",
         "intervalo": "50 FC",
         "esperado": "RAYO",
-        "respuesta_modelo": "(reglas)",
         "final": "RAYO",
-        "acierto_modelo": null,
         "acierto_final": true,
         "error_aceptado": false,
-        "segundos": 0.0,
-        "detalle": "Coincidencia aproximada: 'LIGHTING' por 'LIGHTNING'."
+        "detalle": "'LIGHTING' se leyó como 'LIGHTNING'."
       },
       {
         "grupo": "positivo",
         "fault_name": "PROTECCION UNIVERSAL KIT FWD",
         "intervalo": "90 DAY",
         "esperado": "UPK",
-        "respuesta_modelo": "(reglas)",
         "final": "NINGUNA",
-        "acierto_modelo": null,
         "acierto_final": false,
         "error_aceptado": false,
-        "segundos": 0.01,
         "detalle": ""
       },
       {
@@ -1327,12 +1331,9 @@
         "fault_name": "BRK 4 PIN FLUSH",
         "intervalo": "20 FC",
         "esperado": "DESGASTE_FRENOS",
-        "respuesta_modelo": "(reglas)",
         "final": "NINGUNA",
-        "acierto_modelo": null,
         "acierto_final": false,
         "error_aceptado": false,
-        "segundos": 0.01,
         "detalle": ""
       },
       {
@@ -1340,12 +1341,9 @@
         "fault_name": "CHALECO SALVAVIDAS SEGURO DE COMPARTIMIENTO DANADO",
         "intervalo": "60 DAY",
         "esperado": "CHALECO",
-        "respuesta_modelo": "(reglas)",
         "final": "NINGUNA",
-        "acierto_modelo": null,
         "acierto_final": false,
         "error_aceptado": false,
-        "segundos": 0.01,
         "detalle": ""
       },
       {
@@ -1353,12 +1351,9 @@
         "fault_name": "RADIO STATION LICENCE EXPIRES",
         "intervalo": "30 DAY",
         "esperado": "LICENCIA_RADIO",
-        "respuesta_modelo": "(reglas)",
         "final": "NINGUNA",
-        "acierto_modelo": null,
         "acierto_final": false,
         "error_aceptado": false,
-        "segundos": 0.01,
         "detalle": ""
       },
       {
@@ -1366,12 +1361,9 @@
         "fault_name": "BLEED CONTROLLER CARD FAULT SMT",
         "intervalo": "2902 FH",
         "esperado": "BLEED_CTRL_CARD",
-        "respuesta_modelo": "(reglas)",
         "final": "NINGUNA",
-        "acierto_modelo": null,
         "acierto_final": false,
         "error_aceptado": false,
-        "segundos": 0.01,
         "detalle": ""
       },
       {
@@ -1379,12 +1371,9 @@
         "fault_name": "TOC FLAPS CONFIG WARNING SMT",
         "intervalo": "30 FH",
         "esperado": "FLAPS_TAKEOFF_CONFIG",
-        "respuesta_modelo": "(reglas)",
         "final": "NINGUNA",
-        "acierto_modelo": null,
         "acierto_final": false,
         "error_aceptado": false,
-        "segundos": 0.01,
         "detalle": ""
       },
       {
@@ -1392,12 +1381,9 @@
         "fault_name": "DEFIBRILLATOR DUE DATE",
         "intervalo": "38 DAY",
         "esperado": "NINGUNA",
-        "respuesta_modelo": "(reglas)",
         "final": "NINGUNA",
-        "acierto_modelo": null,
         "acierto_final": true,
         "error_aceptado": false,
-        "segundos": 0.01,
         "detalle": ""
       },
       {
@@ -1405,12 +1391,9 @@
         "fault_name": "DIP- wing tank # 2 access door 632AB",
         "intervalo": "60 DAY",
         "esperado": "NINGUNA",
-        "respuesta_modelo": "(reglas)",
         "final": "NINGUNA",
-        "acierto_modelo": null,
         "acierto_final": true,
         "error_aceptado": false,
-        "segundos": 0.01,
         "detalle": ""
       },
       {
@@ -1418,12 +1401,9 @@
         "fault_name": "AFT COMP NET",
         "intervalo": "10 DAY",
         "esperado": "NINGUNA",
-        "respuesta_modelo": "(reglas)",
         "final": "NINGUNA",
-        "acierto_modelo": null,
         "acierto_final": true,
         "error_aceptado": false,
-        "segundos": 0.01,
         "detalle": ""
       },
       {
@@ -1431,12 +1411,9 @@
         "fault_name": "DIP SEALANT INSTALLATION",
         "intervalo": "7 DAY",
         "esperado": "NINGUNA",
-        "respuesta_modelo": "(reglas)",
         "final": "NINGUNA",
-        "acierto_modelo": null,
         "acierto_final": true,
         "error_aceptado": false,
-        "segundos": 0.01,
         "detalle": ""
       },
       {
@@ -1444,12 +1421,9 @@
         "fault_name": "DIP-31 UNDERWATER LOCATOR BEACON(FDR)",
         "intervalo": "112 DAY",
         "esperado": "NINGUNA",
-        "respuesta_modelo": "(reglas)",
         "final": "NINGUNA",
-        "acierto_modelo": null,
         "acierto_final": true,
         "error_aceptado": false,
-        "segundos": 0.01,
         "detalle": ""
       },
       {
@@ -1457,12 +1431,9 @@
         "fault_name": "DIP- 25 PASSENGER LIFE VEST",
         "intervalo": "145 DAY",
         "esperado": "NINGUNA",
-        "respuesta_modelo": "(reglas)",
         "final": "NINGUNA",
-        "acierto_modelo": null,
         "acierto_final": true,
         "error_aceptado": false,
-        "segundos": 0.01,
         "detalle": ""
       },
       {
@@ -1470,12 +1441,9 @@
         "fault_name": "AFT LAV SMOKE DETECTOR BATTERY",
         "intervalo": "30 DAY",
         "esperado": "NINGUNA",
-        "respuesta_modelo": "(reglas)",
         "final": "NINGUNA",
-        "acierto_modelo": null,
         "acierto_final": true,
         "error_aceptado": false,
-        "segundos": 0.01,
         "detalle": ""
       },
       {
@@ -1483,12 +1451,9 @@
         "fault_name": "DIP- REPLACE FLEXIBLE HOSE",
         "intervalo": "10 DAY",
         "esperado": "NINGUNA",
-        "respuesta_modelo": "(reglas)",
         "final": "NINGUNA",
-        "acierto_modelo": null,
         "acierto_final": true,
         "error_aceptado": false,
-        "segundos": 0.01,
         "detalle": ""
       },
       {
@@ -1496,12 +1461,9 @@
         "fault_name": "DIP - 7 DAYS 46 NFS OAS AIRPLANE KEY",
         "intervalo": "6 DAY",
         "esperado": "NINGUNA",
-        "respuesta_modelo": "(reglas)",
         "final": "NINGUNA",
-        "acierto_modelo": null,
         "acierto_final": true,
         "error_aceptado": false,
-        "segundos": 0.01,
         "detalle": ""
       },
       {
@@ -1509,12 +1471,9 @@
         "fault_name": "DIP- to check spoiler cables tension .",
         "intervalo": "7 DAY",
         "esperado": "NINGUNA",
-        "respuesta_modelo": "(reglas)",
         "final": "NINGUNA",
-        "acierto_modelo": null,
         "acierto_final": true,
         "error_aceptado": false,
-        "segundos": 0.01,
         "detalle": ""
       },
       {
@@ -1522,12 +1481,9 @@
         "fault_name": "DIP-BOROSCOPE DUE TO FOD IN ENGINE #1",
         "intervalo": "10 FC",
         "esperado": "NINGUNA",
-        "respuesta_modelo": "(reglas)",
         "final": "NINGUNA",
-        "acierto_modelo": null,
         "acierto_final": true,
         "error_aceptado": false,
-        "segundos": 0.01,
         "detalle": ""
       },
       {
@@ -1535,12 +1491,9 @@
         "fault_name": "DIP - E1 PRIMARY EXHAUST NOZZLE WITH OVERHEATING EVIDENCE",
         "intervalo": "10 DAY",
         "esperado": "NINGUNA",
-        "respuesta_modelo": "(reglas)",
         "final": "NINGUNA",
-        "acierto_modelo": null,
         "acierto_final": true,
         "error_aceptado": false,
-        "segundos": 0.01,
         "detalle": ""
       },
       {
@@ -1548,12 +1501,9 @@
         "fault_name": "AHM - 320 451 00 AIR/GND SENSOR scheduled maintenance task shows: SMT",
         "intervalo": "150 FH",
         "esperado": "NINGUNA",
-        "respuesta_modelo": "(reglas)",
         "final": "NINGUNA",
-        "acierto_modelo": null,
         "acierto_final": true,
         "error_aceptado": false,
-        "segundos": 0.01,
         "detalle": ""
       },
       {
@@ -1561,12 +1511,9 @@
         "fault_name": "OXYGEN MASK CREW STOWAGE BOX",
         "intervalo": "10 DAY",
         "esperado": "NINGUNA",
-        "respuesta_modelo": "(reglas)",
         "final": "NINGUNA",
-        "acierto_modelo": null,
         "acierto_final": true,
         "error_aceptado": false,
-        "segundos": 0.01,
         "detalle": ""
       },
       {
@@ -1574,12 +1521,9 @@
         "fault_name": "foward cargo cilling shroud with damage.",
         "intervalo": "120 DAY",
         "esperado": "NINGUNA",
-        "respuesta_modelo": "(reglas)",
         "final": "NINGUNA",
-        "acierto_modelo": null,
         "acierto_final": true,
         "error_aceptado": false,
-        "segundos": 0.01,
         "detalle": ""
       },
       {
@@ -1587,12 +1531,9 @@
         "fault_name": "DIP- check for hydraulic leakage at the NLG Swivel",
         "intervalo": "15 FC",
         "esperado": "NINGUNA",
-        "respuesta_modelo": "(reglas)",
         "final": "NINGUNA",
-        "acierto_modelo": null,
         "acierto_final": true,
         "error_aceptado": false,
-        "segundos": 0.01,
         "detalle": ""
       },
       {
@@ -1600,12 +1541,9 @@
         "fault_name": "RE-EVALUATION",
         "intervalo": "5 DAY",
         "esperado": "NINGUNA",
-        "respuesta_modelo": "(reglas)",
         "final": "NINGUNA",
-        "acierto_modelo": null,
         "acierto_final": true,
         "error_aceptado": false,
-        "segundos": 0.01,
         "detalle": ""
       },
       {
@@ -1613,12 +1551,9 @@
         "fault_name": "LAV WASTE TANK SENSOR INOP",
         "intervalo": "10 DAY",
         "esperado": "NINGUNA",
-        "respuesta_modelo": "(reglas)",
         "final": "NINGUNA",
-        "acierto_modelo": null,
         "acierto_final": true,
         "error_aceptado": false,
-        "segundos": 0.01,
         "detalle": ""
       },
       {
@@ -1626,12 +1561,9 @@
         "fault_name": "PAX SEAT 23C RECLINE INOP",
         "intervalo": "10 DAY",
         "esperado": "NINGUNA",
-        "respuesta_modelo": "(reglas)",
         "final": "NINGUNA",
-        "acierto_modelo": null,
         "acierto_final": true,
         "error_aceptado": false,
-        "segundos": 0.01,
         "detalle": ""
       },
       {
@@ -1639,22 +1571,17 @@
         "fault_name": "EMERGENCY LIGHT BATTERY PACK EXPIRING",
         "intervalo": "60 DAY",
         "esperado": "NINGUNA",
-        "respuesta_modelo": "(reglas)",
         "final": "NINGUNA",
-        "acierto_modelo": null,
         "acierto_final": true,
         "error_aceptado": false,
-        "segundos": 0.01,
         "detalle": ""
       }
     ]
   },
   "tiempos": {
-    "preparacion_s": 0.72,
-    "auditoria_s": 0.12,
-    "auditoria_consultas": 0,
-    "casos_s": 0.44,
-    "total_s": 1.16
-  },
-  "costo_modelo": null
+    "preparacion_s": 0.05,
+    "auditoria_s": 0.09,
+    "casos_s": 0.1,
+    "total_s": 0.3
+  }
 }

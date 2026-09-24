@@ -1,6 +1,6 @@
 import pytest
 
-from dips_audit.asociacion import asociar, intervalo_compatible, similares_en_tabla
+from dips_audit.asociacion import asociar, similares_en_tabla
 
 # Fault Names reales del histórico y la entrada esperada del catálogo.
 CASOS = [
@@ -76,64 +76,3 @@ def test_similares_en_tabla_detecta_otro_tipo(catalogo):
                                    catalogo)
     assert similares and similares[0][0].tipo == "POWERPLANT"
 
-
-def test_intervalo_compatible(catalogo):
-    fdr = catalogo.por_id("FDR")
-    assert intervalo_compatible(fdr, 30, "DAY")
-    assert not intervalo_compatible(fdr, 112, "DAY")
-    assert not intervalo_compatible(fdr, 30, "FH")
-    cables = catalogo.por_id("CABLES_ALERON")
-    assert intervalo_compatible(cables, 184, "DAY")
-    assert intervalo_compatible(catalogo.por_id("FAK"), 400, "DAY")  # hasta vencimiento
-
-
-class LLMFalso:
-    """Simula el modelo local: siempre responde la entrada indicada."""
-
-    def __init__(self, entrada):
-        self.entrada = entrada
-        self.llamadas = []
-
-    def elegir_categoria(self, nombre, candidatos, intervalo=""):
-        self.llamadas.append((nombre, [c.id for c in candidatos], intervalo))
-        return self.entrada, "prueba"
-
-
-def test_llm_solo_se_consulta_si_las_reglas_no_asocian(catalogo):
-    llm = LLMFalso(catalogo.por_id("FDR"))
-    asociar("FDR - REPORT", catalogo, llm, 30, "DAY")
-    assert llm.llamadas == []
-
-
-def test_llm_sugerencia_aceptada_queda_como_ia(catalogo):
-    llm = LLMFalso(catalogo.por_id("RADOMO"))
-    a = asociar("DIP - NOSE INTERNAL INSPECTION", catalogo, llm, 3, "FC")
-    assert a.metodo == "IA" and a.entrada.id == "RADOMO"
-    assert a.confianza == "MEDIA"
-    assert llm.llamadas[0][2] == "3 FC"
-
-
-def test_llm_sugerencia_con_intervalo_incompatible_se_descarta(catalogo):
-    llm = LLMFalso(catalogo.por_id("FDR"))
-    a = asociar("FLIGHT DATA RECORDER READOUT", catalogo, llm, 112, "DAY")
-    assert a.entrada is None and "no es compatible" in a.detalle
-
-
-def test_llm_sugerencia_sin_intervalo_se_descarta(catalogo):
-    """Sin intervalo no se puede validar: no se acepta aunque comparta palabras."""
-    llm = LLMFalso(catalogo.por_id("OXIGENO_PORTATIL"))
-    a = asociar("DIP - REPLACE PAX OXYGEN GENERATORS ON ROW 17 ABC", catalogo, llm, None, None)
-    assert a.entrada is None and a.propuesta == "OXIGENO_PORTATIL"
-    assert "no tiene intervalo" in a.detalle
-
-
-def test_llm_sugerencia_con_palabra_excluida_se_descarta(catalogo):
-    llm = LLMFalso(catalogo.por_id("FDR"))
-    a = asociar("DIP-31 UNDERWATER LOCATOR BEACON(FDR)", catalogo, llm, 30, "DAY")
-    assert a.entrada is None and "UNDERWATER" in a.detalle
-
-
-def test_llm_sugerencia_sin_palabras_distintivas_se_descarta(catalogo):
-    llm = LLMFalso(catalogo.por_id("ELT_PORTATIL"))
-    a = asociar("AFT LAV SMOKE DETECTOR BATTERY", catalogo, llm, 30, "DAY")
-    assert a.entrada is None and "palabras distintivas" in a.detalle

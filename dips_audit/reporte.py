@@ -14,28 +14,26 @@ from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from openpyxl.utils import get_column_letter
 
 from .auditor import ResultadoAuditoria
+from .reglas import MOSTRAR_SEVERIDAD
 
-COLORES_ESTADO = {
-    "DISCREPANCIA CRÍTICA": "F4B6B6",
-    "DISCREPANCIA NO CRÍTICA": "FCE3B0",
-    "REVISAR": "CFE2F3",
-    "OK": "C9E7C9",
-    "FUERA DE ALCANCE": "E4E4E4",
-}
-COLORES_RESULTADO = {"DISCREPANCIA": "F4B6B6", "POSIBLE DISCREPANCIA": "FCE3B0", "OK": "C9E7C9",
-                     "FUERA DE ALCANCE": "E4E4E4"}
-COLORES_SEVERIDAD = {"CRITICA": "F4B6B6", "NO CRITICA": "FCE3B0", "REVISAR": "CFE2F3",
-                     "OBSERVACION": "EFEFEF"}
+# Por ahora el resultado es solo OK o POSIBLE DISCREPANCIA: sin niveles (crítica / no crítica)
+# ni tipos de discrepancia, que todavía no coinciden con el proceso de los auditores.
+COLORES_RESULTADO = {"POSIBLE DISCREPANCIA": "FCE3B0", "OK": "C9E7C9", "FUERA DE ALCANCE": "E4E4E4"}
+COLORES_SEVERIDAD = {"POSIBLE DISCREPANCIA": "FCE3B0", "OBSERVACIÓN": "EFEFEF"}
 _ENCABEZADO = PatternFill("solid", fgColor="1F3A5F")
+# Columnas agregadas por el programa: encabezado morado y celdas lila, para
+# distinguirlas de las columnas originales del Excel de entrada.
 _ENCABEZADO_IA = PatternFill("solid", fgColor="5B3A8C")
-COLUMNAS_IA = ["RESULTADO", "ESTADO IA", "TIPO DE DISCREPANCIA", "COMENTARIO SUGERIDO", "HALLAZGOS",
+_CELDA_IA = PatternFill("solid", fgColor="EEE8F6")
+COLUMNAS_IA = ["RESULTADO", "COMENTARIO SUGERIDO", "HALLAZGOS",
                "VERIFICACIÓN MANUAL", "REFERENCIA ASOCIADA", "ASOCIACIÓN",
                "TA SEGÚN REFERENCIA", "REFERENCIA TÉCNICA ESPERADA", "REFERENCIA TÉCNICA DEL DIP",
-               "RIR EN ICAM", "ADJUNTOS EN ICAM"]
+               "RIR EN ICAM", "ADJUNTOS EN ICAM", "AUDITORÍA", "FECHA AUDITORÍA",
+               "ESTADO APERTURA", "ESTADO CIERRE"]
 _ANCHOS = {"Fault Name": 45, "COMENTARIO SUGERIDO": 60, "HALLAZGOS": 70,
            "VERIFICACIÓN MANUAL": 60, "TA SEGÚN REFERENCIA": 45,
-           "REFERENCIA TÉCNICA ESPERADA": 40, "REFERENCIA TÉCNICA DEL DIP": 40, "Detalle": 90, "ESTADO IA": 24,
-           "TIPO DE DISCREPANCIA": 28, "REFERENCIA ASOCIADA": 32, "RESULTADO": 24}
+           "REFERENCIA TÉCNICA ESPERADA": 40, "REFERENCIA TÉCNICA DEL DIP": 40, "Detalle": 90,
+           "REFERENCIA ASOCIADA": 32, "RESULTADO": 24, "ESTADO APERTURA": 24, "ESTADO CIERRE": 24}
 _ENVOLVER = {"HALLAZGOS", "VERIFICACIÓN MANUAL", "COMENTARIO SUGERIDO", "TA SEGÚN REFERENCIA",
              "Detalle", "Fault Name", "REFERENCIA TÉCNICA ESPERADA"}
 
@@ -43,7 +41,11 @@ _ENVOLVER = {"HALLAZGOS", "VERIFICACIÓN MANUAL", "COMENTARIO SUGERIDO", "TA SEG
 def ruta_salida(resultado: ResultadoAuditoria, carpeta: Path) -> Path:
     carpeta.mkdir(parents=True, exist_ok=True)
     marca = datetime.now().strftime("%Y%m%d_%H%M%S")
-    return carpeta / f"{resultado.lote.ruta.stem}_AUDITORIA_{marca}.xlsx"
+    prefijo = "PRUEBA_" if resultado.lote.prueba else ""
+    return carpeta / f"{prefijo}{resultado.lote.ruta.stem}_AUDITORIA_{marca}.xlsx"
+
+
+AVISO_PRUEBA = "PRUEBA: datos de prueba, no es una auditoría real."
 
 
 def _valor(v: object) -> object:
@@ -70,6 +72,8 @@ def _escribir_tabla(ws, df: pd.DataFrame, columnas_ia: set[str] | None = None,
         envolver = nombre in _ENVOLVER
         for celda in ws[letra][1:]:
             celda.alignment = Alignment(wrap_text=envolver, vertical="top")
+            if nombre in columnas_ia:
+                celda.fill = _CELDA_IA
             if isinstance(celda.value, datetime):
                 celda.number_format = "dd-mmm-yyyy hh:mm"
     if col_color and colores and col_color in df.columns:
@@ -95,23 +99,32 @@ def exportar_excel(resultado: ResultadoAuditoria, ruta: Path) -> Path:
     _hoja_dashboard(wb.active, resultado)
     _hoja_resumen(wb.create_sheet("Resumen"), resultado)
 
-    # Hoja principal: columnas originales de ICAM + columnas de la auditoría.
+    # Hoja principal: las columnas originales, en su orden y con su nombre, y al
+    # final las columnas que agrega el programa (con su propio color).
     original = resultado.lote.original.copy()
     ia = resultado.filas.set_index("Fila Excel")[COLUMNAS_IA]
-    combinado = pd.concat([ia, original], axis=1, join="inner")
-    combinado.insert(0, "Fila Excel", combinado.index)
+    combinado = pd.concat([original, ia], axis=1, join="inner")
+    combinado["Fila Excel"] = combinado.index
     hoja = wb.create_sheet("Auditoría")
-    _escribir_tabla(hoja, combinado, set(COLUMNAS_IA), "RESULTADO", COLORES_RESULTADO)
-    _colorear(hoja, combinado, "ESTADO IA", COLORES_ESTADO)
+    _escribir_tabla(hoja, combinado, set(COLUMNAS_IA) | {"Fila Excel"}, "RESULTADO",
+                    COLORES_RESULTADO)
+    for columna in ("ESTADO APERTURA", "ESTADO CIERRE"):
+        _colorear(hoja, combinado, columna, COLORES_RESULTADO)
 
-    discrepancias = resultado.hallazgos
-    _escribir_tabla(wb.create_sheet("Hallazgos"), discrepancias, None,
-                    "Severidad", COLORES_SEVERIDAD)
+    _escribir_tabla(wb.create_sheet("Hallazgos"), hallazgos_para_mostrar(resultado.hallazgos), None,
+                    "Resultado", COLORES_SEVERIDAD)
     wb.save(ruta)
     return ruta
 
 
-_RESULTADOS = ["DISCREPANCIA", "POSIBLE DISCREPANCIA", "OK"]
+def hallazgos_para_mostrar(h: pd.DataFrame) -> pd.DataFrame:
+    """Hallazgos con su resultado (posible discrepancia u observación), sin tipo de discrepancia."""
+    h = h.drop(columns=["Tipo de discrepancia"], errors="ignore")
+    h = h.assign(Severidad=h["Severidad"].map(MOSTRAR_SEVERIDAD).fillna(h["Severidad"]))
+    return h.rename(columns={"Severidad": "Resultado"})
+
+
+_RESULTADOS = ["POSIBLE DISCREPANCIA", "OK"]
 _TITULO = Font(bold=True, size=16, color="1F3A5F")
 _SUBTITULO = Font(bold=True, size=11, color="1F3A5F")
 _BORDE = Border(bottom=Side(style="thin", color="C3C2B7"))
@@ -154,8 +167,8 @@ def _hoja_dashboard(ws, resultado: ResultadoAuditoria) -> None:
     en_alcance = datos[datos["RESULTADO"] != "FUERA DE ALCANCE"]
     total = len(en_alcance)
 
-    ws["B2"] = "Auditoría preliminar de DIPs"
-    ws["B2"].font = _TITULO
+    ws["B2"] = "Auditoría preliminar de DIPs" + (f" · {AVISO_PRUEBA}" if resultado.lote.prueba else "")
+    ws["B2"].font = Font(bold=True, size=16, color="C00000") if resultado.lote.prueba else _TITULO
     ws["B3"] = (f"{resultado.lote.ruta.name} · {datetime.now():%d-%b-%Y %H:%M} · "
                 "Resultado de apoyo: el auditor confirma cada DIP.")
     ws["B3"].font = Font(color="52514E")
@@ -219,16 +232,11 @@ def _hoja_dashboard(ws, resultado: ResultadoAuditoria) -> None:
     barras.height, barras.width = 8, 14
     ws.add_chart(barras, "H10")
 
-    # Tipos de discrepancia y referencias con más discrepancias
-    h = resultado.hallazgos
-    graves = h[h["Severidad"].isin(["CRITICA", "NO CRITICA"])] if not h.empty else h
-    tipos_disc = graves.groupby("Tipo de discrepancia")["Fault Barcode"].nunique() \
-        .sort_values(ascending=False).head(10) if not graves.empty else pd.Series(dtype=int)
-    discrepancias = en_alcance[en_alcance["RESULTADO"] == "DISCREPANCIA"]
+    # Referencias con más posibles discrepancias
+    discrepancias = en_alcance[en_alcance["RESULTADO"] == "POSIBLE DISCREPANCIA"]
     refs = discrepancias["REFERENCIA ASOCIADA"].replace("", "Sin referencia").value_counts().head(10)
     for fila_graf, serie_datos, titulo, encabezado in [
-            (27, tipos_disc, "Tipos de discrepancia (DIPs)", "Tipo de discrepancia"),
-            (44, refs, "Referencias con más DIPs con discrepancia", "Referencia")]:
+            (27, refs, "Referencias con más DIPs con posible discrepancia", "Referencia")]:
         if serie_datos.empty:
             continue
         inicio = ws.max_row + 2
@@ -240,7 +248,7 @@ def _hoja_dashboard(ws, resultado: ResultadoAuditoria) -> None:
         grafico.legend = None
         grafico.add_data(Reference(ws, min_col=col + 1, min_row=d1, max_row=d2), titles_from_data=True)
         grafico.set_categories(Reference(ws, min_col=col, min_row=d1 + 1, max_row=d2))
-        grafico.series[0].graphicalProperties.solidFill = COLORES_RESULTADO["DISCREPANCIA"]
+        grafico.series[0].graphicalProperties.solidFill = COLORES_RESULTADO["POSIBLE DISCREPANCIA"]
         grafico.dataLabels = _etiquetas(valor=True)
         _ejes_visibles(grafico)
         grafico.height, grafico.width = 8, 26
@@ -254,6 +262,9 @@ def _hoja_resumen(ws, resultado: ResultadoAuditoria) -> None:
     ws.append(["Auditoría preliminar de DIPs (generada automáticamente)"])
     ws["A1"].font = Font(bold=True, size=14)
     ws.append(["Resultado de apoyo: toda discrepancia debe ser confirmada por un auditor."])
+    if resultado.lote.prueba:
+        ws.append([AVISO_PRUEBA])
+        ws.cell(ws.max_row, 1).font = Font(bold=True, color="C00000")
     ws.append([])
     datos = [
         ("Archivo", str(resultado.lote.ruta)),
@@ -261,7 +272,6 @@ def _hoja_resumen(ws, resultado: ResultadoAuditoria) -> None:
         ("Generado", datetime.now().strftime("%d-%b-%Y %H:%M")),
         ("DIPs en el archivo", len(resultado.filas)),
         ("Tiempo de procesamiento", f"{resultado.segundos:.1f} s"),
-        ("Consultas al modelo local", resultado.consultas_llm),
     ]
     for fila in datos:
         ws.append(list(fila))
@@ -275,22 +285,13 @@ def _hoja_resumen(ws, resultado: ResultadoAuditoria) -> None:
         ws.append([valor, int(conteo.get(valor, 0))])
         ws.cell(ws.max_row, 1).fill = PatternFill("solid", fgColor=color)
     ws.append([])
-    ws.append(["Estado detallado", "Cantidad"])
+    ws.append(["Resultado", "DIPs"])
     for c in ws[ws.max_row]:
         c.font = Font(bold=True)
-    for estado in COLORES_ESTADO:
-        n = resultado.conteo_estados().get(estado, 0)
-        ws.append([estado, n])
-        ws.cell(ws.max_row, 1).fill = PatternFill("solid", fgColor=COLORES_ESTADO[estado])
-    if not resultado.hallazgos.empty:
-        ws.append([])
-        ws.append(["Tipo de discrepancia (críticas y no críticas)", "Cantidad"])
-        for c in ws[ws.max_row]:
-            c.font = Font(bold=True)
-        h = resultado.hallazgos
-        conteo = h[h["Severidad"].isin(["CRITICA", "NO CRITICA"])]["Tipo de discrepancia"]
-        for tipo, n in conteo.value_counts().items():
-            ws.append([tipo, int(n)])
+    conteo = resultado.filas["RESULTADO"].value_counts()
+    for estado, color in COLORES_RESULTADO.items():
+        ws.append([estado, int(conteo.get(estado, 0))])
+        ws.cell(ws.max_row, 1).fill = PatternFill("solid", fgColor=color)
     if resultado.advertencias:
         ws.append([])
         ws.append(["Notas de la carga"])
