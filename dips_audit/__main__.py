@@ -1,8 +1,8 @@
 """Interfaz de consola.
 
-    python -m dips_audit auditar  "entrada.xlsx" [--hoja HOJA] [--icam ICAM.csv]
+    python -m dips_audit auditar  "entrada.xlsx" [--hoja HOJA] [--datos-icam ICAM.csv]
     python -m dips_audit abrir-icam
-    python -m dips_audit auditar  "entrada.xlsx" --leer-icam
+    python -m dips_audit auditar  "entrada.xlsx" --icam
     python -m dips_audit extraer-icam "entrada.xlsx" | --barcode T40S...
     python -m dips_audit benchmark
     python -m dips_audit anonimizar [--historico ARCHIVO]
@@ -133,25 +133,21 @@ def _resumen(resultado, tiempos: dict[str, float]) -> Panel:
     return Panel.fit("\n".join(lineas), title="Resumen de la corrida", border_style="green")
 
 
-def _extraer_icam(config, archivo: Path, hoja: str | None, todos: bool = False,
-                  barcodes: list[str] | None = None, actualizar: bool = False) -> Path:
-    """Lee en ICAM los DIPs del Excel de entrada (o `barcodes`) que aún no se leyeron."""
+def _extraer_icam(config, archivo: Path, hoja: str | None,
+                  barcodes: list[str] | None = None) -> Path:
+    """Lee en ICAM todos los DIPs del Excel de entrada (o `barcodes`), de cualquier tipo."""
     from .cargador import cargar_export
     from .extractor_icam import extraer
 
     icam = config["icam"]
     if not barcodes:
-        datos = cargar_export(archivo, hoja).datos
-        tipos = {t.upper() for t in icam.get("tipos", ["Others"])}
-        barcodes = [d["barcode"] for d in datos.to_dict("records")
-                    if todos or not d["tipo"] or d["tipo"].upper() in tipos]
-    consola.print(f"Lectura de ICAM (solo lectura): {len(barcodes)} DIPs. Los ya leídos se "
-                  f"toman de {icam['carpeta']}.")
-    estado = extraer(barcodes, icam, icam["carpeta"], actualizar, consola.print)
+        barcodes = cargar_export(archivo, hoja).datos["barcode"].tolist()
+    consola.print(f"Lectura de ICAM (solo lectura): {len(barcodes)} DIPs, "
+                  f"se guardan en {icam['carpeta']}.")
+    estado = extraer(barcodes, icam, icam["carpeta"], consola.print)
     errores = {b: e for b, e in estado.items() if e.startswith("error")}
     leidos = sum(e == "leido" for e in estado.values())
-    consola.print(f"[bold green]ICAM:[/] {leidos} leídos, "
-                  f"{sum(e == 'en cache' for e in estado.values())} ya estaban, {len(errores)} con error.")
+    consola.print(f"[bold green]ICAM:[/] {leidos} leídos, {len(errores)} con error.")
     for b, e in list(errores.items())[:10]:
         consola.print(f"[yellow]{b}:[/] {e}")
     return icam["carpeta"]
@@ -159,7 +155,7 @@ def _extraer_icam(config, archivo: Path, hoja: str | None, todos: bool = False,
 
 def cmd_extraer_icam(args, config) -> int:
     carpeta = _extraer_icam(config, Path(args.archivo) if args.archivo else None, args.hoja,
-                            args.todos, args.barcode, args.actualizar)
+                            args.barcode)
     if args.barcode and len(args.barcode) == 1:
         # Diagnóstico: muestra lo que se interpretó del DIP.
         import json
@@ -231,12 +227,12 @@ def cmd_comparar(args, config) -> int:
     from .comparacion import comparar, exportar
 
     inicio = time.perf_counter()
-    if args.leer_icam and not args.icam:
-        args.icam = str(_extraer_icam(config, Path(args.archivo), args.hoja))
+    if args.icam and not args.datos_icam:
+        args.datos_icam = str(_extraer_icam(config, Path(args.archivo), args.hoja))
     auditor = Auditor(config)
     _filtrar_categorias(args, auditor)
     with consola.status("Auditando a la fecha y hora de cada auditoría manual..."):
-        c = comparar(auditor, Path(args.archivo), args.hoja, Path(args.icam) if args.icam else None)
+        c = comparar(auditor, Path(args.archivo), args.hoja, Path(args.datos_icam) if args.datos_icam else None)
 
     for titulo, nota, df in c.tablas:
         if df.empty:
@@ -259,8 +255,8 @@ def cmd_comparar(args, config) -> int:
 def cmd_auditar(args, config) -> int:
     inicio = time.perf_counter()
     tiempos: dict[str, float] = {}
-    if args.leer_icam and not args.sin_icam and not args.icam:
-        args.icam = str(_extraer_icam(config, Path(args.archivo), args.hoja))
+    if args.icam and not args.datos_icam:
+        args.datos_icam = str(_extraer_icam(config, Path(args.archivo), args.hoja))
         tiempos["Lectura de ICAM"] = time.perf_counter() - inicio
     marca = time.perf_counter()
     auditor = Auditor(config, fecha_auditoria=_fecha_hora(args.fecha))
@@ -269,7 +265,7 @@ def cmd_auditar(args, config) -> int:
     marca = time.perf_counter()
     with consola.status("Auditando..."):
         resultado = auditor.auditar_archivo(Path(args.archivo), args.hoja,
-                                            Path(args.icam) if args.icam else None)
+                                            Path(args.datos_icam) if args.datos_icam else None)
     tiempos["Auditoría"] = time.perf_counter() - marca
     fecha = auditor.fecha_auditoria
 
@@ -411,10 +407,10 @@ def cmd_categorias(args, config) -> int:
 
 
 def _argumentos_categorias(p: argparse.ArgumentParser) -> None:
-    p.add_argument("--categorias", nargs="+", metavar="TIPO",
+    p.add_argument("-c", "--categorias", nargs="+", metavar="TIPO",
                    help="Revisar solo estos tipos de discrepancia (basta una parte del nombre, "
                         "p. ej. \"technical reference\"). Ver: python -m dips_audit categorias")
-    p.add_argument("--excluir-categorias", nargs="+", metavar="TIPO",
+    p.add_argument("-e", "--excluir-categorias", nargs="+", metavar="TIPO",
                    help="No revisar estos tipos de discrepancia")
 
 
@@ -427,28 +423,29 @@ def main(argv: list[str] | None = None) -> int:
 
     a = sub.add_parser("auditar", help="Audita un Excel de entrada")
     a.add_argument("archivo")
-    a.add_argument("--hoja", help="Hoja a leer (por defecto, la primera con 'Fault Barcode')")
-    a.add_argument("--prueba", action="store_true", help="Datos de prueba: usa pruebas/icam y pruebas/salidas y marca los resultados como PRUEBA (automático si el Excel está en pruebas/)")
-    a.add_argument("--salida", help="Ruta del Excel de resultado")
-    a.add_argument("--fecha", help="Fecha y hora de auditoría 'AAAA-MM-DD HH:MM' "
+    a.add_argument("-j", "--hoja", help="Hoja a leer (por defecto, la primera con 'Fault Barcode')")
+    a.add_argument("-p", "--prueba", action="store_true", help="Datos de prueba: usa pruebas/icam y pruebas/salidas y marca los resultados como PRUEBA (automático si el Excel está en pruebas/)")
+    a.add_argument("-o", "--salida", help="Ruta del Excel de resultado")
+    a.add_argument("-f", "--fecha", help="Fecha y hora de auditoría 'AAAA-MM-DD HH:MM' "
                    "(por defecto, ahora)")
-    a.add_argument("--leer-icam", action="store_true",
-                   help="Leer antes en ICAM (solo lectura) los DIPs del archivo y usar esos datos")
-    a.add_argument("--sin-icam", action="store_true", help="Auditar solo con el Excel de entrada")
-    a.add_argument("--icam", help="CSV o Excel con datos extraídos de ICAM por barcode "
+    a.add_argument("-i", "--icam", action="store_true",
+                   help="Leer antes en ICAM (solo lectura) todos los DIPs del archivo y usar esos "
+                        "datos (sin esta opción, se audita solo con el Excel de entrada)")
+    a.add_argument("--datos-icam", metavar="RUTA", help="CSV o Excel con datos extraídos de ICAM por barcode "
                                   "(columnas barcode y technical_references; description opcional)")
-    a.add_argument("--sin-excel", action="store_true", help="Solo mostrar en consola")
+    a.add_argument("-n", "--sin-excel", action="store_true", help="Solo mostrar en consola")
     a.add_argument("--max-filas", type=int, default=40, help="Filas a mostrar en consola")
     _argumentos_categorias(a)
 
     c = sub.add_parser("comparar", help="Compara el programa con la auditoría manual del Excel "
                                         "(apertura y cierre, a la fecha y hora de cada una)")
     c.add_argument("archivo")
-    c.add_argument("--hoja")
-    c.add_argument("--prueba", action="store_true", help="Datos de prueba: usa pruebas/icam y pruebas/salidas y marca los resultados como PRUEBA (automático si el Excel está en pruebas/)")
-    c.add_argument("--leer-icam", action="store_true",
-                   help="Leer antes en ICAM (solo lectura) los DIPs del archivo y usar esos datos")
-    c.add_argument("--icam", help="Datos de ICAM ya extraídos (p. ej. data/icam)")
+    c.add_argument("-j", "--hoja", help="Hoja a leer")
+    c.add_argument("-p", "--prueba", action="store_true", help="Datos de prueba: usa pruebas/icam y pruebas/salidas y marca los resultados como PRUEBA (automático si el Excel está en pruebas/)")
+    c.add_argument("-i", "--icam", action="store_true",
+                   help="Leer antes en ICAM (solo lectura) todos los DIPs del archivo y usar esos "
+                        "datos (sin esta opción, se compara solo con el Excel de entrada)")
+    c.add_argument("--datos-icam", metavar="RUTA", help="Datos de ICAM ya extraídos (p. ej. data/icam)")
     _argumentos_categorias(c)
 
     sub.add_parser("benchmark", help="Mide el programa con los DIPs ya auditados de benchmark/")
@@ -466,12 +463,10 @@ def main(argv: list[str] | None = None) -> int:
     x = sub.add_parser("extraer-icam", help="Lee en ICAM (solo lectura) los DIPs de un Excel de "
                                              "entrada y los guarda en data/icam/")
     x.add_argument("archivo", nargs="?", help="Excel de entrada (o use --barcode)")
-    x.add_argument("--hoja")
-    x.add_argument("--prueba", action="store_true", help="Datos de prueba: usa pruebas/icam y pruebas/salidas y marca los resultados como PRUEBA (automático si el Excel está en pruebas/)")
-    x.add_argument("--barcode", action="append", help="Leer solo este barcode (se puede repetir); "
+    x.add_argument("-j", "--hoja", help="Hoja a leer")
+    x.add_argument("-p", "--prueba", action="store_true", help="Datos de prueba: usa pruebas/icam y pruebas/salidas y marca los resultados como PRUEBA (automático si el Excel está en pruebas/)")
+    x.add_argument("-b", "--barcode", action="append", help="Leer solo este barcode (se puede repetir); "
                                                       "con uno solo, muestra lo interpretado")
-    x.add_argument("--todos", action="store_true", help="Todos los tipos de DIP, no solo los de config")
-    x.add_argument("--actualizar", action="store_true", help="Volver a leer los que ya estaban")
 
     sub.add_parser("referencias", help="Muestra cómo se interpretó la tabla de referencias")
     sub.add_parser("categorias", help="Muestra los tipos de discrepancia y sus reglas "

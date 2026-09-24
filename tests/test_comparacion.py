@@ -87,7 +87,7 @@ def test_modo_prueba_separa_icam_y_salidas_y_marca_los_resultados(tmp_path, conf
     assert len(salidas) == 1
     assert "PRUEBA" in openpyxl.load_workbook(salidas[0])["Resumen"]["A3"].value
 
-    assert cli.main(["auditar", str(ruta), "--sin-icam"]) == 0
+    assert cli.main(["auditar", str(ruta)]) == 0
     assert list((tmp_path / "pruebas" / "salidas").glob("PRUEBA_*_AUDITORIA_*.xlsx"))
 
 

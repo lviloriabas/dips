@@ -76,6 +76,7 @@ class _ICAMSimulado(http.server.BaseHTTPRequestHandler):
     envios: list[str] = []
     fallar_una_vez: set[str] = set()   # "barcode/pestaña" que responde 500 la primera vez
     sin_sesion = False
+    login_con_error = False   # la página de inicio de sesión muestra un error (clave errada)
 
     def log_message(self, *args):
         pass
@@ -98,7 +99,10 @@ class _ICAMSimulado(http.server.BaseHTTPRequestHandler):
         if self._al_login():
             return
         url = urlparse(self.path)
-        if url.path == "/login":
+        if url.path == "/login" and _ICAMSimulado.login_con_error:
+            self._responder(200, "<title>Login</title><input name='usuario'>"
+                                 "<span id='input-error'>Invalid username or password.</span>")
+        elif url.path == "/login":
             # Se recarga hacia ICAM cada segundo: simula al usuario que completa el login.
             inicio = f"http://127.0.0.1:{self.server.server_port}/maintenix/common/ToDoList.jsp"
             self._responder(200, f"<meta http-equiv='refresh' content='1;url={inicio}'>"
@@ -158,7 +162,7 @@ def _puerto_libre() -> int:
 @pytest.fixture
 def icam(tmp_path):
     _ICAMSimulado.envios, _ICAMSimulado.fallar_una_vez = [], set()
-    _ICAMSimulado.sin_sesion = False
+    _ICAMSimulado.sin_sesion = _ICAMSimulado.login_con_error = False
     servidor = http.server.ThreadingHTTPServer(("127.0.0.1", 0), _ICAMSimulado)
     threading.Thread(target=servidor.serve_forever, daemon=True).start()
     config = {"url": f"http://127.0.0.1:{servidor.server_address[1]}/maintenix/common/ToDoList.jsp",
@@ -207,9 +211,10 @@ def test_lee_por_barcode_rapido_y_solo_lectura(icam, tmp_path):
     assert rir.parent_assembly == "Boeing 737-8V3 - HP-1837CMP"
     assert "rir_errores" not in registro
 
-    # Segunda corrida: ya están leídos, no se consulta ICAM.
-    assert _extraer(barcodes, icam, tmp_path / "icam") == {b: "en cache" for b in barcodes}
-    assert len(_ICAMSimulado.envios) == 2 * len(barcodes)
+    # Segunda corrida: aunque ya estén leídos, se vuelven a leer todos.
+    _ICAMSimulado.envios.clear()
+    assert _extraer(barcodes, icam, tmp_path / "icam") == {b: "leido" for b in barcodes}
+    assert _ICAMSimulado.envios == [ESCANEO] * (2 * len(barcodes))
 
 
 def test_sin_sesion_avisa_y_no_se_queda_en_el_login(icam, tmp_path):
@@ -235,18 +240,12 @@ def test_sin_sesion_espera_a_que_el_usuario_la_inicie(icam, tmp_path):
     assert "Sesión de ICAM iniciada." in avisos
 
 
-def test_dip_leido_hace_mas_de_la_vigencia_se_vuelve_a_leer(tmp_path):
-    """Un DIP leído en la apertura se vuelve a leer para el cierre (vigencia_horas)."""
-    from datetime import datetime, timedelta, timezone
+def test_error_al_iniciar_sesion_se_detecta_de_inmediato(icam, tmp_path):
+    _ICAMSimulado.sin_sesion = _ICAMSimulado.login_con_error = True
+    icam["espera_sesion_minutos"] = 1
+    inicio = time.monotonic()
+    with pytest.raises(ErrorSesion, match="No se pudo iniciar sesión en ICAM: Invalid username"):
+        _extraer(["T40S009T000"], icam, tmp_path / "icam")
+    assert time.monotonic() - inicio < 20
+    assert not list((tmp_path / "icam").glob("*.json"))
 
-    from dips_audit.extractor_icam import _vigente
-
-    ruta = tmp_path / "T1.json"
-    for horas, vigente in ((1, True), (13, False)):
-        leido = datetime.now(timezone.utc) - timedelta(hours=horas)
-        ruta.write_text(json.dumps({"barcode": "T1", "captured_at_utc": leido.isoformat()}),
-                        encoding="utf-8")
-        assert _vigente(ruta, 12) is vigente
-    ruta.write_text(json.dumps({"barcode": "T1"}), encoding="utf-8")
-    assert not _vigente(ruta, 12)  # sin fecha de lectura: se vuelve a leer
-    assert not _vigente(tmp_path / "no_existe.json", 12)

@@ -44,7 +44,7 @@ Las columnas de la auditoría manual (`DIP Open - RT Audit Completed`, `DIP Disc
 
 Archivos: `dips_audit/extractor_icam.py` (cómo se lee) y `dips_audit/icam.py` (cómo se interpreta).
 
-**Cómo entra a ICAM.** El programa abre un Edge aparte, con su propio perfil (`.icam_perfil/`), directo en ICAM, o usa esa ventana si ya está abierta. El usuario inicia sesión ahí. El programa usa esa sesión, igual que si alguien navegara: nunca escribe usuario ni contraseña. Si no hay sesión, avisa y espera a que el usuario la inicie (hasta `espera_sesion_minutos`, 10 por defecto); si no se inicia, se detiene. `python -m dips_audit abrir-icam` abre la ventana sin auditar.
+**Cómo entra a ICAM.** El programa abre un Edge aparte, con su propio perfil (`.icam_perfil/`), directo en ICAM, o usa esa ventana si ya está abierta. El usuario inicia sesión ahí. El programa usa esa sesión, igual que si alguien navegara: nunca escribe usuario ni contraseña. Si no hay sesión, avisa y revisa la ventana cada medio segundo: sigue apenas aparece ICAM con Barcode Search, y se detiene apenas la página de inicio de sesión muestra un error (`selector_error_sesion`; por defecto, los mensajes de Keycloak y de Microsoft) o se cierra la ventana. Si nadie inicia sesión, se detiene a los `espera_sesion_minutos` (3 por defecto). `python -m dips_audit abrir-icam` abre la ventana sin auditar.
 
 **Qué lee de cada DIP.** Busca el barcode con Barcode Search y lee cinco pestañas:
 
@@ -62,7 +62,7 @@ Además lee las RIR cerradas ("Show Historical Tasks") y la página de cada RIR 
 
 **Detalle importante.** ICAM entrega las pestañas y sus tablas ocultas y las muestra con sus scripts. Como aquí los scripts no corren, el programa las hace visibles antes de copiar el texto. Sin ese paso se perdían las referencias técnicas, los adjuntos y los intervalos.
 
-**Guardado y vigencia.** Cada DIP leído se guarda en `data/icam/<barcode>.json` (en modo prueba, en `pruebas/icam/`; ver sección 9), que no se sube al repositorio porque tiene nombres del personal. Si se vuelve a auditar el mismo día, no se lee otra vez. Pasadas 12 horas (`icam.vigencia_horas` en `config/config.yaml`) se lee de nuevo. Así, un DIP leído en la apertura se vuelve a leer en el cierre, con la acción correctiva y los adjuntos nuevos.
+**Qué se lee y dónde se guarda.** Con `--icam` se leen todos los DIPs del archivo, de cualquier tipo, en cada corrida, aunque ya se hayan leído antes. Así la auditoría usa siempre los datos actuales, por ejemplo la acción correctiva y los adjuntos del cierre. Cada DIP leído se guarda en `data/icam/<barcode>.json` (en modo prueba, en `pruebas/icam/`; ver sección 9), que no se sube al repositorio porque tiene nombres del personal. Para auditar de nuevo con esos datos sin volver a leer ICAM: `--datos-icam data/icam`.
 
 **Rapidez y errores.** Lee 3 DIPs a la vez y las pestañas en paralelo: unos 5 minutos para 380 DIPs. Cada respuesta se valida (que sea la página del DIP pedido y que la pestaña traiga contenido) y cada consulta se reintenta 3 veces. Un DIP incompleto no se guarda. Si la sesión vence a mitad de camino, lo leído queda guardado.
 
@@ -274,7 +274,7 @@ Archivo: `dips_audit/reporte.py`. Se crea en `salidas/<archivo>_AUDITORIA_<fecha
 | Archivo | Qué se ajusta |
 | --- | --- |
 | `config/discrepancias.yaml` | Reglas activas y cuáles son solo observación |
-| `config/config.yaml` | Tolerancias e ICAM (vigencia, lectura en paralelo, reintentos) |
+| `config/config.yaml` | Tolerancias e ICAM (lectura en paralelo, reintentos) |
 | `config/catalogo_others.yaml` | Palabras clave de cada ítem Others y variantes de intervalo |
 | `DIPs References.xlsx` | TA, Parent Assembly, referencia técnica y RIR de cada ítem |
 

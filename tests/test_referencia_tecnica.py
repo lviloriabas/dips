@@ -149,7 +149,7 @@ def test_cli_auditar_con_archivo_de_icam(tmp_path, capsys):
                     "I1,\"AMM TASK 12-15-21-210-801 REV 85, 15-MAY-2026\"\nI2,\n",
                     encoding="utf-8")
     salida = tmp_path / "salida.xlsx"
-    assert main(["auditar", str(ruta), "--icam", str(icam), "--salida", str(salida),
+    assert main(["auditar", str(ruta), "--datos-icam", str(icam), "--salida", str(salida),
                  "--fecha", "2026-08-20"]) == 0
     assert "Datos de ICAM (icam.csv): 2 de 3 DIPs" in capsys.readouterr().out
     hoja = pd.read_excel(salida, sheet_name="Auditoría").set_index("Fault Barcode")
@@ -306,7 +306,7 @@ def test_json_de_icam_completa_referencia_descripcion_e_intervalo(config, tmp_pa
 
 
 def test_carpeta_del_extractor(config, tmp_path):
-    """El extractor deja un JSON por DIP en una carpeta; --icam acepta la carpeta."""
+    """El extractor deja un JSON por DIP en una carpeta; --datos-icam acepta la carpeta."""
     import json
     carpeta = tmp_path / "icam"
     carpeta.mkdir()

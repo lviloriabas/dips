@@ -2,7 +2,8 @@
 
 Usa el Edge de ICAM del programa (perfil `.icam_perfil/`, puerto de depuración local), que
 convive con el Edge de uso diario. Ese Edge se abre directo en ICAM y la sesión se inicia
-ahí: si no hay sesión, el programa abre esa ventana y espera a que el usuario la inicie.
+ahí: si no hay sesión, el programa sigue apenas el usuario la inicia en esa ventana, y se
+detiene apenas la página de inicio de sesión muestra un error.
 Nunca completa la página de inicio de sesión.
 
 Por cada barcode hace, con la sesión de Edge, las mismas consultas que el navegador:
@@ -47,6 +48,9 @@ _MARCAS = {
     "Scheduling": ("Deadline", "Interval", "Due"),
     "History": ("UTC",),
 }
+# Mensaje de error de la página de inicio de sesión (Keycloak de ICAM; Microsoft).
+_ERROR_SESION = ("#input-error, .alert-error, .pf-m-danger, #usernameError, #passwordError, "
+                 "#errorText")
 # Lee la página del DIP ya mostrada en la página aislada.
 _LEER = """(pestana) => {
     const texto = (sel) => (document.querySelector(sel)?.textContent || '').replace(/\\s+/g, ' ').trim();
@@ -150,6 +154,7 @@ class ExtractorICAM:
         self.origen = "{0.scheme}://{0.netloc}".format(urlparse(self.url))
         self.puerto = int(config.get("puerto", 9222))
         self.selector_busqueda = config.get("selector_busqueda") or "#idBarcodeSearchInput"
+        self.selector_error_sesion = config.get("selector_error_sesion") or _ERROR_SESION
         self.espera_ms = float(config.get("espera_segundos", 30)) * 1000
         self.intentos = int(config.get("intentos", 3))
         self.al_avanzar = al_avanzar or (lambda _: None)
@@ -189,21 +194,43 @@ class ExtractorICAM:
     def _en_icam(self, url: str) -> bool:
         return url.startswith(self.origen)
 
-    async def _pagina_con_sesion(self):
-        """Una página de ICAM con el campo Barcode Search visible (hay sesión), o None."""
-        for pagina in self._contexto.pages:
+    async def _estado_sesion(self) -> tuple[str, object]:
+        """Estado de la ventana de ICAM, en orden de prioridad:
+        ("sesion", página con Barcode Search) | ("error", mensaje de la página de inicio de
+        sesión) | ("login", None) si espera usuario y contraseña | ("cargando", None) |
+        ("cerrada", None) si no queda ninguna ventana."""
+        estados = []
+        for pagina in list(self._contexto.pages):
             try:
+                if not pagina.url.startswith("http"):
+                    continue
                 if self._en_icam(pagina.url) and await pagina.locator(
                         self.selector_busqueda).first.is_visible():
-                    return pagina
+                    return "sesion", pagina
+                error = pagina.locator(self.selector_error_sesion).filter(visible=True)
+                if await error.count():
+                    texto = " ".join((await error.first.inner_text()).split())
+                    estados.append(("error", texto or "error al iniciar sesión"))
+                elif (await pagina.evaluate("document.readyState") == "complete"
+                      and await pagina.locator("input:visible").count()):
+                    estados.append(("login", None))
+                else:
+                    estados.append(("cargando", None))
             except Exception:  # la página se cerró o está navegando
-                continue
-        return None
+                estados.append(("cargando", None))
+        if not self._contexto.pages:
+            return "cerrada", None
+        for estado in ("error", "login"):
+            for e in estados:
+                if e[0] == estado:
+                    return e
+        return "cargando", None
 
     async def verificar_sesion(self) -> None:
         """Abre ICAM directo (no la página de inicio de sesión) y confirma la sesión. Sin
-        sesión, espera a que el usuario la inicie en la ventana de Edge (hasta
-        `espera_sesion_minutos`); el programa nunca completa la página de inicio de sesión."""
+        sesión, el usuario la inicia en la ventana de Edge: el programa revisa esa ventana
+        cada medio segundo y sigue apenas se inicia, o se detiene apenas la página de inicio
+        de sesión muestra un error o se cierra la ventana. Nunca completa esa página."""
         propia = None
         # Si el programa acaba de abrir Edge, esa ventana ya arranca en ICAM.
         if self._proceso is None and not any(self._en_icam(p.url) for p in self._contexto.pages):
@@ -211,22 +238,34 @@ class ExtractorICAM:
             await propia.goto(self.url, wait_until="domcontentloaded", timeout=self.espera_ms)
             await propia.bring_to_front()
         minutos = float(self.config.get("espera_sesion_minutos",
-                                        0 if self.config.get("oculto") else 10))
-        limite = time.monotonic() + 3 + minutos * 60  # 3 s para que cargue ICAM
+                                        0 if self.config.get("oculto") else 3))
+        limite = time.monotonic() + self.espera_ms / 1000   # para que cargue ICAM
         avisado = False
-        pagina = None
         while True:
-            pagina = await self._pagina_con_sesion()
-            if pagina or time.monotonic() > limite:
+            estado, dato = await self._estado_sesion()
+            if estado == "sesion":
+                pagina = dato
                 break
-            if not avisado and minutos and time.monotonic() > limite - minutos * 60:
+            if estado == "error":
+                raise ErrorSesion(f"No se pudo iniciar sesión en ICAM: {dato}. Revise el usuario "
+                                  "y la contraseña y vuelva a ejecutar.")
+            if estado == "cerrada":
+                raise ErrorSesion("Se cerró la ventana de ICAM sin iniciar sesión. Vuelva a "
+                                  "ejecutar e inicie sesión en esa ventana.")
+            if estado == "login" and not avisado:
+                if not minutos:
+                    raise ErrorSesion("No hay sesión iniciada en ICAM. Inicie sesión en la "
+                                      "ventana de Edge de ICAM y vuelva a ejecutar.")
                 self.al_avanzar("No hay sesión iniciada en ICAM. Inicie sesión en la ventana de "
-                                f"Edge que se abrió; el programa espera hasta {minutos:g} minutos.")
+                                "Edge que se abrió; el programa sigue apenas se inicie.")
                 avisado = True
-            await asyncio.sleep(1)
-        if pagina is None:
-            raise ErrorSesion("No hay sesión iniciada en ICAM. Inicie sesión en la ventana de "
-                              "Edge de ICAM y vuelva a ejecutar.")
+                limite = time.monotonic() + minutos * 60
+            if time.monotonic() > limite:
+                raise ErrorSesion(
+                    f"No se inició sesión en ICAM en {minutos:g} minutos. Inicie sesión en la "
+                    "ventana de Edge de ICAM y vuelva a ejecutar." if avisado else
+                    "ICAM no cargó: no se vio la página de inicio ni la de inicio de sesión.")
+            await asyncio.sleep(0.5)
         if avisado:
             self.al_avanzar("Sesión de ICAM iniciada.")
         accion = await pagina.locator("form[name='frmHeaderSearch']").first.get_attribute("action")
@@ -364,19 +403,26 @@ def _consulta(url: str, pestana: str) -> str:
     return "&".join(partes + [f"aTab={PESTANAS[pestana]}"])
 
 
+def _minutos(segundos: float) -> str:
+    """Tiempo estimado como '2 min 05 s' (o '45 s' si es menos de un minuto)."""
+    m, s = divmod(round(segundos), 60)
+    return f"{m} min {s:02d} s" if m else f"{s} s"
+
+
 async def _extraer(pendientes: list[str], config: dict, carpeta: Path,
                    avisar: Callable[[str], None], estado: dict[str, str]) -> None:
     cola: asyncio.Queue[str] = asyncio.Queue()
     for b in pendientes:
         cola.put_nowait(b)
     inicio, hechos = time.monotonic(), [0]
+    total = len(pendientes)
+    ancho, ancho_barcode = len(str(total)), max(map(len, pendientes))
     async with ExtractorICAM(config, avisar) as ext:
         await ext.verificar_sesion()
 
         async def trabajador():
             while not cola.empty():
                 barcode = cola.get_nowait()
-                t0 = time.monotonic()
                 try:
                     registro = await ext.leer(barcode)
                     ruta = ruta_cache(carpeta, barcode)
@@ -390,41 +436,29 @@ async def _extraer(pendientes: list[str], config: dict, carpeta: Path,
                 except Exception as e:
                     estado[barcode] = f"error: {e}"
                 hechos[0] += 1
-                falta = (time.monotonic() - inicio) / hechos[0] * (len(pendientes) - hechos[0])
-                avisar(f"[{hechos[0]}/{len(pendientes)}] {barcode}: {estado[barcode]} "
-                       f"({time.monotonic() - t0:.1f} s) · falta ~{falta:.0f} s")
+                falta = (time.monotonic() - inicio) / hechos[0] * (total - hechos[0])
+                resultado, _, detalle = estado[barcode].partition(": ")
+                avisar(f"[{hechos[0]:>{ancho}}/{total}]  {barcode:<{ancho_barcode}}  "
+                       f"{resultado:<5}  falta ~{_minutos(falta):>9}"
+                       + (f"  {detalle}" if detalle else ""))
 
         paralelo = max(1, min(int(config.get("paralelo", 3)), len(pendientes)))
         await asyncio.gather(*(trabajador() for _ in range(paralelo)))
 
 
-def _vigente(ruta: Path, horas: float) -> bool:
-    """El DIP ya se leyó hace menos de `horas` (según captured_at_utc del JSON)."""
-    if not ruta.exists():
-        return False
-    try:
-        leido = datetime.fromisoformat(json.loads(ruta.read_text(encoding="utf-8"))["captured_at_utc"])
-    except (ValueError, KeyError, OSError):
-        return False
-    return (datetime.now(timezone.utc) - leido).total_seconds() < horas * 3600
-
-
-def extraer(barcodes: list[str], config: dict, carpeta: Path, actualizar: bool = False,
+def extraer(barcodes: list[str], config: dict, carpeta: Path,
             al_avanzar: Callable[[str], None] | None = None) -> dict[str, str]:
-    """Lee en ICAM los barcodes que no están en `carpeta`, o que se leyeron hace más de
-    `vigencia_horas` (config; por defecto 12), o todos si `actualizar`. Así un DIP leído
-    en la apertura se vuelve a leer para la auditoría de cierre.
+    """Lee en ICAM todos los barcodes, aunque ya estén en `carpeta`, para auditar siempre
+    con los datos actuales (p. ej. la acción correctiva y los adjuntos del cierre).
 
-    Devuelve {barcode: "leido" | "en cache" | "error: ..."}. Sin sesión, o si la sesión
-    vence, lanza ErrorSesion (lo ya leído queda guardado).
+    Devuelve {barcode: "leido" | "error: ..."}. Sin sesión, o si la sesión vence, lanza
+    ErrorSesion (lo ya leído queda guardado).
     """
     avisar = al_avanzar or (lambda _: None)
     carpeta = Path(carpeta)
     carpeta.mkdir(parents=True, exist_ok=True)
-    horas = float(config.get("vigencia_horas", 12))
-    estado = {b: "en cache" for b in barcodes
-              if not actualizar and _vigente(ruta_cache(carpeta, b), horas)}
-    pendientes = [b for b in dict.fromkeys(barcodes) if b not in estado]
+    estado: dict[str, str] = {}
+    pendientes = list(dict.fromkeys(barcodes))
     if pendientes:
         asyncio.run(_extraer(pendientes, config, carpeta, avisar, estado))
     return estado

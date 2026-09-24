@@ -31,18 +31,18 @@ referencia_tecnica:
   revision_opcional: [AMM, SRM, TASK CARD]
 
 icam:
-  # Lectura de DIPs en ICAM por barcode, solo lectura (auditar --leer-icam, extraer-icam).
+  # Lectura de DIPs en ICAM por barcode, solo lectura (auditar/comparar --icam, extraer-icam).
   # Usa el Edge de ICAM del programa: se abre directo en ICAM y la sesión se inicia ahí.
-  # Si no hay sesión, el programa avisa y espera a que el usuario la inicie.
+  # Si no hay sesión, el programa avisa y sigue apenas el usuario la inicia; si la página
+  # de inicio de sesión muestra un error (usuario o clave), se detiene de inmediato.
   url: "https://copa.ifs.cloud/maintenix/"
   perfil: ".icam_perfil"          # perfil del Edge de ICAM (no se sube al repositorio)
   puerto: 9222                    # puerto local por el que el programa usa ese Edge
   carpeta: "data/icam"            # un JSON por DIP leído
-  vigencia_horas: 12              # un DIP leído hace más de esto se vuelve a leer
-  tipos: ["Others"]               # tipos de DIP que se leen (extraer-icam --todos: todos)
   paralelo: 3                     # DIPs que se leen a la vez
   intentos: 3                     # reintentos por búsqueda o pestaña que falla
   espera_segundos: 30             # máximo por página
-  espera_sesion_minutos: 10       # sin sesión, cuánto espera a que el usuario la inicie
+  espera_sesion_minutos: 3        # tope si nadie inicia sesión (el inicio y el error se detectan al instante)
+  selector_error_sesion: ""       # vacío = mensajes de error de Keycloak (ICAM) y de Microsoft
   selector_busqueda: ""           # vacío = el campo Barcode Search se busca solo
   selector_contenido: "body"      # de dónde se copia el texto de cada pestaña

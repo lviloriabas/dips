@@ -1,6 +1,6 @@
 # Auditoría preliminar de DIPs
 
-El programa lee el Excel de entrada y los datos de cada DIP en ICAM, aplica las reglas y entrega un Excel con el resultado de cada DIP. El auditor confirma.
+El programa lee el Excel de entrada y, con `--icam`, los datos de cada DIP en ICAM, aplica las reglas y entrega un Excel con el resultado de cada DIP. El auditor confirma.
 
 ## Proceso
 
@@ -25,8 +25,8 @@ flowchart LR
 
 ```mermaid
 flowchart TD
-    A["1. Arrastrar el Excel de entrada<br/>sobre auditar.bat"] --> B
-    B["2. Si se pide, iniciar sesión en ICAM<br/>en la ventana de Edge (dejarla abierta)"] --> C
+    A["1. Ejecutar auditar.bat con el Excel de entrada<br/>(con --icam para leer todos los DIPs en ICAM)"] --> B
+    B["2. Con --icam, si se pide, iniciar sesión en ICAM<br/>en la ventana de Edge (dejarla abierta)"] --> C
     C["3. Abrir el Excel de salida en la carpeta salidas<br/>Hoja Dashboard: resumen y gráficos"] --> D
     D["4. Hoja Auditoría: filtrar RESULTADO<br/>y revisar DISCREPANCIA y POSIBLE DISCREPANCIA"]
 ```
@@ -41,7 +41,7 @@ sequenceDiagram
     P->>E: Abre la ventana (si está cerrada) y se conecta
     E->>I: Abre ICAM (no la página de inicio de sesión)
     alt Sin sesión
-        P-->>P: Avisa y espera a que el usuario inicie sesión (hasta 10 min)
+        P-->>P: Avisa; sigue apenas se inicia sesión y se detiene apenas hay un error
     end
     loop Cada barcode (3 a la vez)
         E->>I: Barcode Search (ScanBarcode)
