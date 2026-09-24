@@ -20,7 +20,7 @@
 #
 # El resultado de un DIP es el de su hallazgo más grave. Una regla desactivada no aparece
 # en HALLAZGOS ni en la hoja Hallazgos. Después de un cambio, ejecute el benchmark
-# (benchmark.bat) y compare con la línea base.
+# (.venv\Scripts\python -m dips_audit benchmark) y compare con la línea base.
 #
 # Calibrado contra el histórico (jul-ago 2026). En el histórico, un intervalo MENOR al de
 # referencia y la falta de S/N se aceptaron en la mayoría de los casos; por eso quedan

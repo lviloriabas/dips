@@ -2,8 +2,8 @@
 
 Usa el Edge de ICAM del programa (perfil `.icam_perfil/`, puerto de depuración local), que
 convive con el Edge de uso diario. Ese Edge se abre directo en ICAM y la sesión se inicia
-ahí antes de auditar. El programa usa esa sesión: nunca abre ni completa la página de
-inicio de sesión. Sin sesión, avisa y termina.
+ahí: si no hay sesión, el programa abre esa ventana y espera a que el usuario la inicie.
+Nunca completa la página de inicio de sesión.
 
 Por cada barcode hace, con la sesión de Edge, las mismas consultas que el navegador:
   1. POST /maintenix/servlet/ScanBarcode (Barcode Search) -> página del DIP.
@@ -189,29 +189,55 @@ class ExtractorICAM:
     def _en_icam(self, url: str) -> bool:
         return url.startswith(self.origen)
 
-    async def verificar_sesion(self) -> None:
-        """Abre ICAM directo (no la página de inicio de sesión) y confirma la sesión."""
-        pagina = next((p for p in self._contexto.pages if self._en_icam(p.url)), None)
-        propia = pagina is None
-        if propia:
-            pagina = await self._contexto.new_page()
-            await pagina.goto(self.url, wait_until="domcontentloaded", timeout=self.espera_ms)
-        try:
-            caja = pagina.locator(self.selector_busqueda).first
+    async def _pagina_con_sesion(self):
+        """Una página de ICAM con el campo Barcode Search visible (hay sesión), o None."""
+        for pagina in self._contexto.pages:
             try:
-                await caja.wait_for(state="visible", timeout=10000)
-            except Exception:
-                raise ErrorSesion("No hay sesión iniciada en ICAM. Abra abrir_icam.bat, inicie "
-                                  "sesión y vuelva a ejecutar.") from None
-            accion = await pagina.locator("form[name='frmHeaderSearch']").first.get_attribute("action")
-            if not accion:
-                raise ErrorExtraccion("No se encontró el formulario Barcode Search en ICAM.")
-            self._busqueda = urljoin(self.origen, accion)
-            if not self._en_icam(self._busqueda):
-                raise ErrorExtraccion(f"Búsqueda fuera de ICAM: {self._busqueda}")
-        finally:
-            if propia:
-                await pagina.close()
+                if self._en_icam(pagina.url) and await pagina.locator(
+                        self.selector_busqueda).first.is_visible():
+                    return pagina
+            except Exception:  # la página se cerró o está navegando
+                continue
+        return None
+
+    async def verificar_sesion(self) -> None:
+        """Abre ICAM directo (no la página de inicio de sesión) y confirma la sesión. Sin
+        sesión, espera a que el usuario la inicie en la ventana de Edge (hasta
+        `espera_sesion_minutos`); el programa nunca completa la página de inicio de sesión."""
+        propia = None
+        # Si el programa acaba de abrir Edge, esa ventana ya arranca en ICAM.
+        if self._proceso is None and not any(self._en_icam(p.url) for p in self._contexto.pages):
+            propia = await self._contexto.new_page()
+            await propia.goto(self.url, wait_until="domcontentloaded", timeout=self.espera_ms)
+            await propia.bring_to_front()
+        minutos = float(self.config.get("espera_sesion_minutos",
+                                        0 if self.config.get("oculto") else 10))
+        limite = time.monotonic() + 3 + minutos * 60  # 3 s para que cargue ICAM
+        avisado = False
+        pagina = None
+        while True:
+            pagina = await self._pagina_con_sesion()
+            if pagina or time.monotonic() > limite:
+                break
+            if not avisado and minutos and time.monotonic() > limite - minutos * 60:
+                self.al_avanzar("No hay sesión iniciada en ICAM. Inicie sesión en la ventana de "
+                                f"Edge que se abrió; el programa espera hasta {minutos:g} minutos.")
+                avisado = True
+            await asyncio.sleep(1)
+        if pagina is None:
+            raise ErrorSesion("No hay sesión iniciada en ICAM. Inicie sesión en la ventana de "
+                              "Edge de ICAM y vuelva a ejecutar.")
+        if avisado:
+            self.al_avanzar("Sesión de ICAM iniciada.")
+        accion = await pagina.locator("form[name='frmHeaderSearch']").first.get_attribute("action")
+        if not accion:
+            raise ErrorExtraccion("No se encontró el formulario Barcode Search en ICAM.")
+        self._busqueda = urljoin(self.origen, accion)
+        if not self._en_icam(self._busqueda):
+            raise ErrorExtraccion(f"Búsqueda fuera de ICAM: {self._busqueda}")
+        # La página que abrió el programa se cierra si queda otra de ICAM (la del usuario).
+        if propia and len([p for p in self._contexto.pages if self._en_icam(p.url)]) > 1:
+            await propia.close()
 
     async def pagina_aislada(self):
         """Página donde se muestra el HTML de ICAM: sin red y sin scripts."""

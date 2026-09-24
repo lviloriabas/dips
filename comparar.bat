@@ -1,6 +1,6 @@
 @echo off
 rem Compara el programa con la auditoria manual: arrastre el Excel "DIPs Audit (...)" sobre este archivo.
-rem Lee en ICAM los DIPs del archivo (antes abra abrir_icam.bat e inicie sesion).
+rem Lee en ICAM los DIPs del archivo (si se lo pide, inicie sesion en la ventana de Edge).
 rem Uso en consola: comparar.bat "DIPs Audit (23SEP2026).xlsx" [--hoja NOMBRE]
 chcp 65001 >nul
 setlocal

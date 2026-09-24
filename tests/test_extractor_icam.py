@@ -17,7 +17,7 @@ import pytest
 
 pytest.importorskip("playwright")
 
-from dips_audit.extractor_icam import ErrorSesion, extraer, ruta_cache  # noqa: E402
+from dips_audit.extractor_icam import ErrorExtraccion, ErrorSesion, extraer, ruta_cache  # noqa: E402
 from dips_audit.icam import PESTANAS, leer_ficha  # noqa: E402
 
 TEXTOS = {
@@ -99,7 +99,10 @@ class _ICAMSimulado(http.server.BaseHTTPRequestHandler):
             return
         url = urlparse(self.path)
         if url.path == "/login":
-            self._responder(200, "<title>Login</title><input name='usuario'>")
+            # Se recarga hacia ICAM cada segundo: simula al usuario que completa el login.
+            inicio = f"http://127.0.0.1:{self.server.server_port}/maintenix/common/ToDoList.jsp"
+            self._responder(200, f"<meta http-equiv='refresh' content='1;url={inicio}'>"
+                                 "<title>Login</title><input name='usuario'>")
         elif url.path.endswith("TaskDetails.jsp"):
             q = parse_qs(url.query)
             barcode = q["aTask"][0]
@@ -214,6 +217,22 @@ def test_sin_sesion_avisa_y_no_se_queda_en_el_login(icam, tmp_path):
     with pytest.raises(ErrorSesion, match="No hay sesión iniciada en ICAM"):
         _extraer(["T40S009T000"], icam, tmp_path / "icam")
     assert not list((tmp_path / "icam").glob("*.json"))
+
+
+def test_sin_sesion_espera_a_que_el_usuario_la_inicie(icam, tmp_path):
+    _ICAMSimulado.sin_sesion = True
+    icam["espera_sesion_minutos"] = 1
+    avisos = []
+    threading.Timer(6, lambda: setattr(_ICAMSimulado, "sin_sesion", False)).start()
+    try:
+        estado = extraer(["T40S009T000"], icam, tmp_path / "icam", al_avanzar=avisos.append)
+    except ErrorExtraccion as e:
+        if "Edge" in str(e):
+            pytest.skip(f"No se pudo abrir Edge: {e}")
+        raise
+    assert estado == {"T40S009T000": "leido"}
+    assert any("Inicie sesión" in a for a in avisos)
+    assert "Sesión de ICAM iniciada." in avisos
 
 
 def test_dip_leido_hace_mas_de_la_vigencia_se_vuelve_a_leer(tmp_path):

@@ -59,7 +59,7 @@ def test_benchmark_sin_columnas_del_personal():
 
 
 def test_no_empeora_la_linea_base(config):
-    """Si un cambio intencional baja un indicador, ejecute benchmark.bat y copie el
+    """Si un cambio intencional baja un indicador, ejecute `python -m dips_audit benchmark` y copie el
     JSON del resultado sobre benchmark/linea_base.json."""
     base = bm.cargar_linea_base()
     assert base is not None, "Falta benchmark/linea_base.json"

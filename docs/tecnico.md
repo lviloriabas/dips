@@ -44,7 +44,7 @@ Las columnas de la auditoría manual (`DIP Open - RT Audit Completed`, `DIP Disc
 
 Archivos: `dips_audit/extractor_icam.py` (cómo se lee) y `dips_audit/icam.py` (cómo se interpreta).
 
-**Cómo entra a ICAM.** `abrir_icam.bat` abre un Edge aparte, con su propio perfil (`.icam_perfil/`), directo en ICAM. El usuario inicia sesión ahí. El programa usa esa sesión, igual que si alguien navegara: nunca escribe usuario ni contraseña. Si no hay sesión, avisa y se detiene.
+**Cómo entra a ICAM.** El programa abre un Edge aparte, con su propio perfil (`.icam_perfil/`), directo en ICAM, o usa esa ventana si ya está abierta. El usuario inicia sesión ahí. El programa usa esa sesión, igual que si alguien navegara: nunca escribe usuario ni contraseña. Si no hay sesión, avisa y espera a que el usuario la inicie (hasta `espera_sesion_minutos`, 10 por defecto); si no se inicia, se detiene. `python -m dips_audit abrir-icam` abre la ventana sin auditar.
 
 **Qué lee de cada DIP.** Busca el barcode con Barcode Search y lee cinco pestañas:
 
@@ -181,7 +181,7 @@ Al comparar con la tabla, una tarea **del mismo capítulo-sección-tema** pero c
 
 1. Si es un error de escritura frecuente, agréguelo a `_SINONIMOS` en `dips_audit/texto.py`.
 2. Si es un ítem nuevo, agregue la fila a `DIPs References.xlsx` y una entrada en `config/catalogo_others.yaml` con `requiere` (y `excluir` si se confunde con otro).
-3. Ejecute `python -m dips_audit referencias` para ver cómo quedó y `benchmark.bat` para verificar que nada empeoró.
+3. Ejecute `python -m dips_audit referencias` para ver cómo quedó y `.venv\Scripts\python -m dips_audit benchmark` para verificar que nada empeoró.
 
 ---
 
@@ -325,7 +325,7 @@ Antes de calibrar las reglas de referencia técnica con estos datos, el programa
 
 ## 10. Benchmark
 
-Archivo: `dips_audit/benchmark.py`. Se ejecuta con `benchmark.bat` (1 segundo).
+Archivo: `dips_audit/benchmark.py`. Se ejecuta con `.venv\Scripts\python -m dips_audit benchmark` (1 segundo).
 
 Audita 50 DIPs ya auditados (`benchmark/dips_auditados.xlsx`, copia sin nombres del histórico) y 46 nombres difíciles de asociar (`benchmark/casos_asociacion.yaml`). Compara los indicadores con la **línea base** (`benchmark/linea_base.json`). Si alguno empeora, lo avisa y termina con error. Si el cambio era intencional, se copia el resultado nuevo sobre la línea base. Los resultados quedan en `benchmark/resultados/`.
 

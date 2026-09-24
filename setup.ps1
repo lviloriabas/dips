@@ -134,5 +134,5 @@ if (-not $SinPruebas) {
 Write-Host ""
 Write-Host "Instalacion terminada." -ForegroundColor Green
 Write-Host "Para auditar:"
-Write-Host "    1. abrir_icam.bat: inicie sesion en ICAM y deje la ventana abierta."
-Write-Host "    2. Arrastre el Excel de entrada sobre auditar.bat."
+Write-Host "    Arrastre el Excel de entrada sobre auditar.bat. Si se lo pide, inicie sesion"
+Write-Host "    en ICAM en la ventana de Edge que se abre y dejela abierta."

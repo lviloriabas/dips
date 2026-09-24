@@ -19,8 +19,8 @@ setup.bat
 
 ## Auditar
 
-1. **Abrir ICAM:** doble clic en `abrir_icam.bat`. Se abre una ventana de Edge en ICAM: inicie sesión y déjela abierta.
-2. **Auditar:** arrastre el Excel de entrada (por ejemplo `DIPs Audit (23SEP2026).xlsx`) sobre `auditar.bat`. El programa lee en ICAM los DIPs Others del archivo (unos 5 minutos para 380 DIPs) y los audita.
+1. **Auditar:** arrastre el Excel de entrada (por ejemplo `DIPs Audit (23SEP2026).xlsx`) sobre `auditar.bat`. El programa abre una ventana de Edge en ICAM. La primera vez, o si la sesión venció, inicie sesión en esa ventana: el programa espera y sigue solo. Deje la ventana abierta para las próximas corridas.
+2. El programa lee en ICAM los DIPs Others del archivo (unos 5 minutos para 380 DIPs) y los audita.
 3. **Ver el resultado:** abra el Excel que se crea en `salidas/` y filtre la columna `RESULTADO`.
 
 La fecha y hora de auditoría es el momento en que se ejecuta. Un DIP abierto (ACTV) recibe la **auditoría de apertura**; un DIP cerrado (COMPLETE), además, la **auditoría de cierre**.
@@ -29,9 +29,8 @@ La fecha y hora de auditoría es el momento en que se ejecuta. Un DIP abierto (A
 
 Sirve para medir qué tan cerca está el programa de los auditores.
 
-1. Abra ICAM con `abrir_icam.bat`, como arriba.
-2. Arrastre el Excel `DIPs Audit (...)` sobre `comparar.bat`.
-3. Abra el Excel `..._COMPARACION_....xlsx` que se crea en `salidas/` (o en `pruebas/salidas/`, ver abajo).
+1. Arrastre el Excel `DIPs Audit (...)` sobre `comparar.bat`. Si hace falta, inicie sesión en ICAM en la ventana de Edge, como arriba.
+2. Abra el Excel `..._COMPARACION_....xlsx` que se crea en `salidas/` (o en `pruebas/salidas/`, ver abajo).
 
 El programa audita cada DIP a la misma fecha y hora en que lo auditó el auditor: la de apertura (`DIP Open - RT Audit Completed`) y la de cierre (`DIP Closed - RT Audit Completed`).
 
@@ -118,7 +117,7 @@ El MGM no cuenta como referencia técnica. Las citas de AMM, SRM y task card no 
 | Palabras con las que se reconoce cada referencia Others | `config/catalogo_others.yaml` |
 | TA, Parent Assembly, AMM/ECRA y RIR de cada ítem | `DIPs References.xlsx` |
 
-Después de cambiar una regla, ejecute `benchmark.bat` y compare con la línea base (ver [docs/tecnico.md](docs/tecnico.md#10-benchmark)).
+Después de cambiar una regla, ejecute `.venv\Scripts\python -m dips_audit benchmark` y compare con la línea base (ver [docs/tecnico.md](docs/tecnico.md#10-benchmark)).
 
 ## Opciones de `auditar.bat`
 
@@ -145,7 +144,7 @@ Los nombres de los tipos: `.venv\Scripts\python -m dips_audit categorias`. `comp
 
 | Mensaje | Solución |
 | --- | --- |
-| "No hay sesión iniciada en ICAM" | Abra `abrir_icam.bat`, inicie sesión y vuelva a arrastrar el archivo |
+| "No hay sesión iniciada en ICAM" | El programa esperó 10 minutos sin que se iniciara sesión. Inicie sesión en la ventana de Edge de ICAM y vuelva a arrastrar el archivo |
 | "La sesión de ICAM venció" | Inicie sesión de nuevo en esa ventana. Lo ya leído queda guardado |
 | "Permission denied" al guardar | Cierre el Excel de salida si está abierto |
 | "Faltan columnas obligatorias" | El Excel no tiene el formato esperado; ver [docs/tecnico.md](docs/tecnico.md#1-lectura-del-excel-de-entrada) |
@@ -156,8 +155,6 @@ Los nombres de los tipos: `.venv\Scripts\python -m dips_audit categorias`. `comp
 | --- | --- |
 | [tecnico.md](docs/tecnico.md) | Cómo funciona cada parte, en detalle |
 | [proceso.md](docs/proceso.md) | Proceso en diagramas |
-| [flujo_auditoria_icam.md](docs/flujo_auditoria_icam.md), [analisis_icam_others.md](docs/analisis_icam_others.md) | ICAM: flujo del auditor y datos |
-| [automatizacion_auditoria.md](docs/automatizacion_auditoria.md) | Cómo acercar el programa al auditor |
 | [comparacion_modos.md](docs/comparacion_modos.md) | Registro: el auditor con y sin agente (modelo local), y por qué se eliminó |
 
 Pruebas: `.venv\Scripts\python -m pytest`.

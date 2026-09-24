@@ -25,8 +25,8 @@ flowchart LR
 
 ```mermaid
 flowchart TD
-    A["1. abrir_icam.bat<br/>Iniciar sesión en ICAM<br/>(una vez; dejar la ventana abierta)"] --> B
-    B["2. Arrastrar el Excel de entrada<br/>sobre auditar.bat"] --> C
+    A["1. Arrastrar el Excel de entrada<br/>sobre auditar.bat"] --> B
+    B["2. Si se pide, iniciar sesión en ICAM<br/>en la ventana de Edge (dejarla abierta)"] --> C
     C["3. Abrir el Excel de salida en la carpeta salidas<br/>Hoja Dashboard: resumen y gráficos"] --> D
     D["4. Hoja Auditoría: filtrar RESULTADO<br/>y revisar DISCREPANCIA y POSIBLE DISCREPANCIA"]
 ```
@@ -38,10 +38,10 @@ sequenceDiagram
     participant P as Programa
     participant E as Edge de ICAM (sesión iniciada)
     participant I as ICAM
-    P->>E: Se conecta a la ventana abierta
+    P->>E: Abre la ventana (si está cerrada) y se conecta
     E->>I: Abre ICAM (no la página de inicio de sesión)
     alt Sin sesión
-        P-->>P: Avisa y termina
+        P-->>P: Avisa y espera a que el usuario inicie sesión (hasta 10 min)
     end
     loop Cada barcode (3 a la vez)
         E->>I: Barcode Search (ScanBarcode)
