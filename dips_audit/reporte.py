@@ -16,10 +16,12 @@ from openpyxl.utils import get_column_letter
 from .auditor import ResultadoAuditoria
 from .reglas import MOSTRAR_SEVERIDAD
 
-# Por ahora el resultado es solo OK o POSIBLE DISCREPANCIA: sin niveles (crítica / no crítica)
+# El resultado es OK, SIN FUENTE o POSIBLE DISCREPANCIA: sin niveles (crítica / no crítica)
 # ni tipos de discrepancia, que todavía no coinciden con el proceso de los auditores.
-COLORES_RESULTADO = {"POSIBLE DISCREPANCIA": "FCE3B0", "OK": "C9E7C9", "FUERA DE ALCANCE": "E4E4E4"}
-COLORES_SEVERIDAD = {"POSIBLE DISCREPANCIA": "FCE3B0", "OBSERVACIÓN": "EFEFEF"}
+COLORES_RESULTADO = {"POSIBLE DISCREPANCIA": "FCE3B0", "SIN FUENTE": "D6E4F0", "OK": "C9E7C9",
+                     "FUERA DE ALCANCE": "E4E4E4"}
+COLORES_SEVERIDAD = {"POSIBLE DISCREPANCIA": "FCE3B0", "SIN FUENTE": "D6E4F0",
+                     "OBSERVACIÓN": "EFEFEF"}
 _ENCABEZADO = PatternFill("solid", fgColor="1F3A5F")
 # Columnas agregadas por el programa: encabezado morado y celdas lila, para
 # distinguirlas de las columnas originales del Excel de entrada.
@@ -124,7 +126,7 @@ def hallazgos_para_mostrar(h: pd.DataFrame) -> pd.DataFrame:
     return h.rename(columns={"Severidad": "Resultado"})
 
 
-_RESULTADOS = ["POSIBLE DISCREPANCIA", "OK"]
+_RESULTADOS = ["POSIBLE DISCREPANCIA", "SIN FUENTE", "OK"]
 _TITULO = Font(bold=True, size=16, color="1F3A5F")
 _SUBTITULO = Font(bold=True, size=11, color="1F3A5F")
 _BORDE = Border(bottom=Side(style="thin", color="C3C2B7"))
@@ -191,7 +193,7 @@ def _hoja_dashboard(ws, resultado: ResultadoAuditoria) -> None:
                                                    else "F4F4F1")
     ws.cell(8, 2, f"Fuera de alcance: {fuera} DIPs de otros tipos." if fuera else "").font = \
         Font(italic=True, color="7B7973")
-    for c in range(2, 14):
+    for c in range(2, 15):
         ws.column_dimensions[get_column_letter(c)].width = 14
 
     # Datos de los gráficos (columnas P en adelante, a la derecha de los gráficos)

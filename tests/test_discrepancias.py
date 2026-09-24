@@ -51,6 +51,23 @@ def test_cambiar_severidad(ctx, catalogo):
     assert estado_final(auditar_fdr(catalogo, c).hallazgos) == "OK"
 
 
+def test_sin_fuente(ctx):
+    """Un DIP que no está en la tabla queda SIN FUENTE; si además tiene una posible
+    discrepancia que no depende de la tabla (vencido, S/N repetido...), pesa más esa."""
+    from dips_audit.reglas import ResultadoReglas
+    r = ResultadoReglas()
+    r.agregar(ctx, "sin_referencia", "Missing Reference in Table", "Sin fuente.")
+    assert r.hallazgos[0].severidad == "SIN FUENTE"
+    assert estado_final(r.hallazgos) == "SIN FUENTE"
+    r.agregar(ctx, "dip_vencido", "Overdue DIP", "Vencido.")
+    assert estado_final(r.hallazgos) == "POSIBLE DISCREPANCIA"
+    # Con REVISAR en el documento, vuelve a ser posible discrepancia.
+    c = con(ctx, {"Missing Reference in Table": {"reglas": {"sin_referencia": "REVISAR"}}})
+    r = ResultadoReglas()
+    r.agregar(c, "sin_referencia", "Missing Reference in Table", "Sin fuente.")
+    assert estado_final(r.hallazgos) == "POSIBLE DISCREPANCIA"
+
+
 def test_desactivar_regla(ctx, catalogo):
     c = con(ctx, {"Incorrect DIP Interval": {"reglas": {
         "intervalo_excedido": {"activa": False, "severidad": "CRITICA"}}}})

@@ -10,7 +10,7 @@ from pathlib import Path
 import pandas as pd
 import yaml
 
-from .asociacion import Asociacion, asociar, similares_en_tabla
+from .asociacion import Asociacion, asociar, asociar_por_codigos, similares_en_tabla
 from .cargador import Lote, cargar_export, completar_con_icam
 from .discrepancias import Discrepancias, cargar_discrepancias
 from .referencia_tecnica import (IndiceReferencias, buscar_referencia, cita_mgm,
@@ -18,13 +18,14 @@ from .referencia_tecnica import (IndiceReferencias, buscar_referencia, cita_mgm,
 from .rir import requerido as rir_requerido
 from .rir import revisar as revisar_rir
 from .referencias import Catalogo, EntradaCatalogo, cargar_catalogo, cargar_referencias
-from .reglas import (MOSTRAR_SEVERIDAD, POSIBLE_DISCREPANCIA, Contexto, Hallazgo, auditar_dip,
-                     buscar_duplicados, buscar_sn_repetidos, estado_final, etapa)
+from .reglas import (ACTIVOS, MOSTRAR_SEVERIDAD, ORDEN_SEVERIDAD, POSIBLE_DISCREPANCIA,
+                     SIN_FUENTE, Contexto, Hallazgo, auditar_dip, buscar_duplicados,
+                     buscar_sn_repetidos, como_fecha_hora, estado_final, etapa)
 
 RAIZ = Path(__file__).resolve().parent.parent
 FUERA_DE_ALCANCE = "FUERA DE ALCANCE"
-# Resultado para el auditor. Por ahora solo OK o POSIBLE DISCREPANCIA (ver reglas.ESTADOS).
-RESULTADOS = {POSIBLE_DISCREPANCIA: POSIBLE_DISCREPANCIA, "OK": "OK",
+# Resultado para el auditor: OK, SIN FUENTE o POSIBLE DISCREPANCIA (ver reglas.ESTADOS).
+RESULTADOS = {POSIBLE_DISCREPANCIA: POSIBLE_DISCREPANCIA, SIN_FUENTE: SIN_FUENTE, "OK": "OK",
               FUERA_DE_ALCANCE: FUERA_DE_ALCANCE}
 
 
@@ -106,6 +107,7 @@ class Auditor:
         duplicados = {indices_alcance[k]: v for k, v in duplicados.items()}
         sn_repetidos = {indices_alcance[k]: v
                         for k, v in buscar_sn_repetidos(dips_alcance).items()}
+        por_barcode = {d["barcode"]: d for d in dips}
 
         filas, hallazgos = [], []
         for i, (dip, alcance, asoc) in enumerate(zip(dips, en_alcance, asociaciones)):
@@ -129,16 +131,21 @@ class Auditor:
                 r.agregar(ctx, "asociacion_por_referencia_tecnica", "Reference Match",
                           f"Referencia '{asoc.entrada.nombre}' identificada por la referencia "
                           f"técnica {asoc.detalle}, no por el Fault Name.")
+            elif asoc.metodo == "DESCRIPCION":
+                r.agregar(ctx, "asociacion_por_descripcion", "Reference Match",
+                          f"Referencia '{asoc.entrada.nombre}' identificada por la descripción, "
+                          f"no por el Fault Name. Verificar que corresponda.")
             if asoc.entrada is None:
                 if asoc.metodo == "AMBIGUA":
-                    motivo = f"coincide con varias referencias ({', '.join(asoc.candidatos[:3])})"
+                    motivo = (f"coincide con varias referencias de la tabla "
+                              f"({', '.join(asoc.candidatos[:3])})")
                 else:
-                    motivo = "no se encontró en el catálogo de referencias Others"
+                    motivo = "no está en la tabla de referencias (DIPs References, Others)"
                 similares = similares_en_tabla(dip["nombre"], self.catalogo)
                 pista = "; ".join(f"'{f.descripcion}' ({f.tipo}, fila {f.fila})"
                                   for f, _ in similares)
                 r.agregar(ctx, "sin_referencia", "Missing Reference in Table",
-                          f"El DIP {motivo}. Revisar manualmente."
+                          f"Sin fuente: el DIP {motivo}. Verificar contra la fuente que cita."
                           + (f" Parecido en la tabla: {pista}." if pista else ""))
                 otros_tipos = {f.tipo for f, p in similares if p >= 90} - self.tipos
                 if otros_tipos and dip["tipo"]:
@@ -147,9 +154,18 @@ class Auditor:
                               f"{'/'.join(sorted(otros_tipos))}.")
             if i in duplicados:
                 otro_barcode, otro_nombre = duplicados[i]
+                # Si uno de los dos ya se cerró a la hora de la auditoría, el duplicado ya
+                # se corrigió: queda como observación.
+                cerrado = next((d for d in (por_barcode.get(otro_barcode), dip)
+                                if d and d["estado"] not in ACTIVOS and d.get("complete_date")
+                                and d["complete_date"] <= como_fecha_hora(ctx.fecha_referencia)),
+                               None)
                 r.agregar(ctx, "duplicado", "Duplicated DIP",
                           f"Posible DIP duplicado de {otro_barcode} ('{otro_nombre}'): mismo "
-                          f"avión, mismo componente y abiertos al mismo tiempo.")
+                          f"avión, mismo componente y abiertos al mismo tiempo."
+                          + (f" Ya corregido: {cerrado['barcode']} se cerró el "
+                             f"{cerrado['complete_date']:%d-%b-%Y %H:%M}." if cerrado else ""),
+                          "OBSERVACION" if cerrado else None)
             elif i in sn_repetidos:
                 r.agregar(ctx, "sn_repetido", "Incorrect S/N",
                           f"El mismo S/N aparece en otro DIP activo del avión: "
@@ -224,7 +240,10 @@ class Auditor:
                       f"Referencia técnica sin {' ni '.join(encontrada.faltantes)} "
                       f"({encontrada}).")
         if asoc.entrada:
-            texto = "; ".join(x for x in (*cargadas, *(adjuntos or []), descripcion) if x)
+            # Una task card JIC adjunta, como en la descripción, es la tarea donde se
+            # encontró la falla (el Service Visit), no la referencia del DIP.
+            texto = "; ".join(x for x in (*cargadas, *map(sin_task_cards, adjuntos or []),
+                                          descripcion) if x.strip())
             if not extraer_codigos(texto):
                 return  # sin número de tarea que comparar con la tabla
             revision = revisar(texto, asoc.entrada, self.catalogo, self.indice_referencias)
@@ -254,16 +273,37 @@ class Auditor:
             r.manuales = [m for m in r.manuales if not m.startswith("Verificar RIR")]
 
     def _asociar(self, dip: dict) -> Asociacion:
-        """Por el Fault Name; si no alcanza, por la referencia técnica cuando corresponde
-        a una sola referencia del catálogo."""
+        """Por el Fault Name. Si no alcanza, en este orden:
+
+        1. La referencia técnica cargada en ICAM, si corresponde a una sola referencia.
+        2. La descripción, con las mismas palabras clave ("AFT PASSENGER CABIN LESS THAN 130
+           DAYS" -> la descripción dice FIRST AID KIT), salvo que cite una tarea que no es la
+           de esa referencia: entonces el DIP sigue otra fuente (una muestra de combustible
+           por la SUBTASK 28-10-00-280-056 no es FUEL MICROBIAL GROWTH, 4 DAYS).
+        3. La tarea citada en la descripción ("IAW EC/RA 2500-0538C" -> LIFEVEST DOOR LATCH).
+
+        Las task cards JIC de la descripción no cuentan: son la tarea donde se encontró la
+        falla, no la fuente del DIP."""
         a = asociar(dip["nombre"], self.catalogo)
-        if a.entrada is None:
-            codigos = extraer_codigos(dip.get("referencia_tecnica"))
-            id_ = self.indice_referencias.entrada_unica(codigos)
-            if id_:
-                return Asociacion(self.catalogo.por_id(id_), "REF_TECNICA",
-                                  detalle=", ".join(codigos),
-                                  candidatos=a.candidatos)
+        if a.entrada is not None:
+            return a
+        codigos = extraer_codigos(dip.get("referencia_tecnica"))
+        entrada = asociar_por_codigos(codigos, self.catalogo, self.indice_referencias)
+        if entrada:
+            return Asociacion(entrada, "REF_TECNICA", detalle=", ".join(codigos),
+                              candidatos=a.candidatos)
+        descripcion = sin_task_cards(dip.get("descripcion"))
+        citados = extraer_codigos(descripcion)
+        d = asociar(descripcion, self.catalogo, aproximada=False)
+        if d.entrada:
+            esperados = self.indice_referencias.por_entrada.get(d.entrada.id, set())
+            if not citados or not esperados or esperados & set(citados):
+                return Asociacion(d.entrada, "DESCRIPCION", candidatos=a.candidatos)
+        entrada = asociar_por_codigos(citados, self.catalogo, self.indice_referencias)
+        if entrada:
+            return Asociacion(entrada, "REF_TECNICA",
+                              detalle=", ".join(citados) + " (en la descripción)",
+                              candidatos=a.candidatos)
         return a
 
     @staticmethod
@@ -280,13 +320,14 @@ class Auditor:
     def _fila(dip: dict, asoc: Asociacion | None, r, hallazgos: list[Hallazgo],
               manuales: list[str], estado: str, comentario: str, fecha) -> dict:
         entrada: EntradaCatalogo | None = asoc.entrada if asoc else None
-        orden = {"CRITICA": 0, "NO CRITICA": 1, "REVISAR": 2, "OBSERVACION": 3}
-        hallazgos = sorted(hallazgos, key=lambda h: orden[h.severidad])
+        hallazgos = sorted(hallazgos, key=lambda h: -ORDEN_SEVERIDAD[h.severidad])
         en_alcance = estado != FUERA_DE_ALCANCE
         # Apertura: DIP abierto. Cierre: DIP COMPLETE (se informan también los de apertura).
         cierre = en_alcance and dip["estado"] == "COMPLETE"
         de_cierre = [h for h in hallazgos if etapa(h.codigo) == "CIERRE"]
         de_apertura = [h for h in hallazgos if etapa(h.codigo) == "APERTURA"]
+        # Sin fuente vale para las dos auditorías: el DIP no está en la tabla.
+        sin_fuente = [h for h in de_apertura if h.severidad == SIN_FUENTE]
         return {
             "Fila Excel": dip["fila"],
             "Fault Barcode": dip["barcode"],
@@ -301,7 +342,7 @@ class Auditor:
             "AUDITORÍA": ("CIERRE" if cierre else "APERTURA") if en_alcance else "",
             "FECHA AUDITORÍA": fecha,
             "ESTADO APERTURA": estado_final(de_apertura) if en_alcance else "",
-            "ESTADO CIERRE": estado_final(de_cierre) if cierre else "",
+            "ESTADO CIERRE": estado_final(de_cierre + sin_fuente) if cierre else "",
             "HALLAZGOS": "\n".join(
                 f"[{MOSTRAR_SEVERIDAD[h.severidad]}]{' [CIERRE]' if h in de_cierre else ''} {h.mensaje}"
                 for h in hallazgos),

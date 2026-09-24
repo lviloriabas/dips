@@ -6,6 +6,7 @@ from dataclasses import dataclass, field
 
 from rapidfuzz import fuzz, process
 
+from .referencia_tecnica import IndiceReferencias
 from .referencias import Catalogo, EntradaCatalogo, FilaReferencia
 from .texto import normalizar
 
@@ -23,13 +24,14 @@ _PALABRAS_VACIAS = {
 @dataclass
 class Asociacion:
     entrada: EntradaCatalogo | None
-    metodo: str            # REGLAS, REF_TECNICA, AMBIGUA, NINGUNA
+    metodo: str            # REGLAS, REF_TECNICA, DESCRIPCION, AMBIGUA, NINGUNA
     detalle: str = ""
     candidatos: list[str] = field(default_factory=list)
 
     @property
     def confianza(self) -> str:
-        return {"REGLAS": "ALTA", "REF_TECNICA": "ALTA"}.get(self.metodo, "BAJA")
+        return {"REGLAS": "ALTA", "REF_TECNICA": "ALTA", "DESCRIPCION": "MEDIA"}.get(
+            self.metodo, "BAJA")
 
 
 def palabras_clave(texto_normalizado: str) -> set[str]:
@@ -97,9 +99,22 @@ def similares_en_tabla(nombre: str, catalogo: Catalogo, limite: int = 2, umbral:
     return [(catalogo.referencias[i], puntaje) for _, puntaje, i in resultado]
 
 
-def asociar(nombre: str, catalogo: Catalogo) -> Asociacion:
+def asociar_por_codigos(codigos: list[str], catalogo: Catalogo,
+                        indice: IndiceReferencias) -> EntradaCatalogo | None:
+    """La entrada del catálogo que tiene alguno de estos números de tarea. Si varias lo
+    tienen pero llevan a las mismas verificaciones (MAIN LANDING GEAR SHOCK STRUT y SHOCK
+    STRUT genérico comparten la AMM 12-15-31-610-802), la más específica."""
+    ids = set().union(*(indice.entradas.get(c, set()) for c in codigos)) if codigos else set()
+    entradas = [e for e in catalogo.entradas if e.id in ids]
+    if not entradas or not (len(entradas) == 1 or _equivalentes(entradas)):
+        return None
+    return min(entradas, key=lambda e: len(indice.por_entrada.get(e.id, ())))
+
+
+def asociar(nombre: str, catalogo: Catalogo, aproximada: bool = True) -> Asociacion:
     """Asocia un Fault Name a una entrada del catálogo por reglas de palabras clave
-    (confianza ALTA). Sin coincidencia única, el DIP queda sin referencia."""
+    (confianza ALTA). Sin coincidencia única, el DIP queda sin referencia. `aproximada`:
+    tolerar errores de escritura (no en textos largos, como la descripción)."""
     n = normalizar(nombre)
     coincidencias: list[tuple[EntradaCatalogo, int]] = []
     for e in catalogo.entradas:
@@ -108,6 +123,8 @@ def asociar(nombre: str, catalogo: Catalogo) -> Asociacion:
             coincidencias.append((e, puntaje))
     coincidencias.sort(key=lambda x: -x[1])
 
+    if not coincidencias and not aproximada:
+        return Asociacion(None, "NINGUNA")
     if not coincidencias:
         # Mismas palabras clave, tolerando errores de escritura. Se acepta solo si una única
         # entrada (o entradas equivalentes) coincide: es tan exigente como la exacta.

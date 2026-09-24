@@ -83,8 +83,8 @@ flowchart LR
 
 ```mermaid
 flowchart TD
-    N[Fault Name] --> REF{¿Referencia en la tabla?}
-    REF -- No --> PD1[POSIBLE DISCREPANCIA<br/>sin referencia]
+    N[Fault Name, referencia técnica<br/>o descripción] --> REF{¿Referencia en la tabla?}
+    REF -- No --> PD1[SIN FUENTE]
     REF -- Sí --> V[Intervalo y tipo · Parent Assy · Due date<br/>Vencidos · Duplicados · Deferral Reference]
     V --> RT{¿Referencia técnica<br/>manual + REV + fecha?}
     RT -- Falta --> D1[DISCREPANCIA]
@@ -94,7 +94,7 @@ flowchart TD
     F -- Sí --> D1
     F -- No --> OK[OK]
     style D1 fill:#F4B6B6,color:#000
-    style PD1 fill:#FCE3B0,color:#000
+    style PD1 fill:#D6E4F0,color:#000
     style PD2 fill:#FCE3B0,color:#000
     style OK fill:#C9E7C9,color:#000
 ```
@@ -108,12 +108,14 @@ flowchart TD
 | DIP activo vencido o cerrado fuera de plazo | DISCREPANCIA CRÍTICA |
 | Referencia técnica sin manual, REV o fecha | DISCREPANCIA NO CRÍTICA |
 | Referencia técnica de otra referencia | DISCREPANCIA NO CRÍTICA |
-| Intervalo 0, Usage Remaining mayor que el intervalo | DISCREPANCIA NO CRÍTICA |
+| Intervalo 0 | DISCREPANCIA NO CRÍTICA |
+| Usage Remaining mayor que el intervalo | OBSERVACIÓN |
 | DIP duplicado, S/N repetido, Deferral Reference distinto del ATA | DISCREPANCIA NO CRÍTICA |
 | RIR faltante o con intervalo distinto del de la tabla | DISCREPANCIA NO CRÍTICA |
 | RIR sin un límite del T/A o en otro Parent Assembly | DISCREPANCIA NO CRÍTICA |
 | RIR con Start distinto del T/A | POSIBLE DISCREPANCIA |
-| Sin referencia en la tabla, sin intervalo, due date dudoso | POSIBLE DISCREPANCIA |
+| Sin intervalo, due date dudoso | POSIBLE DISCREPANCIA |
+| Sin referencia en la tabla | SIN FUENTE |
 
 Qué tipos de discrepancia y reglas se revisan, y la severidad de cada regla, se configuran en `config/discrepancias.yaml`.
 

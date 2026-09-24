@@ -64,7 +64,8 @@
 - id: FAK
   nombre: FIRST AID KIT LESS THAN 130 DAYS DUE DATE
   referencias: ["FIRST AID KIT LESS THAN 130 DAYS DUE DATE"]
-  requiere: [[FAK, FIRST AID KIT]]
+  # FIRST AID solo: "First Aid (Aft Passenger Compartment) Kit".
+  requiere: [[FAK, FIRST AID KIT, FIRST AID]]
   requiere_sn: true
 
 - id: UPK
@@ -113,6 +114,7 @@
   nombre: CARGO FIRE EXT. BOTTLE
   referencias: ["CARGO FIRE EXT. BOTTLE"]
   requiere: [[CARGO], [EXTINGUISHER, FIRE BOTTLE]]
+  excluir: [SQUIB]   # el squib de la botella de carga es FIRE EXTINGUISHER SQUIBS
 
 - id: CRECIMIENTO_MICROBIANO
   nombre: FUEL MICROBIAL GROWTH
@@ -157,7 +159,7 @@
 - id: AMORTIGUADOR_NLG
   nombre: NOSE LANDING GEAR SHOCK STRUT
   referencias: ["NOSE LANDING GEAR SHOCK STRUT"]
-  requiere: [[NLG, NOSE LANDING GEAR, NOSE GEAR], [STRUT]]
+  requiere: [[NLG, NOSE LANDING GEAR, NOSE GEAR], [STRUT, X DIMENSION]]
   excluir: [SWIVEL]   # fuga en el swivel del NLG no es servicio del amortiguador
   intervalos: &intervalos_amortiguador
     - variante: "NG: 20 FC (AFTER 5 LANDINGS, NOT LATER THAN 20 LANDINGS)"
@@ -170,7 +172,7 @@
 - id: AMORTIGUADOR_MLG
   nombre: MAIN LANDING GEAR SHOCK STRUT
   referencias: ["MAIN LANDING GEAR SHOCK STRUT"]
-  requiere: [[MLG, MAIN LANDING GEAR, MAIN GEAR], [STRUT]]
+  requiere: [[MLG, MAIN LANDING GEAR, MAIN GEAR], [STRUT, X DIMENSION]]
   intervalos: *intervalos_amortiguador
 
 - id: AMORTIGUADOR_GENERICO
@@ -237,13 +239,15 @@
 - id: LLANTA
   nombre: MAIN WHEEL TIRE ASSY SECOND PLY THREAD VISIBLE
   referencias: ["MAIN WHEEL TIRE ASSY SECOND PLY THREAD VISIBLE"]
-  requiere: [[TIRE, WHEEL, CANVAS, PLY, PLIES]]
+  # La tabla solo tiene la llanta con la tela (ply) a la vista: un chequeo de presión o la
+  # compuerta del NOSE WHEEL no son esta referencia.
+  requiere: [[TIRE, WHEEL], [CANVAS, PLY, PLIES, CORD, CORDS, THREAD]]
   excluir: [BRAKE, STRUT]
 
 - id: CHALECO
   nombre: LIFEVEST DOOR LATCH DAMAGED
   referencias: ["LIFEVEST DOOR LATCH DAMAGED"]
-  requiere: [[LIFEVEST], [LATCH, DOOR]]
+  requiere: [[LIFEVEST], [LATCH, DOOR, COVER]]
 
 - id: RAYO
   nombre: LIGHTNING STRIKE PHASE II

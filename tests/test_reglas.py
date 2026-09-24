@@ -110,9 +110,26 @@ def test_dip_completado_no_se_marca_vencido(catalogo, ctx):
 
 
 def test_completado_fuera_de_plazo(catalogo, ctx):
-    r = auditar(catalogo, ctx, "OXIGENO_TRIPULACION", estado="COMPLETE",
-                complete_date=datetime(2026, 8, 23))
+    """En un DIP cerrado, Usage Remaining es lo que le quedaba al cerrarlo: negativo = tarde."""
+    cierre = dict(estado="COMPLETE", complete_date=datetime(2026, 8, 23))
+    r = auditar(catalogo, ctx, "OXIGENO_TRIPULACION", usage_remaining=-1.0, **cierre)
     assert "completado_fuera_de_plazo" in codigos(r, "CRITICA")
+    # Caso T40S0095NQC: cerrado 06:29 UTC del día siguiente, con 0 remanente en ICAM.
+    r = auditar(catalogo, ctx, "OXIGENO_TRIPULACION", usage_remaining=0.0, estado="COMPLETE",
+                complete_date=datetime(2026, 8, 22, 6, 29),
+                orig_due_date=datetime(2026, 8, 21, 23, 59))
+    assert "completado_fuera_de_plazo" not in codigos(r)
+    assert "cierre_deadline_extendido" not in codigos(r)  # due = original: no se extendió
+
+
+def test_cierre_tarde_en_otra_tarea_queda_para_verificar(catalogo, ctx):
+    """Caso T40S00992SM: el trabajo se hizo en otra tarea; la fecha que cuenta es la de esa."""
+    r = auditar(catalogo, ctx, "OXIGENO_TRIPULACION", usage_remaining=-5.0, estado="COMPLETE",
+                complete_date=datetime(2026, 8, 26), accion_correctiva=(
+                    "1. JUAN PEREZ (Technician), 26-AUG-2026 17:27 UTC\nTHIS ITEM WILL BE "
+                    "ACCOMPLISHED IN THIS BARCODE TRF7N0071057 STEP 9."))
+    assert "completado_fuera_de_plazo" not in codigos(r)
+    assert any("otra tarea (TRF7N0071057)" in m for m in r.manuales)
 
 
 def test_vencido_segun_la_hora_de_auditoria(catalogo, ctx):
@@ -128,8 +145,9 @@ def test_vencido_segun_la_hora_de_auditoria(catalogo, ctx):
 
 
 def test_cierre_con_tolerancia_de_horas(catalogo, ctx):
+    """Sin Usage Remaining, se compara la hora de cierre con el due date."""
     ctx.horas_cierre = 5  # Complete Dt en UTC, due en hora local
-    cierre = dict(estado="COMPLETE", due_date=datetime(2026, 8, 21, 23, 59))
+    cierre = dict(estado="COMPLETE", due_date=datetime(2026, 8, 21, 23, 59), usage_remaining=None)
     r = auditar(catalogo, ctx, "OXIGENO_TRIPULACION", complete_date=datetime(2026, 8, 22, 4, 12), **cierre)
     assert "completado_fuera_de_plazo" not in codigos(r)
     r = auditar(catalogo, ctx, "OXIGENO_TRIPULACION", complete_date=datetime(2026, 8, 22, 6, 0), **cierre)
@@ -157,6 +175,17 @@ def test_cierre_con_datos_de_icam(catalogo, ctx):
                              "cierre_sn_distinto", "cierre_sin_adjuntos"}
 
 
+def test_cierre_sin_accion_correctiva_es_discrepancia(catalogo, ctx):
+    """Sin acción correctiva es posible discrepancia; sin cita del manual, observación."""
+    base = dict(estado="COMPLETE", complete_date=datetime(2026, 8, 21, 10, 0), adjuntos=["A.PDF"])
+    r = auditar(catalogo, ctx, "OXIGENO_TRIPULACION",
+                accion_correctiva="1. JUAN PEREZ (Technician), 21-AUG-2026 10:00 UTC\n", **base)
+    assert "cierre_sin_accion_correctiva" in codigos(r, "NO CRITICA")
+    assert "cierre_sin_referencia_tecnica" not in codigos(r)
+    r = auditar(catalogo, ctx, "OXIGENO_TRIPULACION", accion_correctiva="BOTTLE REPLACED", **base)
+    assert "cierre_sin_referencia_tecnica" in codigos(r, "OBSERVACION")
+
+
 def test_cierre_con_mgm_o_amm_sin_revision(catalogo, ctx):
     base = dict(estado="COMPLETE", complete_date=datetime(2026, 8, 21, 10, 0), adjuntos=["A.PDF"])
     r = auditar(catalogo, ctx, "OXIGENO_TRIPULACION",
@@ -181,7 +210,30 @@ def test_usage_remaining_mayor_que_intervalo(catalogo, ctx):
     r = auditar(catalogo, ctx, "AMORTIGUADOR_MLG", nombre="DIP-Right Main Landing Gear Shock Strut",
                 intervalo=10.0, unidad="FC", tipo_intervalo_original="CYCLES", ata=32,
                 deferral_ref="32-DIP", usage_remaining=20.0, due_date=None)
-    assert "usage_remaining_mayor_a_intervalo" in codigos(r, "NO CRITICA")
+    # Los auditores lo aceptan (el T/A empieza después de la apertura): observación.
+    assert "usage_remaining_mayor_a_intervalo" in codigos(r, "OBSERVACION")
+
+
+def test_due_date_desde_el_start_del_ta_en_icam(catalogo, ctx):
+    """Caso T40S009HM59: FDR abierto el 19-sep con 23 días desde el 26-sep = 19-oct, los
+    30 días de la referencia. Sin el Start de ICAM se cuenta desde la apertura."""
+    fdr = dict(nombre="DIP - FDR - Report", intervalo=23.0, ata=31, deferral_ref="31-DIP",
+               found_date=datetime(2026, 9, 19, 7, 52), due_date=datetime(2026, 10, 19, 23, 59),
+               usage_remaining=27.0)
+    r = auditar(catalogo, ctx, "FDR", **fdr)
+    assert "due_date_posterior_a_intervalo" in codigos(r, "REVISAR")
+    icam = [{"value": 23.0, "parameter": "CDY", "unit": "DAY", "start": "26-SEP-2026 23:59 UTC"}]
+    r = auditar(catalogo, ctx, "FDR", icam_intervalos=icam, **fdr)
+    assert not codigos(r) & {"due_date_posterior_a_intervalo", "due_date_anterior_a_intervalo"}
+
+
+def test_due_date_de_items_con_vencimiento_no_se_cuenta_por_intervalo(catalogo, ctx):
+    """EMK: el due date es el vencimiento del kit, no apertura + intervalo."""
+    r = auditar(catalogo, ctx, "EMK", nombre="DIP-25 EMERGENCY MEDICAL KIT", intervalo=14.0,
+                ata=25, deferral_ref="25-DIP", found_date=datetime(2026, 9, 12, 4, 41),
+                due_date=datetime(2026, 11, 30, 23, 59), usage_remaining=69.0,
+                descripcion="EMK S/N:EMK-JY31 DUE DATE:30-NOV-26")
+    assert not codigos(r) & {"due_date_posterior_a_intervalo", "due_date_posterior_a_vencimiento_item"}
 
 
 # --- Parent assy, ATA, S/N ---------------------------------------------------
@@ -244,6 +296,30 @@ def test_no_duplicado_si_uno_ya_se_cerro_otro_dia(catalogo):
     a = hacer_dip(barcode="A", estado="COMPLETE", found_date=datetime(2026, 8, 1))
     b = hacer_dip(barcode="B")
     assert buscar_duplicados([a, b], [oxi, oxi]) == {}
+
+
+def test_no_duplicado_si_se_cerro_antes_de_abrir_el_otro(catalogo):
+    """Caso T40S009J1RE / J29L: cerrado "OPEN BY MISTAKE" a las 05:29, reabierto a las 05:32."""
+    oxi = catalogo.por_id("OXIGENO_TRIPULACION")
+    a = hacer_dip(barcode="A", estado="COMPLETE", found_date=datetime(2026, 9, 23, 3, 18),
+                  complete_date=datetime(2026, 9, 23, 5, 29))
+    b = hacer_dip(barcode="B", found_date=datetime(2026, 9, 23, 5, 32))
+    assert buscar_duplicados([a, b], [oxi, oxi]) == {}
+    a["complete_date"] = datetime(2026, 9, 23, 13, 7)  # se solapan: sí es duplicado
+    assert buscar_duplicados([a, b], [oxi, oxi]) == {1: ("A", a["nombre"])}
+
+
+def test_no_duplicado_si_la_descripcion_dice_otro_componente(catalogo):
+    """Caso T40S009HA18 / HA20: los dos squibs (LEFT y RIGHT) de la misma botella."""
+    squib = catalogo.por_id("SQUIB_MOTOR_APU")
+    nombre = "DIP-Engine LEFT Fire Extinguisher Bottle SQUIB"
+    a = hacer_dip(barcode="A", nombre=nombre,
+                  descripcion="WAS FOUND (LEFT SQUIB) OF LEFT Engine Fire Extinguisher Bottle")
+    b = hacer_dip(barcode="B", nombre=nombre,
+                  descripcion="WAS FOUND (RIGHT SQUIB) OF LEFT Engine Fire Extinguisher Bottle")
+    assert buscar_duplicados([a, b], [squib, squib]) == {}
+    b["descripcion"] = a["descripcion"] + " SERVICE VISIT #2 STEP 3"  # los números no cuentan
+    assert buscar_duplicados([a, b], [squib, squib]) == {1: ("A", nombre)}
 
 
 def test_sn_repetido_en_dos_dips(catalogo):

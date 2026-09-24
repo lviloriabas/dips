@@ -6,9 +6,10 @@
 #   activa: true | false     false = la regla no se revisa.
 #   severidad:               qué pasa con el DIP cuando la regla falla:
 #     CRITICA, NO CRITICA, REVISAR -> POSIBLE DISCREPANCIA
+#     SIN FUENTE                   -> SIN FUENTE: no hay referencia en la tabla con qué auditarlo
 #     OBSERVACION                  -> se anota en HALLAZGOS, pero no cambia el resultado del DIP
 #
-# Por ahora el resultado es solo OK o POSIBLE DISCREPANCIA: los niveles (crítica / no crítica)
+# El resultado es OK, SIN FUENTE o POSIBLE DISCREPANCIA: los niveles (crítica / no crítica)
 # y los tipos de discrepancia todavía no coinciden con el proceso de los auditores, y no se
 # muestran. CRITICA, NO CRITICA y REVISAR se conservan para volver a separar niveles cuando
 # se definan; hoy solo ordenan los hallazgos.
@@ -22,9 +23,12 @@
 # en HALLAZGOS ni en la hoja Hallazgos. Después de un cambio, ejecute el benchmark
 # (.venv\Scripts\python -m dips_audit benchmark) y compare con la línea base.
 #
-# Calibrado contra el histórico (jul-ago 2026). En el histórico, un intervalo MENOR al de
-# referencia y la falta de S/N se aceptaron en la mayoría de los casos; por eso quedan
-# como OBSERVACION. Las marcadas "a confirmar" se definen con los auditores.
+# Calibrado contra el histórico (jul-ago 2026) y la auditoría manual del 23-sep-2026. En el
+# histórico, un intervalo MENOR al de referencia y la falta de S/N se aceptaron en la mayoría
+# de los casos; por eso quedan como OBSERVACION. El 23-sep los auditores aceptaron todos los
+# Usage Remaining mayores que el intervalo, los S/N removidos distintos de la descripción y
+# las acciones correctivas sin cita del manual: también quedan como OBSERVACION. Las marcadas
+# "a confirmar" se definen con los auditores.
 
 tipos:
 
@@ -38,7 +42,7 @@ tipos:
       intervalo_cero:                    {activa: true, severidad: NO CRITICA}  # T/A con intervalo 0
       tipo_intervalo_incorrecto:         {activa: true, severidad: CRITICA}     # días en vez de FH/FC, etc.
       variante_condicional:              {activa: true, severidad: OBSERVACION} # coincide con una condición de la referencia (p. ej. PSI)
-      usage_remaining_mayor_a_intervalo: {activa: true, severidad: NO CRITICA}  # T/A de scheduling distinto
+      usage_remaining_mayor_a_intervalo: {activa: true, severidad: OBSERVACION} # T/A de scheduling distinto (Start posterior)
 
   Deferral Interval Not Documented:
     activo: true
@@ -53,8 +57,9 @@ tipos:
   Incorrect Due Date:
     activo: true
     reglas:
-      due_date_posterior_a_intervalo:        {activa: true, severidad: REVISAR}     # due > apertura + intervalo
-      due_date_anterior_a_intervalo:         {activa: true, severidad: OBSERVACION} # due < apertura + intervalo
+      # Desde el Start del T/A en ICAM (sin ICAM, desde la apertura). No aplica a ítems UNTIL DUE DATE.
+      due_date_posterior_a_intervalo:        {activa: true, severidad: REVISAR}     # due > inicio + intervalo
+      due_date_anterior_a_intervalo:         {activa: true, severidad: OBSERVACION} # due < inicio + intervalo
       due_date_posterior_a_vencimiento_item: {activa: true, severidad: CRITICA}     # due después del vencimiento del ítem
       due_date_anterior_a_vencimiento_item:  {activa: true, severidad: OBSERVACION} # due antes del vencimiento del ítem
 
@@ -85,11 +90,12 @@ tipos:
     activo: true
     reglas:
       sn_repetido:                       {activa: true, severidad: NO CRITICA}  # mismo S/N en otro DIP activo del avión
-      cierre_sn_distinto:                {activa: true, severidad: NO CRITICA}  # cierre: S/N removido distinto del de la descripción
+      cierre_sn_distinto:                {activa: true, severidad: OBSERVACION} # cierre: S/N removido distinto del de la descripción
 
   Duplicated DIP:
     activo: true
     reglas:
+      # Si uno de los dos ya estaba cerrado a la hora de la auditoría, queda como OBSERVACION.
       duplicado:                         {activa: true, severidad: NO CRITICA}  # mismo avión, componente y abiertos a la vez
 
   Incorrect Fault Severity:
@@ -100,8 +106,9 @@ tipos:
   # Apertura: sirve la referencia cargada en ICAM (Technical References), una captura
   # adjunta o la cita en la descripción, como la acepta el auditor (calibrado con la
   # auditoría del 23-sep-2026). Sin datos de ICAM no se marca: queda para verificar.
-  # Cierre: la acción correctiva debe citar el manual, salvo que remita a otra tarea o
-  # que el DIP se haya cerrado sin trabajo (abierto por error, ya hecho, sin acción).
+  # Cierre: sin acción correctiva es posible discrepancia. Si la acción no cita el manual
+  # (salvo que remita a otra tarea o que el DIP se haya cerrado sin trabajo: abierto por
+  # error, ya hecho, sin acción) queda como observación: el 23-sep los auditores la aceptaron.
   # El MGM no es referencia técnica. AMM, SRM y task card no necesitan revisión ni fecha
   # (referencia_tecnica.revision_opcional en config.yaml).
   Missing Technical Reference:
@@ -109,7 +116,8 @@ tipos:
     reglas:
       sin_referencia_tecnica:            {activa: true, severidad: NO CRITICA}  # sin referencia cargada, sin captura y sin cita
       referencia_tecnica_incompleta:     {activa: true, severidad: OBSERVACION} # la cita sin revisión o sin fecha (el auditor no la marca)
-      cierre_sin_referencia_tecnica:     {activa: true, severidad: NO CRITICA}  # cierre: la acción correctiva no cita el manual
+      cierre_sin_accion_correctiva:      {activa: true, severidad: NO CRITICA}  # cierre: sin acción correctiva en ICAM
+      cierre_sin_referencia_tecnica:     {activa: true, severidad: OBSERVACION} # cierre: la acción correctiva no cita el manual
       cierre_referencia_incompleta:      {activa: true, severidad: OBSERVACION} # cierre: la cita sin revisión o sin fecha
 
   # Solo si la tabla de referencias tiene el número de tarea.
@@ -132,6 +140,8 @@ tipos:
 
   # --- Auditoría de cierre (DIP COMPLETE). A confirmar. ------------------------
 
+  # Cerrado tarde = Usage Remaining negativo al cerrar (sin ese dato, la hora de cierre contra
+  # el due date). Si el trabajo se hizo en otra tarea, queda para verificar en esa tarea.
   Late Completion:
     activo: true
     reglas:
@@ -151,11 +161,14 @@ tipos:
     reglas:
       asociacion_aproximada:             {activa: true, severidad: OBSERVACION} # Fault Name con errores de escritura
       asociacion_por_referencia_tecnica: {activa: true, severidad: OBSERVACION} # el nombre no alcanza; se usó la ref. técnica
+      asociacion_por_descripcion:        {activa: true, severidad: OBSERVACION} # el nombre no alcanza; se usó la descripción
 
+  # SIN FUENTE: ni el Fault Name, ni la referencia técnica, ni la descripción corresponden a
+  # una referencia de la tabla. Con REVISAR volvería a ser POSIBLE DISCREPANCIA.
   Missing Reference in Table:
     activo: true
     reglas:
-      sin_referencia:                    {activa: true, severidad: REVISAR}     # no está en la tabla o coincide con varias
+      sin_referencia:                    {activa: true, severidad: SIN FUENTE}  # no está en la tabla o coincide con varias
 
   Incorrect DIP Type:
     activo: true

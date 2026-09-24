@@ -10,24 +10,29 @@ from .discrepancias import Discrepancias
 from .referencias import EntradaCatalogo, Limite, Variante
 from .texto import extraer_fechas, extraer_psi, extraer_sn, normalizar, posiciones
 
-ORDEN_SEVERIDAD = {"CRITICA": 4, "NO CRITICA": 3, "REVISAR": 2, "OBSERVACION": 1}
-# Por ahora el resultado de un DIP es solo OK o POSIBLE DISCREPANCIA: los niveles (crítica /
+ORDEN_SEVERIDAD = {"CRITICA": 5, "NO CRITICA": 4, "REVISAR": 3, "SIN FUENTE": 2, "OBSERVACION": 1}
+# El resultado de un DIP es OK, SIN FUENTE o POSIBLE DISCREPANCIA: los niveles (crítica /
 # no crítica) y los tipos de discrepancia todavía no coinciden con el proceso de los
 # auditores. La severidad de cada regla (config/discrepancias.yaml) solo ordena los hallazgos
 # y decide si un hallazgo es una observación, que no cambia el resultado.
 POSIBLE_DISCREPANCIA = "POSIBLE DISCREPANCIA"
+# El DIP no está en la tabla de referencias: no hay contra qué auditarlo. Una posible
+# discrepancia que no depende de la tabla (vencido, cierre tarde...) pesa más.
+SIN_FUENTE = "SIN FUENTE"
 ESTADOS = {
     "CRITICA": POSIBLE_DISCREPANCIA,
     "NO CRITICA": POSIBLE_DISCREPANCIA,
     "REVISAR": POSIBLE_DISCREPANCIA,
+    "SIN FUENTE": SIN_FUENTE,
 }
 # Cómo se muestra cada hallazgo según su severidad.
 MOSTRAR_SEVERIDAD = {"CRITICA": POSIBLE_DISCREPANCIA, "NO CRITICA": POSIBLE_DISCREPANCIA,
-                     "REVISAR": POSIBLE_DISCREPANCIA, "OBSERVACION": "OBSERVACIÓN"}
+                     "REVISAR": POSIBLE_DISCREPANCIA, "SIN FUENTE": SIN_FUENTE,
+                     "OBSERVACION": "OBSERVACIÓN"}
 # Cada DIP se audita dos veces: al abrirse (APERTURA) y al cerrarse (CIERRE). Estos códigos
 # son de la auditoría de cierre; todos los demás, de la de apertura.
 CODIGOS_CIERRE = {
-    "completado_fuera_de_plazo", "cierre_sin_referencia_tecnica",
+    "completado_fuera_de_plazo", "cierre_sin_accion_correctiva", "cierre_sin_referencia_tecnica",
     "cierre_referencia_incompleta", "cierre_sn_distinto", "cierre_deadline_extendido",
     "cierre_sin_adjuntos",
 }
@@ -107,6 +112,17 @@ def _como_fecha(d: datetime | date | None) -> date | None:
     if d is None:
         return None
     return d.date() if isinstance(d, datetime) else d
+
+
+def _inicio_ta(dip: dict) -> date | None:
+    """Start del T/A en días calendario según ICAM ('26-SEP-2026 23:59 UTC'); None sin dato."""
+    for i in dip.get("icam_intervalos") or []:
+        if (i.get("unit") or "").upper() in ("DAY", "DAYS", "CDY") or \
+                (i.get("parameter") or "").upper() == "CDY":
+            m = re.search(r"\d{2}-[A-Z]{3}-\d{4}", i.get("start") or "")
+            if m:
+                return datetime.strptime(m.group(0), "%d-%b-%Y").date()
+    return None
 
 
 def _rango_limite(lim: Limite, unidad_dip: str, ctx: Contexto) -> tuple[float, float] | None:
@@ -235,19 +251,26 @@ def regla_fechas(dip: dict, entrada: EntradaCatalogo | None, ctx: Contexto,
     if dip.get("correccion_fecha"):
         r.manuales.append(dip["correccion_fecha"] + ".")
 
-    # Due date coherente con fecha de apertura + intervalo (solo días).
-    if due and found and valor is not None and unidad == "DAY":
-        esperado = found + timedelta(days=valor)
+    # Due date coherente con el inicio del T/A + intervalo (solo días). El T/A cuenta desde
+    # su Start en ICAM, que puede ser posterior a la apertura (el FDR se abre con 23 días
+    # desde una semana después: vence igual a los 30 días de la apertura); sin datos de
+    # ICAM, desde la apertura. En los ítems con vencimiento el due date es el del ítem.
+    hasta_vencimiento = entrada is not None and entrada.hasta_vencimiento
+    if due and found and valor is not None and unidad == "DAY" and not hasta_vencimiento:
+        inicio = _inicio_ta(dip)
+        base = inicio or found
+        desde = f"el Start del T/A en ICAM ({_fecha(base)})" if inicio else f"apertura ({_fecha(base)})"
+        esperado = base + timedelta(days=valor)
         diferencia = (due - esperado).days
         if diferencia > ctx.tol_dias:
             r.agregar(ctx, "due_date_posterior_a_intervalo", "Incorrect Due Date",
-                      f"Due date {_fecha(due)} es {diferencia} días posterior a apertura "
-                      f"({_fecha(found)}) + {_fmt(valor)} DAY = {_fecha(esperado)}. "
-                      f"Verificar el Start Date del T/A en ICAM.")
+                      f"Due date {_fecha(due)} es {diferencia} días posterior a {desde} "
+                      f"+ {_fmt(valor)} DAY = {_fecha(esperado)}."
+                      + ("" if inicio else " Verificar el Start Date del T/A en ICAM."))
         elif diferencia < -ctx.tol_dias:
             r.agregar(ctx, "due_date_anterior_a_intervalo", "Incorrect Due Date",
-                      f"Due date {_fecha(due)} es {-diferencia} días anterior a apertura "
-                      f"({_fecha(found)}) + {_fmt(valor)} DAY = {_fecha(esperado)}.")
+                      f"Due date {_fecha(due)} es {-diferencia} días anterior a {desde} "
+                      f"+ {_fmt(valor)} DAY = {_fecha(esperado)}.")
 
     # Ítems con vencimiento: el due date no puede superar la fecha del ítem.
     if entrada is not None and entrada.hasta_vencimiento and due:
@@ -305,13 +328,28 @@ def regla_cierre(dip: dict, ctx: Contexto, r: ResultadoReglas) -> None:
     """Auditoría de cierre: fecha de cierre, acción correctiva y S/N removido."""
     completo, due = dip.get("complete_date"), dip["due_date"]
     original = dip.get("orig_due_date")
+    accion = dip.get("accion_correctiva")
+    # Primera línea: "1. NOMBRE (Technician), 09-SEP-2026 17:27 UTC".
+    texto = re.sub(r"^\s*\d+\.\s[^\n]*UTC\s*", "", accion or "")
+    otra_tarea = _OTRA_TAREA.search(texto)
     if completo and due:
+        # En un DIP cerrado, Usage Remaining es lo que le quedaba al cerrarlo (ICAM): negativo =
+        # se cerró tarde. Sin ese dato, se compara la hora de cierre con el due date.
+        restante = dip.get("usage_remaining")
         limite = _fin_del_plazo(due) + timedelta(hours=ctx.horas_cierre)
-        if completo > limite:
+        tarde = restante < 0 if restante is not None else completo > limite
+        if tarde and otra_tarea:
+            # El trabajo se hizo en otra tarea: la fecha que cuenta es la de esa tarea.
+            r.manuales.append(f"Cerrado después del due date en otra tarea ({otra_tarea.group(0)}): "
+                              "verificar ahí la fecha en que se hizo el trabajo.")
+        elif tarde:
             r.agregar(ctx, "completado_fuera_de_plazo", "Late Completion",
                       f"Completado el {_fecha_hora(completo)}, después del due date "
-                      f"{_fecha_hora(due)}.")
-        elif original and _fin_del_plazo(original) + timedelta(hours=ctx.horas_cierre) < completo:
+                      f"{_fecha_hora(due)}"
+                      + (f" (Usage Remaining al cerrar: {_fmt(restante)})." if restante is not None
+                         else "."))
+        elif (original and _fin_del_plazo(original) < _fin_del_plazo(due)
+              and _fin_del_plazo(original) + timedelta(hours=ctx.horas_cierre) < completo):
             r.agregar(ctx, "cierre_deadline_extendido", "Late Completion",
                       f"Completado el {_fecha_hora(completo)}: dentro del due date extendido "
                       f"({_fecha_hora(due)}), pero después del original ({_fecha_hora(original)}). "
@@ -324,15 +362,14 @@ def regla_cierre(dip: dict, ctx: Contexto, r: ResultadoReglas) -> None:
     if cambios:
         r.manuales.append("Cambios de deadline en History: " + " | ".join(cambios))
 
-    accion = dip.get("accion_correctiva")
     if accion is not None:  # None = no se leyó ICAM
         from .referencia_tecnica import buscar_referencia, cita_mgm
 
-        # Primera línea: "1. NOMBRE (Technician), 09-SEP-2026 17:27 UTC".
-        texto = re.sub(r"^\s*\d+\.\s[^\n]*UTC\s*", "", accion)
         encontrada = buscar_referencia(texto)
-        otra_tarea = _OTRA_TAREA.search(texto)
-        if not encontrada.manual and otra_tarea:
+        if not texto.strip():
+            r.agregar(ctx, "cierre_sin_accion_correctiva", "Missing Technical Reference",
+                      "DIP cerrado sin acción correctiva en ICAM.")
+        elif not encontrada.manual and otra_tarea:
             # El trabajo se hizo en otra tarea: la referencia técnica está en esa tarea.
             r.manuales.append(f"Cierre en otra tarea ({otra_tarea.group(0)}): verificar ahí la "
                               "referencia técnica.")
@@ -342,7 +379,7 @@ def regla_cierre(dip: dict, ctx: Contexto, r: ResultadoReglas) -> None:
             r.agregar(ctx, "cierre_sin_referencia_tecnica", "Missing Technical Reference",
                       "La acción correctiva no cita la referencia del manual"
                       + (" (el MGM no es referencia técnica)." if cita_mgm(texto) else ".")
-                      + (f" Acción: '{accion[:120]}'." if accion else " Acción vacía."))
+                      + f" Acción: '{texto.strip()[:120]}'.")
         elif encontrada.faltantes_exigidos(ctx.revision_opcional):
             r.agregar(ctx, "cierre_referencia_incompleta", "Missing Technical Reference",
                       f"Referencia de la acción correctiva incompleta ({encontrada}): falta "
@@ -430,19 +467,32 @@ def auditar_dip(dip: dict, entrada: EntradaCatalogo | None, ctx: Contexto) -> Re
 # Duplicados (se evalúan sobre el lote completo)
 # --------------------------------------------------------------------------
 
-_ACTIVOS = {"ACTV", "IN WORK", "OPEN"}
+ACTIVOS = {"ACTV", "IN WORK", "OPEN"}
 
 
 def _coexisten(da: dict, db: dict) -> bool:
     """True si los dos DIPs estuvieron abiertos al mismo tiempo.
 
-    Sin fecha de cierre en el Excel de entrada solo se puede afirmar si ambos siguen
-    activos o si se abrieron el mismo día (DIP creado dos veces).
+    Con la fecha de cierre de los cerrados, se solapan si cada uno se abrió antes de que el
+    otro se cerrara (un DIP cerrado "OPEN BY MISTAKE" a las 05:29 y abierto de nuevo a las
+    05:32 no es un duplicado). Sin ella solo se puede afirmar si ambos siguen activos o si se
+    abrieron el mismo día (DIP creado dos veces).
     """
-    if da["estado"] in _ACTIVOS and db["estado"] in _ACTIVOS:
+    if da["estado"] in ACTIVOS and db["estado"] in ACTIVOS:
         return True
+    fin = {id(d): d.get("complete_date") if d["estado"] not in ACTIVOS else datetime.max
+           for d in (da, db)}
+    if da["found_date"] and db["found_date"] and all(fin.values()):
+        return (como_fecha_hora(db["found_date"]) < como_fecha_hora(fin[id(da)])
+                and como_fecha_hora(da["found_date"]) < como_fecha_hora(fin[id(db)]))
     fa, fb = _como_fecha(da["found_date"]), _como_fecha(db["found_date"])
     return fa is not None and fa == fb
+
+
+def _lado(texto: str) -> frozenset[str]:
+    """Posiciones escritas con palabras (FWD/AFT, LH/RH...) en la descripción. Los números
+    sueltos no cuentan: ahí son pasos, días o task cards."""
+    return frozenset(p for p in posiciones(normalizar(texto)) if not p.isdigit())
 
 
 def buscar_duplicados(dips: list[dict], entradas: list[EntradaCatalogo | None],
@@ -475,7 +525,13 @@ def buscar_duplicados(dips: list[dict], entradas: list[EntradaCatalogo | None],
                 na, nb = normalizar(da["nombre"]), normalizar(db["nombre"])
                 if posiciones(na) != posiciones(nb):
                     continue
-                sa, sb = set(extraer_sn(da["nombre"])), set(extraer_sn(db["nombre"]))
+                # Mismo nombre, otro componente según la descripción: "(LEFT SQUIB) OF LEFT
+                # Engine Fire Extinguisher Bottle" y "(RIGHT SQUIB) OF LEFT ...".
+                if da["descripcion"] and db["descripcion"] and \
+                        _lado(da["descripcion"]) != _lado(db["descripcion"]):
+                    continue
+                sa = set(extraer_sn(da["nombre"] + " " + da["descripcion"]))
+                sb = set(extraer_sn(db["nombre"] + " " + db["descripcion"]))
                 if sa and sb and not (sa & sb):
                     continue
                 if not _coexisten(da, db):
@@ -495,7 +551,7 @@ def buscar_sn_repetidos(dips: list[dict]) -> dict[int, list[str]]:
     """
     por_sn: dict[tuple[str, str], list[int]] = {}
     for i, d in enumerate(dips):
-        if d["estado"] not in _ACTIVOS or not d["avion"]:
+        if d["estado"] not in ACTIVOS or not d["avion"]:
             continue
         for sn in set(extraer_sn(d["nombre"] + " " + d["descripcion"])):
             por_sn.setdefault((d["avion"], sn), []).append(i)

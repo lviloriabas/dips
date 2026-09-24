@@ -53,7 +53,9 @@ METODOS = {
     "reglas": ("Reglas", "Se aplican todas las verificaciones con esa referencia."),
     "ref_tecnica": ("Referencia técnica",
                     "Se aplican todas las verificaciones con la referencia de su tarea."),
-    "sin_referencia": ("Sin referencia", "Queda en REVISAR sin referencia: el auditor la busca."),
+    "descripcion": ("Descripción",
+                    "Se aplican todas las verificaciones con la referencia que describe."),
+    "sin_referencia": ("Sin fuente", "Queda SIN FUENTE: no está en la tabla de referencias."),
 }
 _ACUERDO = {"Ambos marcan": "Ambos marcan", "Ambos OK": "Ambos OK",
             "Solo humano": "Solo el auditor marca", "Solo IA": "Solo el programa marca"}
@@ -203,7 +205,8 @@ def _texto(valor: object) -> str:
 def _metodo(a: Asociacion | None) -> str:
     if a is None or a.metodo == "REGLAS":
         return "reglas"
-    return "ref_tecnica" if a.metodo == "REF_TECNICA" else "sin_referencia"
+    return {"REF_TECNICA": "ref_tecnica", "DESCRIPCION": "descripcion"}.get(a.metodo,
+                                                                            "sin_referencia")
 
 
 def _dips(ev: Evaluacion) -> list[dict]:
@@ -367,9 +370,9 @@ def como_se_audita(r: dict) -> str:
         f"por palabras clave (`{c['catalogo']['archivo']}`) y verifican intervalo, tipo de "
         "intervalo, parent assy, due date, vencidos, duplicados, S/N y deferral reference. "
         f"Los DIPs que las reglas no asocian ({datos['dips_sin_referencia_por_reglas']} de "
-        f"{datos['dips']}) quedan en REVISAR sin referencia, y el auditor la busca.",
+        f"{datos['dips']}) quedan SIN FUENTE: no se comparan con una referencia de la tabla.",
         "3. **Comparación.** El auditor da OK o discrepancia. El programa marca un DIP si lo "
-        "deja en POSIBLE DISCREPANCIA.",
+        "deja en POSIBLE DISCREPANCIA (SIN FUENTE no cuenta como marca).",
         f"4. **Casos.** {datos['casos']} Fault Names difíciles de asociar (errores de "
         "escritura, abreviaturas, español, sinónimos), con la referencia correcta, en "
         f"`{datos['archivo_casos']}`. Miden cuántos asocian bien las reglas y que no acepten "
@@ -480,7 +483,7 @@ def _seccion_casos(r: dict, base: dict | None) -> list[str]:
         "## 3. Casos difíciles de asociar",
         f"{len(detalle)} Fault Names con errores de escritura, abreviaturas, español o sinónimos: "
         f"{positivos} con referencia en la tabla y {len(detalle) - positivos} sin referencia. "
-        "Los que las reglas no asocian quedan en REVISAR sin referencia y el auditor la busca.",
+        "Los que las reglas no asocian quedan SIN FUENTE.",
         _tabla_indicadores(r, base, "casos"),
     ]
     aceptados = [d for d in detalle if d["error_aceptado"]]

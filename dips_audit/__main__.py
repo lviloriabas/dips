@@ -37,6 +37,7 @@ from .referencias import ErrorCatalogo
 consola = Console()
 ESTILOS = {
     "POSIBLE DISCREPANCIA": "bold yellow",
+    "SIN FUENTE": "bold cyan",
     "OK": "bold green",
     "FUERA DE ALCANCE": "dim",
 }
@@ -55,7 +56,7 @@ def _duracion(segundos: float) -> str:
 
 
 def _tabla_estados(filas: pd.DataFrame) -> Table:
-    """DIPs por resultado. El % de OK y POSIBLE DISCREPANCIA es sobre los DIPs auditados;
+    """DIPs por resultado. El % de OK, SIN FUENTE y POSIBLE DISCREPANCIA es sobre los auditados;
     el de FUERA DE ALCANCE, sobre el total del archivo."""
     total = len(filas)
     conteo = filas["RESULTADO"].value_counts().to_dict()
@@ -76,7 +77,7 @@ def _tabla_estados(filas: pd.DataFrame) -> Table:
 def _tabla_hallazgos(resultado) -> Table | None:
     """Tipos de discrepancia: cuántos hallazgos y en cuántos DIPs (% de los auditados)."""
     h = resultado.hallazgos
-    h = h[h["Severidad"] != "OBSERVACION"]
+    h = h[~h["Severidad"].isin(["OBSERVACION", "SIN FUENTE"])]
     if h.empty:
         return None
     auditados = int((resultado.filas["RESULTADO"] != "FUERA DE ALCANCE").sum())
@@ -108,10 +109,11 @@ def _resumen(resultado, tiempos: dict[str, float]) -> Panel:
     en_alcance = filas[filas["RESULTADO"] != "FUERA DE ALCANCE"]
     auditados = len(en_alcance)
     posibles = int((en_alcance["RESULTADO"] == "POSIBLE DISCREPANCIA").sum())
+    sin_fuente = int((en_alcance["RESULTADO"] == "SIN FUENTE").sum())
     ok = int((en_alcance["RESULTADO"] == "OK").sum())
     h = resultado.hallazgos
     observaciones = int((h["Severidad"] == "OBSERVACION").sum())
-    discrepancias = len(h) - observaciones
+    discrepancias = len(h) - observaciones - int((h["Severidad"] == "SIN FUENTE").sum())
     manuales = int((en_alcance["VERIFICACIÓN MANUAL"] != "").sum())
     cierre = int((en_alcance["AUDITORÍA"] == "CIERRE").sum())
     lineas = [
@@ -119,7 +121,8 @@ def _resumen(resultado, tiempos: dict[str, float]) -> Panel:
         f"(apertura {auditados - cierre}, cierre {cierre})   "
         f"[bold]Fuera de alcance:[/] {total - auditados}",
         f"[{ESTILOS['POSIBLE DISCREPANCIA']}]POSIBLE DISCREPANCIA:[/] {posibles} "
-        f"({_pct(posibles, auditados)})   [{ESTILOS['OK']}]OK:[/] {ok} ({_pct(ok, auditados)})",
+        f"({_pct(posibles, auditados)})   [{ESTILOS['SIN FUENTE']}]SIN FUENTE:[/] {sin_fuente} "
+        f"({_pct(sin_fuente, auditados)})   [{ESTILOS['OK']}]OK:[/] {ok} ({_pct(ok, auditados)})",
         f"[bold]Hallazgos:[/] {discrepancias} posibles discrepancias"
         + (f" ({discrepancias / posibles:.1f} por DIP marcado)" if posibles else "")
         + f", {observaciones} observaciones",

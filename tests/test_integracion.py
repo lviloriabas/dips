@@ -40,12 +40,12 @@ def export(tmp_path):
 def test_auditoria_de_punta_a_punta(config, export, tmp_path):
     auditor = Auditor(config, fecha_auditoria=date(2026, 8, 20))
     resultado = auditor.auditar_archivo(export)
-    # Por ahora solo hay dos resultados: OK o POSIBLE DISCREPANCIA.
+    # Tres resultados: OK, SIN FUENTE (no está en la tabla) o POSIBLE DISCREPANCIA.
     estados = dict(zip(resultado.filas["Fault Barcode"], resultado.filas["RESULTADO"]))
     assert estados == {
         "T1": "OK",
         "T2": "POSIBLE DISCREPANCIA",
-        "T3": "POSIBLE DISCREPANCIA",
+        "T3": "SIN FUENTE",
         "T4": "OK",
         "T5": "POSIBLE DISCREPANCIA",
         "T6": "FUERA DE ALCANCE",

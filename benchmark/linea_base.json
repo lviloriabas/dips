@@ -1,6 +1,6 @@
 {
   "formato": 3,
-  "fecha": "2026-09-24 10:40",
+  "fecha": "2026-09-24 14:55",
   "version_programa": "0.1.0",
   "datos": {
     "archivo": "benchmark/dips_auditados.xlsx",
@@ -47,7 +47,7 @@
           },
           "usage_remaining_mayor_a_intervalo": {
             "activa": true,
-            "severidad": "NO CRITICA"
+            "severidad": "OBSERVACION"
           }
         }
       },
@@ -139,7 +139,7 @@
           },
           "cierre_sn_distinto": {
             "activa": true,
-            "severidad": "NO CRITICA"
+            "severidad": "OBSERVACION"
           }
         }
       },
@@ -172,9 +172,13 @@
             "activa": true,
             "severidad": "OBSERVACION"
           },
-          "cierre_sin_referencia_tecnica": {
+          "cierre_sin_accion_correctiva": {
             "activa": true,
             "severidad": "NO CRITICA"
+          },
+          "cierre_sin_referencia_tecnica": {
+            "activa": true,
+            "severidad": "OBSERVACION"
           },
           "cierre_referencia_incompleta": {
             "activa": true,
@@ -256,6 +260,10 @@
           "asociacion_por_referencia_tecnica": {
             "activa": true,
             "severidad": "OBSERVACION"
+          },
+          "asociacion_por_descripcion": {
+            "activa": true,
+            "severidad": "OBSERVACION"
           }
         }
       },
@@ -264,7 +272,7 @@
         "reglas": {
           "sin_referencia": {
             "activa": true,
-            "severidad": "REVISAR"
+            "severidad": "SIN FUENTE"
           }
         }
       },
@@ -296,9 +304,9 @@
   "auditoria": {
     "indicadores": {
       "coincidencia": {
-        "aciertos": 40,
+        "aciertos": 42,
         "total": 50,
-        "pct": 80.0
+        "pct": 84.0
       },
       "asociados": {
         "aciertos": 46,
@@ -306,37 +314,40 @@
         "pct": 92.0
       },
       "ok_correctos": {
-        "aciertos": 38,
+        "aciertos": 41,
         "total": 44,
-        "pct": 86.4
+        "pct": 93.2
       },
       "falsas_discrepancias": {
-        "aciertos": 6,
+        "aciertos": 3,
         "total": 44,
-        "pct": 13.6
+        "pct": 6.8
       },
       "discrepancias_detectadas": {
-        "aciertos": 2,
+        "aciertos": 1,
         "total": 6,
-        "pct": 33.3
+        "pct": 16.7
       },
       "detectables_detectadas": {
-        "aciertos": 1,
+        "aciertos": 0,
         "total": 5,
-        "pct": 20.0
+        "pct": 0.0
       }
     },
     "matriz": {
       "OK": {
         "OK": 38,
-        "POSIBLE DISCREPANCIA": 6
+        "SIN FUENTE": 3,
+        "POSIBLE DISCREPANCIA": 3
       },
       "DISCREPANCIA NO CRÍTICA": {
         "OK": 4,
-        "POSIBLE DISCREPANCIA": 1
+        "SIN FUENTE": 1,
+        "POSIBLE DISCREPANCIA": 0
       },
       "DISCREPANCIA CRÍTICA": {
         "OK": 0,
+        "SIN FUENTE": 0,
         "POSIBLE DISCREPANCIA": 1
       }
     },
@@ -358,7 +369,7 @@
       },
       "Sin comentario": {
         "auditor": 2,
-        "programa_marca": 1,
+        "programa_marca": 0,
         "programa_algun_hallazgo": 1
       }
     },
@@ -610,12 +621,12 @@
         "auditor": "OK",
         "comentario_auditor": "DIP COMPLETADO // T/A aperturado correctamente",
         "tema_auditor": "Intervalo / due date",
-        "programa": "POSIBLE DISCREPANCIA",
-        "acuerdo": "Solo el programa marca",
+        "programa": "SIN FUENTE",
+        "acuerdo": "Ambos OK",
         "metodo": "sin_referencia",
         "referencia": "",
         "hallazgos": [
-          "[POSIBLE DISCREPANCIA] El DIP no se encontró en el catálogo de referencias Others. Revisar manualmente."
+          "[SIN FUENTE] Sin fuente: el DIP no está en la tabla de referencias (DIPs References, Others). Verificar contra la fuente que cita."
         ]
       },
       {
@@ -681,12 +692,12 @@
         "auditor": "OK",
         "comentario_auditor": "DIP COMPLETADO // T/A doblelimitante aperturado correctamente al ESN 864293",
         "tema_auditor": "Intervalo / due date",
-        "programa": "POSIBLE DISCREPANCIA",
-        "acuerdo": "Solo el programa marca",
+        "programa": "SIN FUENTE",
+        "acuerdo": "Ambos OK",
         "metodo": "sin_referencia",
         "referencia": "",
         "hallazgos": [
-          "[POSIBLE DISCREPANCIA] El DIP no se encontró en el catálogo de referencias Others. Revisar manualmente."
+          "[SIN FUENTE] Sin fuente: el DIP no está en la tabla de referencias (DIPs References, Others). Verificar contra la fuente que cita."
         ]
       },
       {
@@ -754,12 +765,12 @@
         "auditor": "OK",
         "comentario_auditor": "",
         "tema_auditor": "Sin comentario",
-        "programa": "POSIBLE DISCREPANCIA",
-        "acuerdo": "Solo el programa marca",
+        "programa": "SIN FUENTE",
+        "acuerdo": "Ambos OK",
         "metodo": "sin_referencia",
         "referencia": "",
         "hallazgos": [
-          "[POSIBLE DISCREPANCIA] El DIP no se encontró en el catálogo de referencias Others. Revisar manualmente. Parecido en la tabla: 'SEALANT' (STRUCTURES, fila 67); 'PITOT PROBE SEALANT' (STRUCTURES, fila 73).",
+          "[SIN FUENTE] Sin fuente: el DIP no está en la tabla de referencias (DIPs References, Others). Verificar contra la fuente que cita. Parecido en la tabla: 'SEALANT' (STRUCTURES, fila 67); 'PITOT PROBE SEALANT' (STRUCTURES, fila 73).",
           "[OBSERVACIÓN] Abierto como Others, pero se parece a una referencia STRUCTURES."
         ]
       },
@@ -1053,12 +1064,12 @@
         "auditor": "DISCREPANCIA NO CRÍTICA",
         "comentario_auditor": "",
         "tema_auditor": "Sin comentario",
-        "programa": "POSIBLE DISCREPANCIA",
-        "acuerdo": "Ambos marcan",
+        "programa": "SIN FUENTE",
+        "acuerdo": "Solo el auditor marca",
         "metodo": "sin_referencia",
         "referencia": "",
         "hallazgos": [
-          "[POSIBLE DISCREPANCIA] El DIP no se encontró en el catálogo de referencias Others. Revisar manualmente."
+          "[SIN FUENTE] Sin fuente: el DIP no está en la tabla de referencias (DIPs References, Others). Verificar contra la fuente que cita."
         ]
       },
       {
@@ -1581,7 +1592,7 @@
   "tiempos": {
     "preparacion_s": 0.05,
     "auditoria_s": 0.09,
-    "casos_s": 0.1,
-    "total_s": 0.3
+    "casos_s": 0.13,
+    "total_s": 0.34
   }
 }

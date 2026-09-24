@@ -1,6 +1,6 @@
 # Auditor preliminar de DIPs
 
-Audita los DIPs Others de un Excel con los datos de **ICAM** (solo lectura) y `DIPs References.xlsx`. Resultado por DIP: **POSIBLE DISCREPANCIA** u **OK**, con el motivo. Reglas fijas, sin IA. Detalle en [docs/tecnico.md](docs/tecnico.md).
+Audita los DIPs Others de un Excel con los datos de **ICAM** (solo lectura) y `DIPs References.xlsx`. Resultado por DIP: **POSIBLE DISCREPANCIA**, **SIN FUENTE** u **OK**, con el motivo. Reglas fijas, sin IA. Detalle en [docs/tecnico.md](docs/tecnico.md).
 
 ## Instalación
 
@@ -61,6 +61,7 @@ Pruebas: `.venv\Scripts\python -m pytest`
 | `RESULTADO` | Qué hacer |
 | --- | --- |
 | POSIBLE DISCREPANCIA | Leer `HALLAZGOS` y decidir |
+| SIN FUENTE | El DIP no está en la tabla de referencias: verificarlo contra la fuente que cita (o agregar la referencia a la tabla) |
 | OK | Hacer las verificaciones de `VERIFICACIÓN MANUAL` |
 
 Otras columnas: `COMENTARIO SUGERIDO`, `AUDITORÍA` (APERTURA/CIERRE), `ESTADO APERTURA` / `ESTADO CIERRE`, `REFERENCIA ASOCIADA`, `REFERENCIA TÉCNICA DEL DIP`, `RIR EN ICAM`, `ADJUNTOS EN ICAM`. El Excel de entrada no se modifica.

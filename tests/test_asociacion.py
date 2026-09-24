@@ -1,6 +1,7 @@
 import pytest
 
 from dips_audit.asociacion import asociar, similares_en_tabla
+from tests.conftest import hacer_dip
 
 # Fault Names reales del histórico y la entrada esperada del catálogo.
 CASOS = [
@@ -44,6 +45,14 @@ CASOS = [
     ("DIP - ELEVATOR CONTROL CABLES EA AND EB RE-TENSION CHECK", "CABLES_ELEVADOR"),
     ("DIP- STA/STB CABLES RE-TENSION CHECK", "CABLES_ESTABILIZADOR"),
     ("MAREP///NOSE WHEEL TIRE #2 SHOWING SECOND PLY", "LLANTA"),
+    ("PIREP - TIRE MAIN IS SHOWING CANVAS", "LLANTA"),
+    # Fault Names reales del 23-sep-2026 que antes quedaban sin referencia.
+    ("DIP - First Aid (Aft Passenger Compartment) Kit", "FAK"),
+    ("DIP- FIRST AID KID", "FAK"),
+    ("Cover life vest 2AB MISSING", "CHALECO"),
+    ("LIVEVEST LATCH DOOR BROKEN SEAT 1EF", "CHALECO"),
+    ("DIP - RH MAIN LANDING GEAR X DIMENSION CHECK", "AMORTIGUADOR_MLG"),
+    ("DIP - Cargo Fire Extinguisher Bottle #1 AFT Squib", "SQUIB"),
     ("055 611 00 (Lightning Strike)", "RAYO"),
     ("RADOME INTERNAL INSPECTION DUE TO BIRDSTRIKE", "RADOMO"),
     ("AHM - 361 451 41/42 BLEED CTRL CARD L & R scheduled maintenance task shows: SMT", "BLEED_CTRL_CARD"),
@@ -64,11 +73,50 @@ def test_asociacion_por_reglas(catalogo, nombre, esperado):
     "DIP- 25 PASSENGER LIFE VEST",           # vencimiento de chaleco, no seguro de puerta
     "DEFIBRILLATOR DUE DATE",
     "DIP- wing tank # 2 access door 632AB",
+    # La tabla solo tiene la llanta con la tela a la vista: no un chequeo de presión ni la
+    # compuerta del tren de nariz.
+    "DIP - MLG #1, TIRE CHECK PRESSURE 175 PSI",
+    "DIP - P-STATIC BONDING JUMPER (LH FWD) NOSE WHEEL DOOR BROKEN",
+    "DIP - OXYGEN GENERATORS DUE DATE 31 JAN 2028",  # no está en la tabla: SIN FUENTE
 ])
 def test_sin_asociacion_cuando_no_corresponde(catalogo, nombre):
     a = asociar(nombre, catalogo)
     assert a.entrada is None
     assert a.metodo == "NINGUNA"
+
+
+def test_asociacion_por_la_descripcion(auditor):
+    """Si el Fault Name no alcanza, la descripción dice qué es (T40S00971LS)."""
+    dip = hacer_dip(nombre="AFT PASSENGER CABIN  LESS THAN 130 DAYS FOR DUE DATE",
+                    descripcion="DURING PERFORMANCE TASK CARD MAIN CABIN EMERGENCY EQUIPMENT "
+                                "INSPECTIONS WAS FOUND FIRST AID KIT WITH LESS THAN 130 DAYS")
+    a = auditor._asociar(dip)
+    assert a.metodo == "DESCRIPCION" and a.entrada.id == "FAK"
+
+
+def test_descripcion_que_cita_otra_tarea_queda_sin_fuente(auditor):
+    """T40S009FH6U: la muestra nueva de combustible sigue la SUBTASK 28-10-00-280-056 (10
+    días), no la referencia FUEL MICROBIAL GROWTH (AMM 28-10-00-200-802, 4 días)."""
+    dip = hacer_dip(nombre="DIP-MODERATE CONTAMINATION WAS FOUND IN THE TANK #1, A NEW FUEL "
+                           "SAMPLE IS REQUIRED.",
+                    descripcion="SUBTASK 28-10-00-280-056 (3) If the initial test results are "
+                                "positive for moderate or heavy levels of microbial contamination")
+    assert auditor._asociar(dip).entrada is None
+
+
+def test_asociacion_por_la_tarea_citada_en_la_descripcion(auditor):
+    """"IAW EC/RA 2500-0538C" es la referencia del seguro de la puerta del chaleco."""
+    dip = hacer_dip(nombre="DIP - SEAT 2AB MISSING ITEM",
+                    descripcion="This item entre dip 60 days iaw ec/ra 2500-0538c Rev2, 26dec2014")
+    a = auditor._asociar(dip)
+    assert a.metodo == "REF_TECNICA" and a.entrada.id == "CHALECO"
+
+
+def test_tarea_compartida_elige_la_referencia_mas_especifica(auditor):
+    """La AMM 12-15-31-610-802 está en MAIN LANDING GEAR SHOCK STRUT y en el genérico."""
+    dip = hacer_dip(nombre="DIP - RH GEAR CHECK", referencia_tecnica="TASK 12-15-31-610-802")
+    a = auditor._asociar(dip)
+    assert a.metodo == "REF_TECNICA" and a.entrada.id == "AMORTIGUADOR_MLG"
 
 
 def test_similares_en_tabla_detecta_otro_tipo(catalogo):

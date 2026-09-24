@@ -14,8 +14,8 @@ from .auditor import Auditor, ResultadoAuditoria
 from .cargador import cargar_export, parse_fecha
 
 ESTADOS_HUMANOS = ["OK", "DISCREPANCIA NO CRÍTICA", "DISCREPANCIA CRÍTICA"]
-# Por ahora el programa da solo dos resultados (ver reglas.ESTADOS).
-ESTADOS_IA = ["OK", "POSIBLE DISCREPANCIA"]
+# Resultados del programa (ver reglas.ESTADOS). SIN FUENTE no es OK ni discrepancia.
+ESTADOS_IA = ["OK", "SIN FUENTE", "POSIBLE DISCREPANCIA"]
 # Temas de los comentarios humanos (en orden de prioridad). Los primeros dependen
 # de información que no viene en el Excel de entrada (attachments, RIRs, tarjetas).
 TEMAS = [
@@ -76,7 +76,7 @@ def evaluar(auditor: Auditor, ruta_historico: Path, hoja_entrada: str = "DIPs",
 
     comp["HUMANO DISCREPANCIA"] = comp["ESTADO HUMANO"] != "OK"
     comp["IA DISCREPANCIA"] = comp["ESTADO IA"] == "POSIBLE DISCREPANCIA"
-    comp["IA MARCA"] = comp["ESTADO IA"] != "OK"
+    comp["IA MARCA"] = comp["IA DISCREPANCIA"]
     comp["TEMA HUMANO"] = comp["COMENTARIO HUMANO"].map(tema)
     comp["NO DETECTABLE DESDE EXCEL"] = comp["TEMA HUMANO"].isin(_NO_DETECTABLE)
     # Cualquier hallazgo, incluidas observaciones (no cambian el estado).
