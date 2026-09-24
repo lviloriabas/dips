@@ -7,7 +7,10 @@ from pathlib import Path
 
 import pandas as pd
 from openpyxl import Workbook
-from openpyxl.styles import Alignment, Font, PatternFill
+from openpyxl.chart import BarChart, PieChart, Reference
+from openpyxl.chart.label import DataLabelList
+from openpyxl.chart.series import DataPoint
+from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from openpyxl.utils import get_column_letter
 
 from .auditor import ResultadoAuditoria
@@ -28,7 +31,7 @@ _ENCABEZADO_IA = PatternFill("solid", fgColor="5B3A8C")
 COLUMNAS_IA = ["RESULTADO", "ESTADO IA", "TIPO DE DISCREPANCIA", "COMENTARIO SUGERIDO", "HALLAZGOS",
                "VERIFICACIÓN MANUAL", "REFERENCIA ASOCIADA", "ASOCIACIÓN",
                "TA SEGÚN REFERENCIA", "REFERENCIA TÉCNICA ESPERADA", "REFERENCIA TÉCNICA DEL DIP",
-               "ADJUNTOS EN ICAM"]
+               "RIR EN ICAM", "ADJUNTOS EN ICAM"]
 _ANCHOS = {"Fault Name": 45, "COMENTARIO SUGERIDO": 60, "HALLAZGOS": 70,
            "VERIFICACIÓN MANUAL": 60, "TA SEGÚN REFERENCIA": 45,
            "REFERENCIA TÉCNICA ESPERADA": 40, "REFERENCIA TÉCNICA DEL DIP": 40, "Detalle": 90, "ESTADO IA": 24,
@@ -89,7 +92,8 @@ def _colorear(ws, df: pd.DataFrame, columna: str, colores: dict) -> None:
 
 def exportar_excel(resultado: ResultadoAuditoria, ruta: Path) -> Path:
     wb = Workbook()
-    _hoja_resumen(wb.active, resultado)
+    _hoja_dashboard(wb.active, resultado)
+    _hoja_resumen(wb.create_sheet("Resumen"), resultado)
 
     # Hoja principal: columnas originales de ICAM + columnas de la auditoría.
     original = resultado.lote.original.copy()
@@ -107,8 +111,144 @@ def exportar_excel(resultado: ResultadoAuditoria, ruta: Path) -> Path:
     return ruta
 
 
+_RESULTADOS = ["DISCREPANCIA", "POSIBLE DISCREPANCIA", "OK"]
+_TITULO = Font(bold=True, size=16, color="1F3A5F")
+_SUBTITULO = Font(bold=True, size=11, color="1F3A5F")
+_BORDE = Border(bottom=Side(style="thin", color="C3C2B7"))
+
+
+def _etiquetas(valor: bool = False, porcentaje: bool = False) -> DataLabelList:
+    """Solo el valor o el porcentaje (sin nombre de serie ni de categoría)."""
+    e = DataLabelList()
+    e.showVal, e.showPercent = valor, porcentaje
+    e.showSerName = e.showCatName = e.showLegendKey = False
+    return e
+
+
+def _ejes_visibles(grafico) -> None:
+    """Excel reciente oculta los ejes de openpyxl si no se piden."""
+    grafico.x_axis.delete = False
+    grafico.y_axis.delete = False
+    grafico.x_axis.majorGridlines = None
+
+
+def _tabla_datos(ws, fila: int, col: int, encabezado: list[str], filas: list[list]) -> tuple[int, int]:
+    """Escribe una tabla chica (datos de un gráfico). Devuelve (primera fila, última fila)."""
+    for j, e in enumerate(encabezado):
+        c = ws.cell(fila, col + j, e)
+        c.font = Font(bold=True, color="52514E")
+        c.border = _BORDE
+    for i, f in enumerate(filas, start=1):
+        for j, v in enumerate(f):
+            ws.cell(fila + i, col + j, v)
+    return fila, fila + len(filas)
+
+
+def _hoja_dashboard(ws, resultado: ResultadoAuditoria) -> None:
+    """Primera hoja: indicadores y gráficos del resultado."""
+    ws.title = "Dashboard"
+    ws.sheet_view.showGridLines = False
+    filas = resultado.filas
+    tipos = dict(zip(resultado.lote.datos["fila"], resultado.lote.datos["tipo"]))
+    datos = filas.assign(TIPO=[(tipos.get(f) or "Sin tipo") for f in filas["Fila Excel"]])
+    en_alcance = datos[datos["RESULTADO"] != "FUERA DE ALCANCE"]
+    total = len(en_alcance)
+
+    ws["B2"] = "Auditoría preliminar de DIPs"
+    ws["B2"].font = _TITULO
+    ws["B3"] = (f"{resultado.lote.ruta.name} · {datetime.now():%d-%b-%Y %H:%M} · "
+                "Resultado de apoyo: el auditor confirma cada DIP.")
+    ws["B3"].font = Font(color="52514E")
+
+    # Indicadores
+    tarjetas = [("DIPs auditados", total, None, "1F3A5F")]
+    for r in _RESULTADOS:
+        n = int((en_alcance["RESULTADO"] == r).sum())
+        tarjetas.append((r, n, n / total if total else 0, COLORES_RESULTADO[r]))
+    fuera = int((datos["RESULTADO"] == "FUERA DE ALCANCE").sum())
+    for i, (nombre, n, pct, color) in enumerate(tarjetas):
+        col = 2 + i * 3
+        ws.merge_cells(start_row=5, start_column=col, end_row=5, end_column=col + 1)
+        ws.cell(5, col, nombre).font = Font(bold=True, color="52514E")
+        ws.cell(6, col, n).font = Font(bold=True, size=22)
+        if pct is not None:
+            ws.cell(7, col, pct).number_format = "0.0%"
+        for fila in (5, 6, 7):
+            ws.cell(fila, col).fill = PatternFill("solid", fgColor=color if fila == 5 and pct is not None
+                                                   else "F4F4F1")
+    ws.cell(8, 2, f"Fuera de alcance: {fuera} DIPs de otros tipos." if fuera else "").font = \
+        Font(italic=True, color="7B7973")
+    for c in range(2, 14):
+        ws.column_dimensions[get_column_letter(c)].width = 14
+
+    # Datos de los gráficos (columnas P en adelante, a la derecha de los gráficos)
+    col = 16
+    ws.cell(4, col, "Datos de los gráficos").font = _SUBTITULO
+    f1, f2 = _tabla_datos(ws, 5, col, ["Resultado", "DIPs"],
+                          [[r, int((en_alcance["RESULTADO"] == r).sum())] for r in _RESULTADOS])
+    pie = PieChart()
+    pie.title = "Resultado de los DIPs auditados"
+    pie.add_data(Reference(ws, min_col=col + 1, min_row=f1, max_row=f2), titles_from_data=True)
+    pie.set_categories(Reference(ws, min_col=col, min_row=f1 + 1, max_row=f2))
+    for i, r in enumerate(_RESULTADOS):
+        punto = DataPoint(idx=i)
+        punto.graphicalProperties.solidFill = COLORES_RESULTADO[r]
+        pie.series[0].dPt.append(punto)
+    pie.dataLabels = _etiquetas(porcentaje=True)
+    pie.legend.position = "b"
+    pie.height, pie.width = 8, 12
+    ws.add_chart(pie, "B10")
+
+    # DIPs por tipo, apilados por resultado
+    por_tipo = datos.groupby(["TIPO", "RESULTADO"]).size().unstack(fill_value=0)
+    columnas = [r for r in _RESULTADOS + ["FUERA DE ALCANCE"] if r in por_tipo.columns]
+    g1, g2 = _tabla_datos(ws, f2 + 2, col, ["Tipo DIP"] + columnas,
+                          [[t] + [int(por_tipo.loc[t, c]) for c in columnas] for t in por_tipo.index])
+    barras = BarChart()
+    barras.type, barras.grouping, barras.overlap = "col", "stacked", 100
+    barras.title = "DIPs por tipo"
+    barras.add_data(Reference(ws, min_col=col + 1, max_col=col + len(columnas), min_row=g1, max_row=g2),
+                    titles_from_data=True)
+    barras.set_categories(Reference(ws, min_col=col, min_row=g1 + 1, max_row=g2))
+    for serie, c in zip(barras.series, columnas):
+        serie.graphicalProperties.solidFill = COLORES_RESULTADO[c]
+        serie.graphicalProperties.line.solidFill = "FFFFFF"
+    barras.y_axis.title = "DIPs"
+    barras.legend.position = "b"
+    _ejes_visibles(barras)
+    barras.height, barras.width = 8, 14
+    ws.add_chart(barras, "H10")
+
+    # Tipos de discrepancia y referencias con más discrepancias
+    h = resultado.hallazgos
+    graves = h[h["Severidad"].isin(["CRITICA", "NO CRITICA"])] if not h.empty else h
+    tipos_disc = graves.groupby("Tipo de discrepancia")["Fault Barcode"].nunique() \
+        .sort_values(ascending=False).head(10) if not graves.empty else pd.Series(dtype=int)
+    discrepancias = en_alcance[en_alcance["RESULTADO"] == "DISCREPANCIA"]
+    refs = discrepancias["REFERENCIA ASOCIADA"].replace("", "Sin referencia").value_counts().head(10)
+    for fila_graf, serie_datos, titulo, encabezado in [
+            (27, tipos_disc, "Tipos de discrepancia (DIPs)", "Tipo de discrepancia"),
+            (44, refs, "Referencias con más DIPs con discrepancia", "Referencia")]:
+        if serie_datos.empty:
+            continue
+        inicio = ws.max_row + 2
+        d1, d2 = _tabla_datos(ws, inicio, col, [encabezado, "DIPs"],
+                              [[str(k), int(v)] for k, v in serie_datos.items()][::-1])
+        grafico = BarChart()
+        grafico.type = "bar"
+        grafico.title = titulo
+        grafico.legend = None
+        grafico.add_data(Reference(ws, min_col=col + 1, min_row=d1, max_row=d2), titles_from_data=True)
+        grafico.set_categories(Reference(ws, min_col=col, min_row=d1 + 1, max_row=d2))
+        grafico.series[0].graphicalProperties.solidFill = COLORES_RESULTADO["DISCREPANCIA"]
+        grafico.dataLabels = _etiquetas(valor=True)
+        _ejes_visibles(grafico)
+        grafico.height, grafico.width = 8, 26
+        ws.add_chart(grafico, f"B{fila_graf}")
+    ws.column_dimensions[get_column_letter(col)].width = 38
+
+
 def _hoja_resumen(ws, resultado: ResultadoAuditoria) -> None:
-    ws.title = "Resumen"
     ws.column_dimensions["A"].width = 38
     ws.column_dimensions["B"].width = 90
     ws.append(["Auditoría preliminar de DIPs (generada automáticamente)"])

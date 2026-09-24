@@ -35,6 +35,23 @@ class Intervalo:
 
 
 @dataclass
+class TareaSiguiente:
+    """Fila de Follow-on Tasks (Fault Information). Los RIR son tareas ADHOC."""
+    nombre: str
+    id: str
+    clase: str              # ADHOC (Ad-Hoc Task), REQ (Requirement)...
+    estado: str             # ACTV, FORECAST, COMPLETE...
+    due: str                # texto de la columna Due
+    restante: float | None  # "594 CYCLES" -> 594
+    unidad: str             # CYCLES, HOUR, "" si el Due es solo fecha
+    fecha: str              # "10-FEB-2027 23:59 UTC"
+
+    @property
+    def es_rir(self) -> bool:
+        return self.clase.upper().startswith("ADHOC")
+
+
+@dataclass
 class FichaICAM:
     barcode: str = ""
     titulo: str = ""
@@ -48,6 +65,7 @@ class FichaICAM:
     cambios_deadline: list[str] = field(default_factory=list)
     sn_removidos: list[tuple[str, str]] = field(default_factory=list)   # (P/N, S/N)
     sn_instalados: list[tuple[str, str]] = field(default_factory=list)
+    tareas_siguientes: list[TareaSiguiente] = field(default_factory=list)
     fault_status: str = ""
     severidad: str = ""
     deferral_class: str = ""
@@ -112,6 +130,46 @@ def _numero(texto: str) -> float | None:
         return float(texto.replace(",", ""))
     except ValueError:
         return None
+
+
+_DUE_USO = re.compile(r"^(-?[\d.,]+)\s*([A-Z]+)")
+_FECHA_ICAM = re.compile(r"\d{2}-[A-Z]{3}-\d{4}(?:\s+\d{2}:\d{2}\s+UTC)?")
+
+
+def leer_tareas_siguientes(texto: str) -> list[TareaSiguiente]:
+    """Filas de la tabla Follow-on Tasks. La columna Due puede seguir en la línea
+    siguiente ("594 CYCLES" y abajo "10-FEB-2027 23:59 UTC")."""
+    lineas = texto.splitlines()
+    inicio = next((i for i, l in enumerate(lineas)
+                   if {"Name", "ID", "Task Class"} <= {_limpio(c) for c in l.split("\t")}), None)
+    if inicio is None:
+        return []
+    enc = [_limpio(c) for c in lineas[inicio].split("\t")]
+    col = {c.rstrip("0123456789"): i for i, c in enumerate(enc)}   # "Task Status1" -> "Task Status"
+    tareas: list[TareaSiguiente] = []
+    for linea in lineas[inicio + 1:]:
+        if not _limpio(linea):
+            break
+        if "\t" not in linea:
+            if not tareas:
+                break
+            t = tareas[-1]      # continuación de la columna Due
+            t.due = f"{t.due} {_limpio(linea)}".strip()
+            m = _FECHA_ICAM.search(linea)
+            if m and not t.fecha:
+                t.fecha = m.group(0)
+            continue
+        celdas = [_limpio(c) for c in linea.split("\t")]
+        due = _celda(celdas, col.get("Due"))
+        fecha = _FECHA_ICAM.search(due)
+        # "594 CYCLES" = uso restante; "02-OCT-2026 23:59 UTC" = solo fecha.
+        m = None if due[:1].isdigit() and fecha and fecha.start() == 0 else _DUE_USO.match(due)
+        tareas.append(TareaSiguiente(
+            nombre=_celda(celdas, col.get("Name")), id=_celda(celdas, col.get("ID")),
+            clase=_celda(celdas, col.get("Task Class")), estado=_celda(celdas, col.get("Task Status")),
+            due=due, restante=_numero(m.group(1)) if m else None, unidad=m.group(2) if m else "",
+            fecha=fecha.group(0) if fecha else ""))
+    return [t for t in tareas if t.id]
 
 
 def leer_ficha(secciones: dict, barcode: str = "", titulo: str = "") -> FichaICAM:
@@ -186,6 +244,14 @@ def leer_ficha(secciones: dict, barcode: str = "", titulo: str = "") -> FichaICA
                 restante=_celda(fila, i.get("Usage Remaining"))))
 
     historial = texto("History") + "\n\n" + falla
+    # Follow-on Tasks: las abiertas (vista por defecto) y, si se leyó, "Show Historical Tasks".
+    fin_siguientes = ["Component Faults", "Failure Effects", "Fault History"]
+    tareas: dict[str, TareaSiguiente] = {}
+    for fuente in (falla, texto("FollowOnHistorico")):
+        for t in leer_tareas_siguientes(_bloque(fuente, "Follow-on Tasks", fin_siguientes)):
+            tareas.setdefault(t.id, t)
+    f.tareas_siguientes = list(tareas.values())
+
     f.cambios_deadline = list(dict.fromkeys(
         _limpio(l) for l in historial.splitlines()
         if re.search(r"deadline (has been|was) (modified|added|removed|extended)", l, re.I)))

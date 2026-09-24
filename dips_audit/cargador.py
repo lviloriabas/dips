@@ -247,6 +247,10 @@ def normalizar_lote(original: pd.DataFrame) -> tuple[pd.DataFrame, list[str]]:
             "intervalo_de_icam": False,
             "notas_diferimiento": "",
             "adjuntos": None,          # lista de nombres si se leyó ICAM; None = sin dato
+            "rirs": None,              # RIR en Follow-on Tasks si se leyó ICAM; None = sin dato
+            "historico_rir": False,    # se leyó Show Historical Tasks
+            "icam_intervalos": None,   # T/A en Scheduling de ICAM (valor, parámetro, Start)
+            "parent_icam": "",
         })
     # dtype=object conserva los None: si no, pandas los vuelve NaT/NaN, que son
     # verdaderos en un if y pasan los controles "is None" de las reglas.
@@ -289,6 +293,7 @@ def _registros_icam(ruta: Path) -> dict[str, dict]:
     import json
 
     from .icam import leer_ficha
+    from .rir import agrupar
 
     if ruta.is_dir() or ruta.suffix.lower() == ".json":
         if ruta.is_dir():
@@ -302,13 +307,18 @@ def _registros_icam(ruta: Path) -> dict[str, dict]:
                 continue  # solo vino del Excel: no hay datos de ICAM
             secciones = (r.get("icam_detail") or r).get("sections", {})
             ficha = leer_ficha(secciones, parse_texto(r["barcode"]), parse_texto(r.get("page_title")))
+            # Página de cada RIR (la lee el extractor): intervalo, Start y Parent Assembly.
+            detalles = {i: leer_ficha(d.get("sections", {}), i) for i, d in (r.get("rir") or {}).items()}
             salida[ficha.barcode] = {
                 "referencia_tecnica": "; ".join(ficha.referencias_tecnicas),
                 "descripcion": ficha.descripcion,
                 "notas_diferimiento": ficha.notas_diferimiento,
                 "adjuntos": ficha.adjuntos,
-                "intervalos": [{"value": i.valor, "parameter": i.parametro, "unit": i.unidad}
-                               for i in ficha.intervalos],
+                "intervalos": [{"value": i.valor, "parameter": i.parametro, "unit": i.unidad,
+                                "start": i.inicio} for i in ficha.intervalos],
+                "rirs": agrupar(ficha.tareas_siguientes, detalles),
+                "historico_rir": bool((secciones.get("FollowOnHistorico") or {}).get("text")),
+                "parent_icam": ficha.parent_assembly,
             }
         return salida
     if ruta.suffix.lower() == ".csv":
@@ -353,6 +363,10 @@ def completar_con_icam(lote: Lote, ruta: Path) -> int:
             datos.at[i, "descripcion"] = r["descripcion"]
         datos.at[i, "notas_diferimiento"] = r["notas_diferimiento"]
         datos.at[i, "adjuntos"] = r["adjuntos"]
+        datos.at[i, "rirs"] = r.get("rirs")
+        datos.at[i, "historico_rir"] = r.get("historico_rir", False)
+        datos.at[i, "icam_intervalos"] = r["intervalos"]
+        datos.at[i, "parent_icam"] = r.get("parent_icam", "")
         if datos.at[i, "intervalo"] is None and r["intervalos"]:
             primero = r["intervalos"][0]
             valor = parse_numero(primero.get("value") or primero.get("interval"))

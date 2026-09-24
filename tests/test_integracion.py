@@ -54,7 +54,10 @@ def test_auditoria_de_punta_a_punta(config, export, tmp_path):
 
     salida = exportar_excel(resultado, tmp_path / "salida.xlsx")
     wb = openpyxl.load_workbook(salida)
-    assert wb.sheetnames == ["Resumen", "Auditoría", "Hallazgos"]
+    assert wb.sheetnames == ["Dashboard", "Resumen", "Auditoría", "Hallazgos"]
+    dashboard = wb["Dashboard"]
+    assert len(dashboard._charts) >= 3            # resultado, DIPs por tipo, tipos de discrepancia
+    assert dashboard["B6"].value == 5             # DIPs auditados (sin el Powerplant)
     ws = wb["Auditoría"]
     encabezado = [c.value for c in ws[1]]
     assert encabezado[:3] == ["Fila Excel", "RESULTADO", "ESTADO IA"]

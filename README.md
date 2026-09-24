@@ -37,7 +37,8 @@ Por barcode, con la sesión del Edge de ICAM:
 
 1. Barcode Search (`POST /maintenix/servlet/ScanBarcode`) abre el DIP.
 2. Se leen las pestañas Task Execution, Fault Information, Task Information, Scheduling e History.
-3. Se guarda `data/icam/<barcode>.json`. Un DIP ya leído no se vuelve a leer.
+3. RIR: se lee Follow-on Tasks con "Show Historical Tasks" (RIR cerrados) y la página de cada RIR vigente (Scheduling y Task Information).
+4. Se guarda `data/icam/<barcode>.json`. Un DIP ya leído no se vuelve a leer.
 
 | Control | Cómo |
 | --- | --- |
@@ -60,11 +61,15 @@ Solo leer ICAM: `.venv\Scripts\python -m dips_audit extraer-icam "entrada.xlsx"`
 | Referencia técnica de otra referencia de la tabla | NO CRÍTICA |
 | Intervalo 0 o Usage Remaining mayor que el intervalo | NO CRÍTICA |
 | DIP duplicado, S/N repetido o Deferral Reference distinto del ATA | NO CRÍTICA |
+| RIR faltante (la tabla pide RIR) o con intervalo distinto | NO CRÍTICA |
+| RIR sin un límite del T/A (p. ej. CYCLES y CDY) o en otro Parent Assembly | NO CRÍTICA |
+| RIR con Start distinto del T/A | Revisar |
 | Sin referencia en la tabla, sin intervalo, due date dudoso, tarea que la tabla no tiene | Revisar |
 
 - La referencia se reconoce por palabras clave del Fault Name (`config/catalogo_others.yaml`), con errores de escritura (`FUNIGATION`) y siglas con puntos (`P.O.B`). Si el Fault Name no alcanza, se usa el número de tarea de la referencia técnica.
 - La referencia técnica (manual + REV + fecha) se busca en la descripción y en el resto del DIP, en cualquier orden: `AMM TASK 12-15-21-200-801 … REV 28, 15-MAY-2026`.
-- Attachments y RIR quedan como verificación manual. La columna `ADJUNTOS EN ICAM` muestra los attachments del DIP.
+- RIR: en ICAM son Follow-on Tasks ADHOC del DIP (las REQ, como el servicio de taller, no son RIR). El intervalo sale de la página del RIR o de la diferencia entre la tarea ACTV y la FORECAST (594 → 1394 CYCLES = 800 FC). La columna `RIR EN ICAM` muestra cada RIR con su intervalo.
+- Attachments quedan como verificación manual. La columna `ADJUNTOS EN ICAM` muestra los attachments del DIP.
 - La severidad de cada regla se cambia en `config/config.yaml`.
 
 ## Resultado
@@ -75,7 +80,16 @@ Solo leer ICAM: `.venv\Scripts\python -m dips_audit extraer-icam "entrada.xlsx"`
 | POSIBLE DISCREPANCIA | Falta un dato o la referencia no está en la tabla. Revisar a mano |
 | OK | No falló ninguna regla. Quedan las verificaciones manuales |
 
-Otras columnas: `ESTADO IA` (con severidad), `COMENTARIO SUGERIDO`, `REFERENCIA ASOCIADA`, `TA SEGÚN REFERENCIA`, `REFERENCIA TÉCNICA ESPERADA`, `REFERENCIA TÉCNICA DEL DIP`, `ADJUNTOS EN ICAM`, `VERIFICACIÓN MANUAL`. El Excel de entrada no se modifica.
+Hojas del Excel de salida:
+
+| Hoja | Contenido |
+| --- | --- |
+| Dashboard | Indicadores y gráficos: % de DISCREPANCIA, POSIBLE DISCREPANCIA y OK; DIPs por tipo; tipos de discrepancia; referencias con más discrepancias |
+| Resumen | Archivo, fecha, conteo por estado y por tipo de discrepancia |
+| Auditoría | Un DIP por fila: `RESULTADO`, `ESTADO IA`, `HALLAZGOS`, `COMENTARIO SUGERIDO`, referencia, TA, `REFERENCIA TÉCNICA DEL DIP`, `RIR EN ICAM`, `ADJUNTOS EN ICAM` y las columnas del Excel de entrada |
+| Hallazgos | Un hallazgo por fila, con severidad |
+
+El Excel de entrada no se modifica.
 
 ## Benchmark
 

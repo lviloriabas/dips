@@ -36,7 +36,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from urllib.parse import urljoin, urlparse
 
-from .icam import PESTANAS
+from .icam import PESTANAS, leer_tareas_siguientes
 
 _RUTA_DIP = "/maintenix/web/task/TaskDetails.jsp"
 # Texto que confirma que cada pestaña trae su contenido (y no una página de error).
@@ -57,6 +57,9 @@ _LEER = """(pestana) => {
         texto: nodo ? nodo.innerText : '',
         pestanas: Object.fromEntries(Array.from(document.querySelectorAll('a[id^="idTab"][id$="_link"]'))
             .map(a => [a.id.slice(5, -5), a.getAttribute('href')])),
+        historico: (Array.from(document.querySelectorAll('a'))
+            .find(a => /historical tasks/i.test(a.textContent)) || {getAttribute: () => null})
+            .getAttribute('href'),
     };
 }"""
 
@@ -203,7 +206,8 @@ class ExtractorICAM:
         await pagina.route("**/*", lambda ruta: ruta.abort())
         return pagina
 
-    async def _leer_respuesta(self, respuesta, aislada, pestana: str, barcode: str) -> dict:
+    async def _leer_respuesta(self, respuesta, aislada, pestana: str, barcode: str,
+                              validar: bool = True) -> dict:
         url = respuesta.url
         if not self._en_icam(url) or "login" in url.lower():
             raise ErrorSesion("La sesión de ICAM venció. Inicie sesión en el Edge de ICAM y "
@@ -214,7 +218,7 @@ class ExtractorICAM:
         datos = await aislada.evaluate(_LEER, pestana)
         if datos["barcode"] and datos["barcode"] != barcode:
             raise ErrorExtraccion(f"ICAM devolvió {datos['barcode']} en vez de {barcode}")
-        if not pestana_valida(pestana, datos["texto"]):
+        if validar and not pestana_valida(pestana, datos["texto"]):
             raise ErrorExtraccion(f"la pestaña {pestana} vino sin contenido")
         return datos
 
@@ -230,37 +234,89 @@ class ExtractorICAM:
                 await asyncio.sleep(0.5 * (intento + 1))
         raise ErrorExtraccion(f"{que}: {ultimo}")
 
+    async def _buscar(self, barcode: str, validar: bool = True) -> tuple[str, dict]:
+        """Barcode Search: devuelve (URL de la tarea, datos de su primera pestaña)."""
+        aislada = await self.pagina_aislada()
+        try:
+            r = await self._contexto.request.post(
+                self._busqueda, form={"aBarcodeScan": barcode, "aReturnToPage": ""},
+                timeout=self.espera_ms)
+            return r.url, await self._leer_respuesta(r, aislada, "TaskExecution", barcode, validar)
+        finally:
+            await aislada.close()
+
+    async def _get(self, url: str, pestana: str, barcode: str, validar: bool = True) -> dict:
+        aislada = await self.pagina_aislada()
+        try:
+            r = await self._contexto.request.get(url, timeout=self.espera_ms)
+            return await self._leer_respuesta(r, aislada, pestana, barcode, validar)
+        finally:
+            await aislada.close()
+
+    def _url_pestana(self, url_tarea: str, enlaces: dict, nombre: str) -> str:
+        href = enlaces.get(nombre) or f"{url_tarea.split('?')[0]}?{_consulta(url_tarea, nombre)}"
+        return urljoin(url_tarea, href)
+
+    async def _leer_rir(self, rir_id: str) -> dict:
+        """Página de un RIR (tarea ADHOC): Scheduling y Task Information."""
+        url, primera = await self._reintentar(lambda: self._buscar(rir_id, validar=False),
+                                              f"búsqueda RIR {rir_id}")
+        textos = await asyncio.gather(*(
+            self._reintentar(lambda n=n: self._get(self._url_pestana(url, primera["pestanas"], n),
+                                                   n, rir_id), f"RIR {rir_id} {n}")
+            for n in ("Scheduling", "TaskInformation")))
+        return {"page_url": url, "page_title": primera["titulo"],
+                "sections": {"Scheduling": {"text": textos[0]["texto"]},
+                             "TaskInformation": {"text": textos[1]["texto"]}}}
+
     async def leer(self, barcode: str) -> dict:
-        """Búsqueda y luego las pestañas en paralelo; cada consulta se reintenta sola."""
-        peticiones = self._contexto.request
-
-        async def buscar():
-            aislada = await self.pagina_aislada()
-            try:
-                r = await peticiones.post(self._busqueda, form={"aBarcodeScan": barcode,
-                                                                "aReturnToPage": ""},
-                                          timeout=self.espera_ms)
-                return r.url, await self._leer_respuesta(r, aislada, "TaskExecution", barcode)
-            finally:
-                await aislada.close()
-
-        url_dip, primera = await self._reintentar(buscar, "búsqueda")
-
-        async def pestana(nombre: str):
-            href = primera["pestanas"].get(nombre) or f"{url_dip.split('?')[0]}?{_consulta(url_dip, nombre)}"
-            aislada = await self.pagina_aislada()
-            try:
-                r = await peticiones.get(urljoin(url_dip, href), timeout=self.espera_ms)
-                return (await self._leer_respuesta(r, aislada, nombre, barcode))["texto"]
-            finally:
-                await aislada.close()
-
+        """Búsqueda, pestañas en paralelo y RIR. Cada consulta se reintenta sola."""
+        url_dip, primera = await self._reintentar(lambda: self._buscar(barcode), "búsqueda")
         otras = [n for n in PESTANAS if n != "TaskExecution"]
-        textos = await asyncio.gather(*(self._reintentar(lambda n=n: pestana(n), n) for n in otras))
+        datos = await asyncio.gather(*(
+            self._reintentar(lambda n=n: self._get(self._url_pestana(url_dip, primera["pestanas"], n),
+                                                   n, barcode), n)
+            for n in otras))
         secciones = {"TaskExecution": {"text": primera["texto"]}}
-        secciones.update({n: {"text": t} for n, t in zip(otras, textos)})
-        return {"barcode": barcode, "captured_at_utc": datetime.now(timezone.utc).isoformat(),
-                "page_title": primera["titulo"], "page_url": url_dip, "sections": secciones}
+        secciones.update({n: {"text": d["texto"]} for n, d in zip(otras, datos)})
+        registro = {"barcode": barcode, "captured_at_utc": datetime.now(timezone.utc).isoformat(),
+                    "page_title": primera["titulo"], "page_url": url_dip, "sections": secciones}
+
+        # RIR: Follow-on Tasks cerradas (Show Historical Tasks) y la página de cada RIR vigente.
+        # Un problema aquí no invalida el DIP: queda anotado en "rir_errores".
+        errores: dict[str, str] = {}
+        falla = dict(zip(otras, datos))["FaultInformation"]
+        historico = falla.get("historico")
+        if historico and not historico.lower().startswith("javascript"):
+            try:
+                h = await self._reintentar(lambda: self._get(urljoin(url_dip, historico),
+                                                             "FaultInformation", barcode),
+                                           "Show Historical Tasks")
+                secciones["FollowOnHistorico"] = {"text": h["texto"]}
+            except ErrorSesion:
+                raise
+            except Exception as e:
+                errores["historico"] = str(e)
+        tareas = leer_tareas_siguientes(falla["texto"])
+        if "FollowOnHistorico" in secciones:
+            tareas += leer_tareas_siguientes(secciones["FollowOnHistorico"]["text"])
+        vigentes: dict[str, str] = {}
+        for t in tareas:
+            if t.es_rir and (t.nombre not in vigentes or t.estado.upper() == "ACTV"):
+                vigentes[t.nombre] = t.id
+        rir: dict[str, dict] = {}
+        for rir_id in dict.fromkeys(vigentes.values()):
+            try:
+                rir[rir_id] = await self._leer_rir(rir_id)
+            except ErrorSesion:
+                raise
+            except Exception as e:
+                errores[rir_id] = str(e)
+        if rir:
+            registro["rir"] = rir
+        if errores:
+            registro["rir_errores"] = errores
+        return registro
 
 
 def _consulta(url: str, pestana: str) -> str:

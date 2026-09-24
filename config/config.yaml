@@ -47,6 +47,12 @@ severidades:
   sin_referencia_tecnica: NO CRITICA         # no cita ninguna referencia del manual
   referencia_tecnica_incompleta: NO CRITICA  # la cita sin revisión o sin fecha
   intervalo_de_icam: OBSERVACION             # el Excel no trae intervalo; se usó el de ICAM
+  # RIR en Follow-on Tasks (datos de ICAM). Severidad a confirmar con los auditores.
+  rir_faltante: NO CRITICA                   # la referencia pide RIR y el DIP no tiene
+  rir_intervalo_incorrecto: NO CRITICA       # RIR con intervalo distinto del de la referencia
+  rir_limite_faltante: NO CRITICA            # el T/A tiene un límite que el RIR no tiene
+  rir_inicio_distinto: REVISAR               # el RIR no empieza donde empieza el T/A
+  rir_parent_distinto: NO CRITICA            # RIR en otro Parent Assembly (avión / motor)
   # Referencia del manual distinta de la de la tabla (solo si la tabla tiene número).
   referencia_tecnica_equivocada: NO CRITICA  # tiene la de otra referencia de la tabla
   referencia_tecnica_distinta: REVISAR       # tiene una tarea que la tabla no tiene

@@ -27,8 +27,8 @@ flowchart LR
 flowchart TD
     A["1. abrir_icam.bat<br/>Iniciar sesión en ICAM<br/>(una vez; dejar la ventana abierta)"] --> B
     B["2. Arrastrar el Excel de entrada<br/>sobre auditar.bat"] --> C
-    C["3. Abrir el Excel de salida<br/>en la carpeta salidas"] --> D
-    D["4. Filtrar la columna RESULTADO<br/>y revisar DISCREPANCIA y POSIBLE DISCREPANCIA"]
+    C["3. Abrir el Excel de salida en la carpeta salidas<br/>Hoja Dashboard: resumen y gráficos"] --> D
+    D["4. Hoja Auditoría: filtrar RESULTADO<br/>y revisar DISCREPANCIA y POSIBLE DISCREPANCIA"]
 ```
 
 ## Lectura de ICAM
@@ -52,6 +52,8 @@ sequenceDiagram
             E->>I: Scheduling
             E->>I: History
         end
+        E->>I: Show Historical Tasks (RIR cerrados)
+        E->>I: Página de cada RIR vigente (Scheduling, Task Information)
         P->>P: Valida y guarda data/icam/barcode.json
     end
 ```
@@ -108,9 +110,36 @@ flowchart TD
 | Referencia técnica de otra referencia | DISCREPANCIA NO CRÍTICA |
 | Intervalo 0, Usage Remaining mayor que el intervalo | DISCREPANCIA NO CRÍTICA |
 | DIP duplicado, S/N repetido, Deferral Reference distinto del ATA | DISCREPANCIA NO CRÍTICA |
+| RIR faltante o con intervalo distinto del de la tabla | DISCREPANCIA NO CRÍTICA |
+| RIR sin un límite del T/A o en otro Parent Assembly | DISCREPANCIA NO CRÍTICA |
+| RIR con Start distinto del T/A | POSIBLE DISCREPANCIA |
 | Sin referencia en la tabla, sin intervalo, due date dudoso | POSIBLE DISCREPANCIA |
 
 La severidad de cada regla se cambia en `config/config.yaml`.
+
+## RIR en ICAM
+
+```mermaid
+flowchart LR
+    D[DIP] --> F[Follow-on Tasks]
+    F --> A["RIR ACTV<br/>594 CYCLES"]
+    F --> B["RIR FORECAST<br/>1394 CYCLES"]
+    F -.-> H["Show Historical Tasks<br/>RIR cerrados"]
+    A --> I["Intervalo = 1394 − 594 = 800 FC"]
+    B --> I
+    A --> P["Página del RIR<br/>Scheduling: intervalo, Start, límites<br/>Task Information: Parent Assembly"]
+    I --> C{"¿Igual al RIR de la tabla<br/>y a los límites y Start del T/A?"}
+    P --> C
+```
+
+| Se revisa | Criterio del auditor |
+| --- | --- |
+| Intervalo | "RIRs (2 DAY INTERVAL)", "T/A y RIRs correctos (100 FH y 50 FH)" |
+| Límites | "RIRs aperturados solo con limitantes de ciclos. Agregar limitante de 30 Meses" |
+| Start | "RIRs de 200FH con START values diferentes al T/A ocasiona que corran mal" |
+| Parent Assembly | "RIRS aperturados correctamente al motor ESN …" |
+
+Las Follow-on Tasks REQ (servicio de taller) no son RIR.
 
 ## Referencia técnica en los DIPs Others leídos de ICAM
 

@@ -15,6 +15,8 @@ from .asociacion import Asociacion, ParametrosAsociacion, asociar, similares_en_
 from .cargador import Lote, cargar_export, completar_con_icam
 from .llm import ClienteOllama
 from .referencia_tecnica import IndiceReferencias, buscar_referencia, extraer_codigos, revisar
+from .rir import requerido as rir_requerido
+from .rir import revisar as revisar_rir
 from .referencias import Catalogo, EntradaCatalogo, cargar_catalogo, cargar_referencias
 from .reglas import (Contexto, Hallazgo, auditar_dip, buscar_duplicados, buscar_sn_repetidos,
                      estado_final)
@@ -116,6 +118,7 @@ class Auditor:
             ctx = self.contexto(fecha)
             r = auditar_dip(dip, asoc.entrada, ctx)
             self._referencia_tecnica(dip, asoc, ctx, r)
+            self._rir(dip, asoc, ctx, r)
             if dip.get("intervalo_de_icam"):
                 r.agregar(ctx, "intervalo_de_icam", "Missing Data",
                           f"El Excel de entrada no trae intervalo: se usó el de ICAM "
@@ -212,6 +215,27 @@ class Auditor:
                 r.agregar(ctx, revision.codigo, "Incorrect Technical Reference",
                           revision.mensaje)
 
+    def _rir(self, dip: dict, asoc: Asociacion, ctx, r) -> None:
+        """RIR del DIP en Follow-on Tasks (datos de ICAM) contra la referencia y el T/A."""
+        if dip.get("rirs") is None:
+            return  # sin datos de ICAM: queda la verificación manual
+        entrada = asoc.entrada
+        texto = ""
+        if entrada:
+            variante = next((v for v in entrada.variantes if v.nombre == r.variante and v.rir), None)
+            variante = variante or next((v for v in entrada.variantes if v.rir), None)
+            texto = variante.rir if variante else ""
+        for codigo, mensaje in revisar_rir(dip["rirs"], rir_requerido(texto), dip):
+            r.agregar(ctx, codigo, "RIR", mensaje)
+        exigido = rir_requerido(texto)
+        if exigido and not dip["rirs"] and not dip.get("historico_rir") and \
+                dip.get("estado") not in {"ACTV", "OPEN", "IN WORK"}:
+            r.manuales = [m for m in r.manuales if not m.startswith("Verificar RIR")]
+            r.manuales.append(f"Verificar RIR cada {exigido} en Follow-on Tasks "
+                              "(Show Historical Tasks): el DIP está cerrado.")
+        elif dip["rirs"] or exigido:
+            r.manuales = [m for m in r.manuales if not m.startswith("Verificar RIR")]
+
     def _asociar(self, dip: dict) -> Asociacion:
         """Por el Fault Name (reglas y, si hay, modelo local); si no alcanza, por la
         referencia técnica cuando corresponde a una sola referencia del catálogo."""
@@ -265,6 +289,8 @@ class Auditor:
                 for x in entrada.referencias) if entrada else "",
             "REFERENCIA TÉCNICA ESPERADA": entrada.referencias_tecnicas if entrada else "",
             "REFERENCIA TÉCNICA DEL DIP": dip.get("referencia_encontrada") or "",
+            "RIR EN ICAM": ("" if dip.get("rirs") is None
+                            else "; ".join(map(str, dip["rirs"])) or "Sin RIR"),
             "ADJUNTOS EN ICAM": ("" if dip.get("adjuntos") is None
                                  else f"{len(dip['adjuntos'])}: " + ", ".join(dip["adjuntos"])
                                  if dip["adjuntos"] else "0"),
