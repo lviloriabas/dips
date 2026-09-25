@@ -1,0 +1,1666 @@
+{
+  "formato": 3,
+  "fecha": "2026-09-25 08:14",
+  "version_programa": "0.1.0",
+  "datos": {
+    "archivo": "benchmark/dips_auditados.xlsx",
+    "dips": 50,
+    "veredictos_auditor": {
+      "OK": 44,
+      "DISCREPANCIA NO CRÍTICA": 5,
+      "DISCREPANCIA CRÍTICA": 1
+    },
+    "archivo_casos": "benchmark/casos_asociacion.yaml",
+    "casos": 46,
+    "dips_sin_referencia_por_reglas": 4
+  },
+  "configuracion": {
+    "tolerancias": {
+      "dias": 1,
+      "meses_min": 30,
+      "meses_max": 31,
+      "horas_cierre": 5,
+      "inicio_fh": 2,
+      "inicio_fc": 0
+    },
+    "discrepancias": {
+      "Incorrect DIP Interval": {
+        "activo": true,
+        "reglas": {
+          "intervalo_excedido": {
+            "activa": true,
+            "severidad": "CRITICA"
+          },
+          "intervalo_menor": {
+            "activa": true,
+            "severidad": "OBSERVACION"
+          },
+          "intervalo_cero": {
+            "activa": true,
+            "severidad": "NO CRITICA"
+          },
+          "tipo_intervalo_incorrecto": {
+            "activa": true,
+            "severidad": "CRITICA"
+          },
+          "variante_condicional": {
+            "activa": true,
+            "severidad": "OBSERVACION"
+          },
+          "usage_remaining_mayor_a_intervalo": {
+            "activa": true,
+            "severidad": "OBSERVACION"
+          },
+          "limite_faltante": {
+            "activa": true,
+            "severidad": "NO CRITICA"
+          },
+          "intervalo_mayor_a_descripcion": {
+            "activa": true,
+            "severidad": "CRITICA"
+          },
+          "tipo_intervalo_distinto_a_descripcion": {
+            "activa": true,
+            "severidad": "CRITICA"
+          },
+          "limite_declarado_faltante": {
+            "activa": true,
+            "severidad": "NO CRITICA"
+          }
+        }
+      },
+      "Deferral Interval Not Documented": {
+        "activo": true,
+        "reglas": {
+          "datos_incompletos": {
+            "activa": true,
+            "severidad": "REVISAR"
+          }
+        }
+      },
+      "Missing Data": {
+        "activo": true,
+        "reglas": {
+          "intervalo_de_icam": {
+            "activa": true,
+            "severidad": "OBSERVACION"
+          }
+        }
+      },
+      "Incorrect DIP Start Values": {
+        "activo": true,
+        "reglas": {
+          "inicio_ta_incorrecto": {
+            "activa": true,
+            "severidad": "NO CRITICA"
+          }
+        }
+      },
+      "Incorrect Due Date": {
+        "activo": true,
+        "reglas": {
+          "due_date_posterior_a_intervalo": {
+            "activa": true,
+            "severidad": "REVISAR"
+          },
+          "due_date_anterior_a_intervalo": {
+            "activa": true,
+            "severidad": "OBSERVACION"
+          },
+          "due_date_posterior_a_vencimiento_item": {
+            "activa": true,
+            "severidad": "CRITICA"
+          },
+          "due_date_anterior_a_vencimiento_item": {
+            "activa": true,
+            "severidad": "OBSERVACION"
+          }
+        }
+      },
+      "Overdue DIP": {
+        "activo": true,
+        "reglas": {
+          "dip_vencido": {
+            "activa": true,
+            "severidad": "CRITICA"
+          },
+          "programado_despues_del_due": {
+            "activa": true,
+            "severidad": "REVISAR"
+          }
+        }
+      },
+      "Incorrect Parent Assembly": {
+        "activo": true,
+        "reglas": {
+          "parent_assy_incorrecto": {
+            "activa": true,
+            "severidad": "CRITICA"
+          },
+          "parent_assy_distinto_a_pares": {
+            "activa": true,
+            "severidad": "REVISAR"
+          }
+        }
+      },
+      "Incorrect ATA": {
+        "activo": true,
+        "reglas": {
+          "deferral_reference_ata": {
+            "activa": true,
+            "severidad": "NO CRITICA"
+          },
+          "ata_distinto_a_referencia": {
+            "activa": true,
+            "severidad": "OBSERVACION"
+          }
+        }
+      },
+      "Missing S/N": {
+        "activo": true,
+        "reglas": {
+          "sin_sn_en_descripcion": {
+            "activa": true,
+            "severidad": "OBSERVACION"
+          }
+        }
+      },
+      "Incorrect S/N": {
+        "activo": true,
+        "reglas": {
+          "sn_repetido": {
+            "activa": true,
+            "severidad": "NO CRITICA"
+          },
+          "sn_inconsistente": {
+            "activa": true,
+            "severidad": "NO CRITICA"
+          },
+          "cierre_sn_distinto": {
+            "activa": true,
+            "severidad": "OBSERVACION"
+          }
+        }
+      },
+      "Duplicated DIP": {
+        "activo": true,
+        "reglas": {
+          "duplicado": {
+            "activa": true,
+            "severidad": "NO CRITICA"
+          }
+        }
+      },
+      "Incorrect Fault Severity": {
+        "activo": true,
+        "reglas": {
+          "fault_severity": {
+            "activa": true,
+            "severidad": "OBSERVACION"
+          }
+        }
+      },
+      "Missing Technical Reference": {
+        "activo": true,
+        "reglas": {
+          "sin_referencia_tecnica": {
+            "activa": true,
+            "severidad": "NO CRITICA"
+          },
+          "referencia_tecnica_incompleta": {
+            "activa": true,
+            "severidad": "OBSERVACION"
+          },
+          "cierre_sin_accion_correctiva": {
+            "activa": true,
+            "severidad": "NO CRITICA"
+          },
+          "cierre_sin_referencia_tecnica": {
+            "activa": true,
+            "severidad": "OBSERVACION"
+          },
+          "cierre_referencia_incompleta": {
+            "activa": true,
+            "severidad": "OBSERVACION"
+          }
+        }
+      },
+      "Non-Specific Technical Reference": {
+        "activo": true,
+        "reglas": {
+          "referencia_tecnica_no_especifica": {
+            "activa": true,
+            "severidad": "NO CRITICA"
+          }
+        }
+      },
+      "Incorrect Technical Reference": {
+        "activo": true,
+        "reglas": {
+          "referencia_tecnica_equivocada": {
+            "activa": true,
+            "severidad": "NO CRITICA"
+          },
+          "referencia_tecnica_distinta": {
+            "activa": true,
+            "severidad": "REVISAR"
+          },
+          "referencia_tecnica_mismo_tema": {
+            "activa": true,
+            "severidad": "OBSERVACION"
+          }
+        }
+      },
+      "RIR": {
+        "activo": true,
+        "reglas": {
+          "rir_faltante": {
+            "activa": true,
+            "severidad": "NO CRITICA"
+          },
+          "rir_intervalo_incorrecto": {
+            "activa": true,
+            "severidad": "NO CRITICA"
+          },
+          "rir_intervalo_menor": {
+            "activa": true,
+            "severidad": "OBSERVACION"
+          },
+          "rir_limite_faltante": {
+            "activa": true,
+            "severidad": "NO CRITICA"
+          },
+          "rir_inicio_distinto": {
+            "activa": true,
+            "severidad": "REVISAR"
+          },
+          "rir_parent_distinto": {
+            "activa": true,
+            "severidad": "NO CRITICA"
+          },
+          "rir_descripcion_faltante": {
+            "activa": true,
+            "severidad": "NO CRITICA"
+          },
+          "rir_descripcion_distinto": {
+            "activa": true,
+            "severidad": "NO CRITICA"
+          }
+        }
+      },
+      "Late Completion": {
+        "activo": true,
+        "reglas": {
+          "completado_fuera_de_plazo": {
+            "activa": true,
+            "severidad": "CRITICA"
+          },
+          "cierre_deadline_extendido": {
+            "activa": true,
+            "severidad": "REVISAR"
+          }
+        }
+      },
+      "Missing Attachment": {
+        "activo": true,
+        "reglas": {
+          "sin_adjuntos": {
+            "activa": true,
+            "severidad": "NO CRITICA"
+          },
+          "cierre_sin_adjuntos": {
+            "activa": true,
+            "severidad": "NO CRITICA"
+          },
+          "adjunto_otro_avion": {
+            "activa": true,
+            "severidad": "OBSERVACION"
+          }
+        }
+      },
+      "Reference Match": {
+        "activo": true,
+        "reglas": {
+          "asociacion_aproximada": {
+            "activa": true,
+            "severidad": "OBSERVACION"
+          },
+          "asociacion_por_referencia_tecnica": {
+            "activa": true,
+            "severidad": "OBSERVACION"
+          },
+          "asociacion_por_descripcion": {
+            "activa": true,
+            "severidad": "OBSERVACION"
+          }
+        }
+      },
+      "Missing Reference in Table": {
+        "activo": true,
+        "reglas": {
+          "sin_referencia": {
+            "activa": true,
+            "severidad": "SIN FUENTE"
+          }
+        }
+      },
+      "Incorrect DIP Type": {
+        "activo": true,
+        "reglas": {
+          "tipo_dip_distinto_a_referencia": {
+            "activa": true,
+            "severidad": "OBSERVACION"
+          }
+        }
+      }
+    },
+    "catalogo": {
+      "archivo": "config/catalogo_others.yaml",
+      "entradas": 70
+    },
+    "referencias": {
+      "archivo": "DIPs References.xlsx",
+      "filas": 75
+    }
+  },
+  "equipo": {
+    "procesador": "12th Gen Intel(R) Core(TM) i7-1265U",
+    "hilos": 12,
+    "ram_gb": 15.7,
+    "sistema": "Windows-11"
+  },
+  "auditoria": {
+    "indicadores": {
+      "coincidencia": {
+        "aciertos": 42,
+        "total": 50,
+        "pct": 84.0
+      },
+      "asociados": {
+        "aciertos": 46,
+        "total": 50,
+        "pct": 92.0
+      },
+      "ok_correctos": {
+        "aciertos": 41,
+        "total": 44,
+        "pct": 93.2
+      },
+      "falsas_discrepancias": {
+        "aciertos": 3,
+        "total": 44,
+        "pct": 6.8
+      },
+      "discrepancias_detectadas": {
+        "aciertos": 1,
+        "total": 6,
+        "pct": 16.7
+      },
+      "detectables_detectadas": {
+        "aciertos": 0,
+        "total": 5,
+        "pct": 0.0
+      }
+    },
+    "matriz": {
+      "OK": {
+        "OK": 38,
+        "SIN FUENTE": 3,
+        "POSIBLE DISCREPANCIA": 3
+      },
+      "DISCREPANCIA NO CRÍTICA": {
+        "OK": 4,
+        "SIN FUENTE": 1,
+        "POSIBLE DISCREPANCIA": 0
+      },
+      "DISCREPANCIA CRÍTICA": {
+        "OK": 0,
+        "SIN FUENTE": 0,
+        "POSIBLE DISCREPANCIA": 1
+      }
+    },
+    "por_tema": {
+      "Intervalo / due date": {
+        "auditor": 1,
+        "programa_marca": 0,
+        "programa_algun_hallazgo": 1
+      },
+      "RIR": {
+        "auditor": 1,
+        "programa_marca": 1,
+        "programa_algun_hallazgo": 1
+      },
+      "S/N": {
+        "auditor": 2,
+        "programa_marca": 0,
+        "programa_algun_hallazgo": 2
+      },
+      "Sin comentario": {
+        "auditor": 2,
+        "programa_marca": 0,
+        "programa_algun_hallazgo": 1
+      }
+    },
+    "hallazgos_en_ok_del_auditor": {
+      "intervalo_excedido": 2,
+      "intervalo_cero": 1
+    },
+    "dips": [
+      {
+        "barcode": "T40S009DB2E",
+        "fault_name": "CREW OXYGEN INDICATION WITH 900 PSI",
+        "intervalo": "3 DAY",
+        "auditor": "OK",
+        "comentario_auditor": "T/A aperturado correctamente",
+        "tema_auditor": "Intervalo / due date",
+        "programa": "OK",
+        "acuerdo": "Ambos OK",
+        "metodo": "reglas",
+        "referencia": "CREW OXYGEN BOTTLE PRESSURE",
+        "hallazgos": [
+          "[OBSERVACIÓN] El intervalo 3 DAY corresponde a la condición '3 DAY IF PRESSURE IS GREATER THAN 200 PSI, ABOVE THE MINIMUM DISPATCH PRESSURE'. Verificar que aplique. Presión reportada: 900 PSI."
+        ]
+      },
+      {
+        "barcode": "T40S009CYP4",
+        "fault_name": "DIP - CREW OXYGEN BOTTLE WITH LOW PRESS",
+        "intervalo": "3 DAY",
+        "auditor": "OK",
+        "comentario_auditor": "T/A aperturado correctamente",
+        "tema_auditor": "Intervalo / due date",
+        "programa": "OK",
+        "acuerdo": "Ambos OK",
+        "metodo": "reglas",
+        "referencia": "CREW OXYGEN BOTTLE PRESSURE",
+        "hallazgos": [
+          "[OBSERVACIÓN] El intervalo 3 DAY corresponde a la condición '3 DAY IF PRESSURE IS GREATER THAN 200 PSI, ABOVE THE MINIMUM DISPATCH PRESSURE'. Verificar que aplique."
+        ]
+      },
+      {
+        "barcode": "T40S009CP7E",
+        "fault_name": "CREW OXYGEN BOTTLE WITH 950 PSI",
+        "intervalo": "3 DAY",
+        "auditor": "OK",
+        "comentario_auditor": "T/A aperturado correctamente",
+        "tema_auditor": "Intervalo / due date",
+        "programa": "OK",
+        "acuerdo": "Ambos OK",
+        "metodo": "reglas",
+        "referencia": "CREW OXYGEN BOTTLE PRESSURE",
+        "hallazgos": [
+          "[OBSERVACIÓN] El intervalo 3 DAY corresponde a la condición '3 DAY IF PRESSURE IS GREATER THAN 200 PSI, ABOVE THE MINIMUM DISPATCH PRESSURE'. Verificar que aplique. Presión reportada: 950 PSI."
+        ]
+      },
+      {
+        "barcode": "T40S009CJ9B",
+        "fault_name": "During overnight cabin check was found CREW OXYGEN LESS THAN 1000 PSI",
+        "intervalo": "3 DAY",
+        "auditor": "OK",
+        "comentario_auditor": "T/A aperturado correctamente",
+        "tema_auditor": "Intervalo / due date",
+        "programa": "OK",
+        "acuerdo": "Ambos OK",
+        "metodo": "reglas",
+        "referencia": "CREW OXYGEN BOTTLE PRESSURE",
+        "hallazgos": [
+          "[OBSERVACIÓN] El intervalo 3 DAY corresponde a la condición '3 DAY IF PRESSURE IS GREATER THAN 200 PSI, ABOVE THE MINIMUM DISPATCH PRESSURE'. Verificar que aplique. Presión reportada: 1000 PSI."
+        ]
+      },
+      {
+        "barcode": "T40S009CHSE",
+        "fault_name": "DIP - AFT UNIVERSAL PRECAUTION KIT S/N COPA174 DUE DATE 31-OCT-2026",
+        "intervalo": "86 DAY",
+        "auditor": "OK",
+        "comentario_auditor": "T/A aperturado correctamente",
+        "tema_auditor": "Intervalo / due date",
+        "programa": "OK",
+        "acuerdo": "Ambos OK",
+        "metodo": "reglas",
+        "referencia": "UPK LESS THAN 130 DAYS DUE DATE",
+        "hallazgos": []
+      },
+      {
+        "barcode": "T40S009CCL4",
+        "fault_name": "DIP - AFT UPK",
+        "intervalo": "118 DAY",
+        "auditor": "OK",
+        "comentario_auditor": "EVENTO SE ENCUENTRA ACTIVO",
+        "tema_auditor": "Otro",
+        "programa": "OK",
+        "acuerdo": "Ambos OK",
+        "metodo": "reglas",
+        "referencia": "UPK LESS THAN 130 DAYS DUE DATE",
+        "hallazgos": [
+          "[OBSERVACIÓN] Sin S/N del componente en la descripción."
+        ]
+      },
+      {
+        "barcode": "T40S009CCKV",
+        "fault_name": "DIP - FWD UPK",
+        "intervalo": "57 DAY",
+        "auditor": "DISCREPANCIA NO CRÍTICA",
+        "comentario_auditor": "DIP con T/A Incorrecto para Sep-2026 // UPK tiene shelf life expiry Sep- 2027",
+        "tema_auditor": "Intervalo / due date",
+        "programa": "OK",
+        "acuerdo": "Solo el auditor marca",
+        "metodo": "reglas",
+        "referencia": "UPK LESS THAN 130 DAYS DUE DATE",
+        "hallazgos": [
+          "[OBSERVACIÓN] Sin S/N del componente en la descripción."
+        ]
+      },
+      {
+        "barcode": "T40S009CBG4",
+        "fault_name": "During Task card B737-05-1-0001-U-Jic Step 29 Was found Brake 1 <1/16 (0.0655) pulg.",
+        "intervalo": "20 CYCLES",
+        "auditor": "OK",
+        "comentario_auditor": "",
+        "tema_auditor": "Sin comentario",
+        "programa": "OK",
+        "acuerdo": "Ambos OK",
+        "metodo": "reglas",
+        "referencia": "CARBON BREAK WEAR PIN LENGTH UNDER 1/16\"",
+        "hallazgos": [
+          "[OBSERVACIÓN] El intervalo 20 FC corresponde a la condición '737NG-800: AFTER 12 FC, BEFORE 20 FC'. Verificar que aplique."
+        ]
+      },
+      {
+        "barcode": "T40S009CA8W",
+        "fault_name": "DIP-AFT CABIN FIRT AID KIT",
+        "intervalo": "118 DAY",
+        "auditor": "DISCREPANCIA NO CRÍTICA",
+        "comentario_auditor": "DIP SN INCORRECTO, SE PIDIÓ CORRECIÓN DE TARJETA DE LECTURA",
+        "tema_auditor": "S/N",
+        "programa": "OK",
+        "acuerdo": "Solo el auditor marca",
+        "metodo": "reglas",
+        "referencia": "FIRST AID KIT LESS THAN 130 DAYS DUE DATE",
+        "hallazgos": [
+          "[OBSERVACIÓN] Sin S/N del componente en la descripción."
+        ]
+      },
+      {
+        "barcode": "T40S009C70C",
+        "fault_name": "FUMIGATION CERTIFICATE WITH LESS THAN 7 DAYS REMAIN FOR DUE DATE 04-AUG-2026, OPEN DIP TO HAVE THE CERTIFICATE REPLACED",
+        "intervalo": "1 DAY",
+        "auditor": "OK",
+        "comentario_auditor": "DIP completado bajo los intervalos correctos",
+        "tema_auditor": "Intervalo / due date",
+        "programa": "OK",
+        "acuerdo": "Ambos OK",
+        "metodo": "reglas",
+        "referencia": "CERTIFICATE OF FUMIGATION",
+        "hallazgos": []
+      },
+      {
+        "barcode": "T40S009C6DB",
+        "fault_name": "MAREP - FWD POB HYDRO DUE DATE",
+        "intervalo": "58 DAY",
+        "auditor": "OK",
+        "comentario_auditor": "T/A aperturado correctamente.",
+        "tema_auditor": "Intervalo / due date",
+        "programa": "OK",
+        "acuerdo": "Ambos OK",
+        "metodo": "reglas",
+        "referencia": "CABIN PORTABLE OXYGEN BOTTLE (POB)",
+        "hallazgos": [
+          "[OBSERVACIÓN] Sin S/N del componente en la descripción."
+        ]
+      },
+      {
+        "barcode": "T40S009C4UR",
+        "fault_name": "AHM - 361 451 41/42 BLEED CTRL CARD L & R scheduled maintenance task shows: SMT",
+        "intervalo": "2930 HOUR",
+        "auditor": "DISCREPANCIA CRÍTICA",
+        "comentario_auditor": "AMM indica RIR cada 70FH y no tiene, con TA de 3,000FH que discrepa en tarjeta active // SOLO SE REPORTA DIP INTERVAL INCORRECTO FALTA CONFIRMAR RIRs de 70 FH",
+        "tema_auditor": "RIR",
+        "programa": "POSIBLE DISCREPANCIA",
+        "acuerdo": "Ambos marcan",
+        "metodo": "reglas",
+        "referencia": "BLEED CTRL CARD",
+        "hallazgos": [
+          "[POSIBLE DISCREPANCIA] T/A aperturado con 2930 FH, mayor que la referencia (2902 FH)."
+        ]
+      },
+      {
+        "barcode": "T40S009C19T",
+        "fault_name": "Fwd halon Fire Extinguisher bottle with less than 120 days of due date.",
+        "intervalo": "84 DAY",
+        "auditor": "OK",
+        "comentario_auditor": "8130-3 INSP 24-OCT-2025 EN AIRVAULT",
+        "tema_auditor": "Otro",
+        "programa": "OK",
+        "acuerdo": "Ambos OK",
+        "metodo": "reglas",
+        "referencia": "HALON FIRE EXTINGUISHER DUE OR WEIGHT (PORTABLE, CABIN, ETC)",
+        "hallazgos": [
+          "[OBSERVACIÓN] Sin S/N del componente en la descripción."
+        ]
+      },
+      {
+        "barcode": "T40S009BV2D",
+        "fault_name": "MAIN WHEEL ASSY #1 TIRE SHOW THE TREAD REINFORCEMENT, 1ST PLY DURING A TRHU-FLIGHT, A TIRE MAY CONTINUE IN SERVICE TO THE NEXT RON STATION WITH ONE OR BOTH OF THESE CONDITIONS PROVIDED MAINTENEX",
+        "intervalo": "0 DAY",
+        "auditor": "OK",
+        "comentario_auditor": "Se abrió DIP y se completó el mismo día, no hizo referencia a intervalos",
+        "tema_auditor": "Intervalo / due date",
+        "programa": "POSIBLE DISCREPANCIA",
+        "acuerdo": "Solo el programa marca",
+        "metodo": "reglas",
+        "referencia": "MAIN WHEEL TIRE ASSY SECOND PLY THREAD VISIBLE",
+        "hallazgos": [
+          "[POSIBLE DISCREPANCIA] T/A aperturado con intervalo 0 DAY."
+        ]
+      },
+      {
+        "barcode": "T40S009BUL4",
+        "fault_name": "DIP-UPK FWD with less than 130 days of Due Date",
+        "intervalo": "93 DAY",
+        "auditor": "OK",
+        "comentario_auditor": "EVENTO SE ENCUENTRA ACTIVO",
+        "tema_auditor": "Otro",
+        "programa": "OK",
+        "acuerdo": "Ambos OK",
+        "metodo": "reglas",
+        "referencia": "UPK LESS THAN 130 DAYS DUE DATE",
+        "hallazgos": [
+          "[OBSERVACIÓN] Sin S/N del componente en la descripción."
+        ]
+      },
+      {
+        "barcode": "T40S009BTER",
+        "fault_name": "DIP-FIRST AID KIT FWD PASSENGER COMPARTMENT",
+        "intervalo": "62 DAY",
+        "auditor": "OK",
+        "comentario_auditor": "T/A aperturado correctamente // Fecha de vencimiento",
+        "tema_auditor": "Intervalo / due date",
+        "programa": "OK",
+        "acuerdo": "Ambos OK",
+        "metodo": "reglas",
+        "referencia": "FIRST AID KIT LESS THAN 130 DAYS DUE DATE",
+        "hallazgos": [
+          "[OBSERVACIÓN] Sin S/N del componente en la descripción."
+        ]
+      },
+      {
+        "barcode": "T40S009BQGM",
+        "fault_name": "AFT COMP NET",
+        "intervalo": "10 DAY",
+        "auditor": "OK",
+        "comentario_auditor": "DIP COMPLETADO // T/A aperturado correctamente",
+        "tema_auditor": "Intervalo / due date",
+        "programa": "SIN FUENTE",
+        "acuerdo": "Ambos OK",
+        "metodo": "sin_referencia",
+        "referencia": "",
+        "hallazgos": [
+          "[SIN FUENTE] Sin fuente: el DIP no está en la tabla de referencias (DIPs References, Others). Verificar contra la fuente que cita."
+        ]
+      },
+      {
+        "barcode": "T40S009BMBW",
+        "fault_name": "CERTIFICADO DE FUMIGACION",
+        "intervalo": "3 DAY",
+        "auditor": "OK",
+        "comentario_auditor": "DIP ABIERTO Y COMPLETADO DENTRO DEL LÍMITE, NO SE ADJUNTA CERT DE FUMIGACIÓN VENCIDO",
+        "tema_auditor": "Attachments / ref. técnica",
+        "programa": "OK",
+        "acuerdo": "Ambos OK",
+        "metodo": "reglas",
+        "referencia": "CERTIFICATE OF FUMIGATION",
+        "hallazgos": []
+      },
+      {
+        "barcode": "T40S009BM50",
+        "fault_name": "COCKPIT HALON EXTINGUISHER",
+        "intervalo": "108 DAY",
+        "auditor": "OK",
+        "comentario_auditor": "",
+        "tema_auditor": "Sin comentario",
+        "programa": "OK",
+        "acuerdo": "Ambos OK",
+        "metodo": "reglas",
+        "referencia": "HALON FIRE EXTINGUISHER DUE OR WEIGHT (PORTABLE, CABIN, ETC)",
+        "hallazgos": [
+          "[OBSERVACIÓN] Sin S/N del componente en la descripción."
+        ]
+      },
+      {
+        "barcode": "T40S009BDXS",
+        "fault_name": "DIP // CERTIFICATE OF FUMIGATION WITH DUE DATE 31-JUL-2026.",
+        "intervalo": "4 DAY",
+        "auditor": "OK",
+        "comentario_auditor": "DIP ABIERTO Y COMPLETADO DENTRO DEL LÍMITE, NO SE ADJUNTA CERT DE FUMIGACIÓN VENCIDO",
+        "tema_auditor": "Attachments / ref. técnica",
+        "programa": "OK",
+        "acuerdo": "Ambos OK",
+        "metodo": "reglas",
+        "referencia": "CERTIFICATE OF FUMIGATION",
+        "hallazgos": []
+      },
+      {
+        "barcode": "T40S009B6AW",
+        "fault_name": "DIP MLG Brake assy #(3)",
+        "intervalo": "20 CYCLES",
+        "auditor": "OK",
+        "comentario_auditor": "",
+        "tema_auditor": "Sin comentario",
+        "programa": "OK",
+        "acuerdo": "Ambos OK",
+        "metodo": "reglas",
+        "referencia": "CARBON BREAK WEAR PIN LENGTH UNDER 1/16\"",
+        "hallazgos": [
+          "[OBSERVACIÓN] El intervalo 20 FC corresponde a la condición '737NG-800: AFTER 12 FC, BEFORE 20 FC'. Verificar que aplique."
+        ]
+      },
+      {
+        "barcode": "T40S009B5XJ",
+        "fault_name": "DIP-BOROSCOPE DUE TO FOD IN ENGINE #1",
+        "intervalo": "10 CYCLES",
+        "auditor": "OK",
+        "comentario_auditor": "DIP COMPLETADO // T/A doblelimitante aperturado correctamente al ESN 864293",
+        "tema_auditor": "Intervalo / due date",
+        "programa": "SIN FUENTE",
+        "acuerdo": "Ambos OK",
+        "metodo": "sin_referencia",
+        "referencia": "",
+        "hallazgos": [
+          "[SIN FUENTE] Sin fuente: el DIP no está en la tabla de referencias (DIPs References, Others). Verificar contra la fuente que cita."
+        ]
+      },
+      {
+        "barcode": "T40S009AXL6",
+        "fault_name": "DIP-Right Main Landing Gear Shock Strut - Service",
+        "intervalo": "15 CYCLES",
+        "auditor": "OK",
+        "comentario_auditor": "DIP COMPLETADO // T/A aperturado correctamente",
+        "tema_auditor": "Intervalo / due date",
+        "programa": "POSIBLE DISCREPANCIA",
+        "acuerdo": "Solo el programa marca",
+        "metodo": "reglas",
+        "referencia": "MAIN LANDING GEAR SHOCK STRUT",
+        "hallazgos": [
+          "[POSIBLE DISCREPANCIA] T/A aperturado con 15 FC, mayor que la referencia (10 FC [MAX], empezando 5 FC después de la apertura)."
+        ]
+      },
+      {
+        "barcode": "T40S009ASL4",
+        "fault_name": "In reference of MAX-05-1-0001-U-JIC Service Visit Check STEP 8 was found Crew Oxygen System flight compartment indication pressure below 1100 psi, open a 3-day DIP to replace the bottle",
+        "intervalo": "3 DAY",
+        "auditor": "OK",
+        "comentario_auditor": "T/A aperturado correctamente // Fecha de vencimiento",
+        "tema_auditor": "Intervalo / due date",
+        "programa": "OK",
+        "acuerdo": "Ambos OK",
+        "metodo": "reglas",
+        "referencia": "CREW OXYGEN BOTTLE PRESSURE",
+        "hallazgos": [
+          "[OBSERVACIÓN] El intervalo 3 DAY corresponde a la condición '3 DAY IF PRESSURE IS GREATER THAN 200 PSI, ABOVE THE MINIMUM DISPATCH PRESSURE'. Verificar que aplique. Presión reportada: 1100 PSI."
+        ]
+      },
+      {
+        "barcode": "T40S009ANN0",
+        "fault_name": "DIP- FUEL MICROBIAL GROWTH INSPECT",
+        "intervalo": "4 DAY",
+        "auditor": "OK",
+        "comentario_auditor": "T/A Diferio correctamente dentro de los 4 días habiles y por un QC",
+        "tema_auditor": "Intervalo / due date",
+        "programa": "OK",
+        "acuerdo": "Ambos OK",
+        "metodo": "reglas",
+        "referencia": "FUEL MICROBIAL GROWTH",
+        "hallazgos": []
+      },
+      {
+        "barcode": "T40S009AMA9",
+        "fault_name": "DIP-SURVIVAL KIT NEXT DUE DATE",
+        "intervalo": "51 DAY",
+        "auditor": "DISCREPANCIA NO CRÍTICA",
+        "comentario_auditor": "No S/N de botella en la descripción",
+        "tema_auditor": "S/N",
+        "programa": "OK",
+        "acuerdo": "Solo el auditor marca",
+        "metodo": "reglas",
+        "referencia": "SURVIVAL KIT LESS THAN 130 DAYS DUE DATE",
+        "hallazgos": [
+          "[OBSERVACIÓN] Sin S/N del componente en la descripción."
+        ]
+      },
+      {
+        "barcode": "T40S009AHFG",
+        "fault_name": "IN REF TO LOG T40S009AE87 LH PITOT REPLACEMENT, PERFORM SEALANT INSTALATION AS PER AMM TASK 27-31-94-400-801 Rev 28, 15 May 2026 , WITHIN 10 DAYS",
+        "intervalo": "10 DAY",
+        "auditor": "OK",
+        "comentario_auditor": "",
+        "tema_auditor": "Sin comentario",
+        "programa": "SIN FUENTE",
+        "acuerdo": "Ambos OK",
+        "metodo": "sin_referencia",
+        "referencia": "",
+        "hallazgos": [
+          "[SIN FUENTE] Sin fuente: el DIP no está en la tabla de referencias (DIPs References, Others). Verificar contra la fuente que cita. Parecido en la tabla: 'SEALANT' (STRUCTURES, fila 67); 'PITOT PROBE SEALANT' (STRUCTURES, fila 73).",
+          "[OBSERVACIÓN] Abierto como Others, pero se parece a una referencia STRUCTURES."
+        ]
+      },
+      {
+        "barcode": "T40S009AENJ",
+        "fault_name": "DIP - FLIGHT COMPARTMENT HALON FIRE EXTINGUISHER WITH LESS THAN 120 DAYS OF DUE DATE",
+        "intervalo": "89 DAY",
+        "auditor": "OK",
+        "comentario_auditor": "T/A aperturado correctamente // Fecha de vencimiento",
+        "tema_auditor": "Intervalo / due date",
+        "programa": "OK",
+        "acuerdo": "Ambos OK",
+        "metodo": "reglas",
+        "referencia": "HALON FIRE EXTINGUISHER DUE OR WEIGHT (PORTABLE, CABIN, ETC)",
+        "hallazgos": [
+          "[OBSERVACIÓN] Sin S/N del componente en la descripción."
+        ]
+      },
+      {
+        "barcode": "T40S009A52M",
+        "fault_name": "During the flight deck check was found the crew oxygen indication with 800 psi.",
+        "intervalo": "3 DAY",
+        "auditor": "OK",
+        "comentario_auditor": "DIP COMPLETADO // T/A aperturado correctamente",
+        "tema_auditor": "Intervalo / due date",
+        "programa": "OK",
+        "acuerdo": "Ambos OK",
+        "metodo": "reglas",
+        "referencia": "CREW OXYGEN BOTTLE PRESSURE",
+        "hallazgos": [
+          "[OBSERVACIÓN] El intervalo 3 DAY corresponde a la condición '3 DAY IF PRESSURE IS GREATER THAN 200 PSI, ABOVE THE MINIMUM DISPATCH PRESSURE'. Verificar que aplique. Presión reportada: 800 PSI."
+        ]
+      },
+      {
+        "barcode": "T40S0099YJF",
+        "fault_name": "DIP - CERTIFICADO DE FUMIGACION",
+        "intervalo": "3 DAY",
+        "auditor": "OK",
+        "comentario_auditor": "T/A aperturado correctamente // Fecha de vencimiento",
+        "tema_auditor": "Intervalo / due date",
+        "programa": "OK",
+        "acuerdo": "Ambos OK",
+        "metodo": "reglas",
+        "referencia": "CERTIFICATE OF FUMIGATION",
+        "hallazgos": []
+      },
+      {
+        "barcode": "T40S0099VZU",
+        "fault_name": "DIP - UNIVERSAL PROTECTION KIT S/N: COPA308 Due Date: 30-NOV-2026",
+        "intervalo": "140 DAY",
+        "auditor": "OK",
+        "comentario_auditor": "T/A aperturado correctamente // Fecha de vencimiento",
+        "tema_auditor": "Intervalo / due date",
+        "programa": "OK",
+        "acuerdo": "Ambos OK",
+        "metodo": "reglas",
+        "referencia": "UPK LESS THAN 130 DAYS DUE DATE",
+        "hallazgos": []
+      },
+      {
+        "barcode": "T40S0099VVF",
+        "fault_name": "DIP - FDR - Report",
+        "intervalo": "30 DAY",
+        "auditor": "OK",
+        "comentario_auditor": "T/A aperturado correctamente",
+        "tema_auditor": "Intervalo / due date",
+        "programa": "OK",
+        "acuerdo": "Ambos OK",
+        "metodo": "reglas",
+        "referencia": "FDR REPORT",
+        "hallazgos": []
+      },
+      {
+        "barcode": "T40S0099T40",
+        "fault_name": "CREW OXYGEN BOTTLE FOUND WITH 850 PSI",
+        "intervalo": "3 DAY",
+        "auditor": "OK",
+        "comentario_auditor": "DIP COMPLETE, T/A aperturado correctamente",
+        "tema_auditor": "Intervalo / due date",
+        "programa": "OK",
+        "acuerdo": "Ambos OK",
+        "metodo": "reglas",
+        "referencia": "CREW OXYGEN BOTTLE PRESSURE",
+        "hallazgos": [
+          "[OBSERVACIÓN] El intervalo 3 DAY corresponde a la condición '3 DAY IF PRESSURE IS GREATER THAN 200 PSI, ABOVE THE MINIMUM DISPATCH PRESSURE'. Verificar que aplique. Presión reportada: 850 PSI."
+        ]
+      },
+      {
+        "barcode": "T40S0099S8X",
+        "fault_name": "DIP-NLG SHOCK STRUT PRESSURE AND X DIMENSION CHECK",
+        "intervalo": "10 CYCLES",
+        "auditor": "OK",
+        "comentario_auditor": "T/A aperturado correctamente",
+        "tema_auditor": "Intervalo / due date",
+        "programa": "OK",
+        "acuerdo": "Ambos OK",
+        "metodo": "reglas",
+        "referencia": "NOSE LANDING GEAR SHOCK STRUT",
+        "hallazgos": [
+          "[OBSERVACIÓN] ATA 12 distinto al de la referencia (32)."
+        ]
+      },
+      {
+        "barcode": "T40S0099QSL",
+        "fault_name": "RADOME INTERNAL INSPECTION DUE TO BIRDSTRIKE",
+        "intervalo": "3 CYCLES",
+        "auditor": "OK",
+        "comentario_auditor": "DIP COMPLETADO // T/A aperturado correctamente // No EC/RA Extension",
+        "tema_auditor": "Intervalo / due date",
+        "programa": "OK",
+        "acuerdo": "Ambos OK",
+        "metodo": "reglas",
+        "referencia": "RADOME INTERNAL INSPECTION DUE TO BIRDSTRIKE",
+        "hallazgos": []
+      },
+      {
+        "barcode": "T40S0099MU7",
+        "fault_name": "Flight Compartment Crew Oxygen System Pressure indication: 1020 psi open a 3-day DIP to replace the bottle",
+        "intervalo": "3 DAY",
+        "auditor": "OK",
+        "comentario_auditor": "T/A aperturado correctamente",
+        "tema_auditor": "Intervalo / due date",
+        "programa": "OK",
+        "acuerdo": "Ambos OK",
+        "metodo": "reglas",
+        "referencia": "CREW OXYGEN BOTTLE PRESSURE",
+        "hallazgos": [
+          "[OBSERVACIÓN] El intervalo 3 DAY corresponde a la condición '3 DAY IF PRESSURE IS GREATER THAN 200 PSI, ABOVE THE MINIMUM DISPATCH PRESSURE'. Verificar que aplique. Presión reportada: 1020 PSI."
+        ]
+      },
+      {
+        "barcode": "T40S0099L05",
+        "fault_name": "DIP - ELEVATOR CONTROL CABLES EA AND EB RE-TENSION CHECK AND ADJUSTMENT",
+        "intervalo": "184 DAY",
+        "auditor": "OK",
+        "comentario_auditor": "T/A aperturado correctamente",
+        "tema_auditor": "Intervalo / due date",
+        "programa": "OK",
+        "acuerdo": "Ambos OK",
+        "metodo": "reglas",
+        "referencia": "ELEVATOR CONTROL CABLES RE-TENSION CHECK AND ADJUSTMENT",
+        "hallazgos": []
+      },
+      {
+        "barcode": "T40S0099K9B",
+        "fault_name": "DIP - FIXED ELT",
+        "intervalo": "205 DAY",
+        "auditor": "OK",
+        "comentario_auditor": "T/A aperturado correctamente // Fecha de vencimiento",
+        "tema_auditor": "Intervalo / due date",
+        "programa": "OK",
+        "acuerdo": "Ambos OK",
+        "metodo": "reglas",
+        "referencia": "FIXED ELT BATTERY",
+        "hallazgos": [
+          "[OBSERVACIÓN] Sin S/N del componente en la descripción.",
+          "[OBSERVACIÓN] ATA 23 distinto al de la referencia (25)."
+        ]
+      },
+      {
+        "barcode": "T40S0099HMA",
+        "fault_name": "CERTIFICATE OF FUMIGATION DUE 16-JUL-26",
+        "intervalo": "6 DAY",
+        "auditor": "OK",
+        "comentario_auditor": "T/A aperturado correctamente // Fecha de vencimiento",
+        "tema_auditor": "Intervalo / due date",
+        "programa": "OK",
+        "acuerdo": "Ambos OK",
+        "metodo": "reglas",
+        "referencia": "CERTIFICATE OF FUMIGATION",
+        "hallazgos": []
+      },
+      {
+        "barcode": "T40S0099GMS",
+        "fault_name": "DIP-PORTABLE ELT 1",
+        "intervalo": "143 DAY",
+        "auditor": "OK",
+        "comentario_auditor": "T/A aperturado correctamente // Fecha de vencimiento",
+        "tema_auditor": "Intervalo / due date",
+        "programa": "OK",
+        "acuerdo": "Ambos OK",
+        "metodo": "reglas",
+        "referencia": "PORTABLE ELT BATTERY",
+        "hallazgos": [
+          "[OBSERVACIÓN] Sin S/N del componente en la descripción."
+        ]
+      },
+      {
+        "barcode": "T40S0099G88",
+        "fault_name": "DIP | AHM - BLEED CTRL CARD",
+        "intervalo": "150 HOUR",
+        "auditor": "OK",
+        "comentario_auditor": "NO MENCIONA INTERVALS - REVISAR AMM TASK 36-00-00-710-801 REV. 28- 15-MAY-26",
+        "tema_auditor": "Intervalo / due date",
+        "programa": "OK",
+        "acuerdo": "Ambos OK",
+        "metodo": "reglas",
+        "referencia": "BLEED CTRL CARD",
+        "hallazgos": [
+          "[OBSERVACIÓN] T/A aperturado con 150 FH, distinto de la referencia (2902 FH)."
+        ]
+      },
+      {
+        "barcode": "T40S009DDKJ",
+        "fault_name": "DIP-CREW OXYGEN BOTTLE WITH PRESSURE OF 950 PSI",
+        "intervalo": "3 CDY",
+        "auditor": "OK",
+        "comentario_auditor": "DIP ACTIVE. T/A aperturado correctamente",
+        "tema_auditor": "Intervalo / due date",
+        "programa": "OK",
+        "acuerdo": "Ambos OK",
+        "metodo": "reglas",
+        "referencia": "CREW OXYGEN BOTTLE PRESSURE",
+        "hallazgos": [
+          "[OBSERVACIÓN] El intervalo 3 DAY corresponde a la condición '3 DAY IF PRESSURE IS GREATER THAN 200 PSI, ABOVE THE MINIMUM DISPATCH PRESSURE'. Verificar que aplique. Presión reportada: 950 PSI."
+        ]
+      },
+      {
+        "barcode": "T40S009DFZ5",
+        "fault_name": "WATER EXTINGUISHER BOTTLE",
+        "intervalo": "35 CDY",
+        "auditor": "OK",
+        "comentario_auditor": "DIP ACTIVE. T/A Aperturado correctamente",
+        "tema_auditor": "Intervalo / due date",
+        "programa": "OK",
+        "acuerdo": "Ambos OK",
+        "metodo": "reglas",
+        "referencia": "PORTABLE WATER FE LESS THAN 130 DAYS WEIGHT CHECK",
+        "hallazgos": [
+          "[OBSERVACIÓN] Sin S/N del componente en la descripción."
+        ]
+      },
+      {
+        "barcode": "T40S009DHFV",
+        "fault_name": "DIP-25 UNIVERSAL PRECAUTION KIT",
+        "intervalo": "108 CDY",
+        "auditor": "OK",
+        "comentario_auditor": "",
+        "tema_auditor": "Sin comentario",
+        "programa": "OK",
+        "acuerdo": "Ambos OK",
+        "metodo": "reglas",
+        "referencia": "UPK LESS THAN 130 DAYS DUE DATE",
+        "hallazgos": [
+          "[OBSERVACIÓN] Sin S/N del componente en la descripción."
+        ]
+      },
+      {
+        "barcode": "T40S009DN7C",
+        "fault_name": "DIP-CURRENT CERTIFICATE OF FUMIGATION",
+        "intervalo": "6 CDY",
+        "auditor": "OK",
+        "comentario_auditor": "",
+        "tema_auditor": "Sin comentario",
+        "programa": "OK",
+        "acuerdo": "Ambos OK",
+        "metodo": "reglas",
+        "referencia": "CERTIFICATE OF FUMIGATION",
+        "hallazgos": []
+      },
+      {
+        "barcode": "T40S009DTD3",
+        "fault_name": "DIP- RUDDER CONTROL CABLE RE TENSION CHECK",
+        "intervalo": "185 CDY",
+        "auditor": "DISCREPANCIA NO CRÍTICA",
+        "comentario_auditor": "",
+        "tema_auditor": "Sin comentario",
+        "programa": "OK",
+        "acuerdo": "Solo el auditor marca",
+        "metodo": "reglas",
+        "referencia": "RUDDER CONTROL CABLES RE-TENSION CHECK AND ADJUSTMENT",
+        "hallazgos": []
+      },
+      {
+        "barcode": "T40S009DV5L",
+        "fault_name": "DIP - CERTIFICATE OF FUMIGATION",
+        "intervalo": "3 CDY",
+        "auditor": "OK",
+        "comentario_auditor": "",
+        "tema_auditor": "Sin comentario",
+        "programa": "OK",
+        "acuerdo": "Ambos OK",
+        "metodo": "reglas",
+        "referencia": "CERTIFICATE OF FUMIGATION",
+        "hallazgos": []
+      },
+      {
+        "barcode": "T40S009DZYN",
+        "fault_name": "CARGO HANDLING SYSTEM ROLLERS",
+        "intervalo": "129 CDY",
+        "auditor": "DISCREPANCIA NO CRÍTICA",
+        "comentario_auditor": "",
+        "tema_auditor": "Sin comentario",
+        "programa": "SIN FUENTE",
+        "acuerdo": "Solo el auditor marca",
+        "metodo": "sin_referencia",
+        "referencia": "",
+        "hallazgos": [
+          "[SIN FUENTE] Sin fuente: el DIP no está en la tabla de referencias (DIPs References, Others). Verificar contra la fuente que cita."
+        ]
+      },
+      {
+        "barcode": "T40S009E386",
+        "fault_name": "FDR -Report",
+        "intervalo": "30 CDY",
+        "auditor": "OK",
+        "comentario_auditor": "",
+        "tema_auditor": "Sin comentario",
+        "programa": "OK",
+        "acuerdo": "Ambos OK",
+        "metodo": "reglas",
+        "referencia": "FDR REPORT",
+        "hallazgos": []
+      },
+      {
+        "barcode": "T40S009DJHW",
+        "fault_name": "361 453 41 (SCHEDULED MAINTENANCE TASK BLEED PM SENSOR 1 L)",
+        "intervalo": "75 HOURS",
+        "auditor": "OK",
+        "comentario_auditor": "",
+        "tema_auditor": "Sin comentario",
+        "programa": "POSIBLE DISCREPANCIA",
+        "acuerdo": "Solo el programa marca",
+        "metodo": "reglas",
+        "referencia": "BLEED PM SENSOR",
+        "hallazgos": [
+          "[POSIBLE DISCREPANCIA] T/A aperturado con 75 FH, mayor que la referencia (30 FH).",
+          "[OBSERVACIÓN] ATA 28 distinto al de la referencia (36)."
+        ]
+      }
+    ]
+  },
+  "casos": {
+    "indicadores": {
+      "aciertos_finales": {
+        "aciertos": 25,
+        "total": 46,
+        "pct": 54.3
+      },
+      "con_referencia": {
+        "aciertos": 6,
+        "total": 27,
+        "pct": 22.2
+      },
+      "sin_referencia": {
+        "aciertos": 19,
+        "total": 19,
+        "pct": 100.0
+      },
+      "errores_aceptados": {
+        "aciertos": 0,
+        "total": 46,
+        "pct": 0.0
+      }
+    },
+    "casos": [
+      {
+        "grupo": "positivo",
+        "fault_name": "CREW 02 BOTLE LOW",
+        "intervalo": "3 DAY",
+        "esperado": "OXIGENO_TRIPULACION",
+        "final": "NINGUNA",
+        "acierto_final": false,
+        "error_aceptado": false,
+        "detalle": ""
+      },
+      {
+        "grupo": "positivo",
+        "fault_name": "CAPT O2 CYLINDER PRESS 900",
+        "intervalo": "3 DAY",
+        "esperado": "OXIGENO_TRIPULACION",
+        "final": "NINGUNA",
+        "acierto_final": false,
+        "error_aceptado": false,
+        "detalle": ""
+      },
+      {
+        "grupo": "positivo",
+        "fault_name": "DIP - NOSE INTERNAL INSPECTION",
+        "intervalo": "3 FC",
+        "esperado": "RADOMO",
+        "final": "NINGUNA",
+        "acierto_final": false,
+        "error_aceptado": false,
+        "detalle": ""
+      },
+      {
+        "grupo": "positivo",
+        "fault_name": "DIP-EMERGENCY LOCATER TRANSMITER BATERY",
+        "intervalo": "150 DAY",
+        "esperado": "ELT_PORTATIL",
+        "final": "ELT_PORTATIL",
+        "acierto_final": true,
+        "error_aceptado": false,
+        "detalle": "'EMERGENCY LOCATER' se leyó como 'EMERGENCY LOCATOR'."
+      },
+      {
+        "grupo": "positivo",
+        "fault_name": "HIDRAULIC DECONTAMINATION FINAL",
+        "intervalo": "300 FH",
+        "esperado": "DESCONTAMINACION_HID_TERMINAL",
+        "final": "NINGUNA",
+        "acierto_final": false,
+        "error_aceptado": false,
+        "detalle": ""
+      },
+      {
+        "grupo": "positivo",
+        "fault_name": "HIDRAULIC DECONTAMINATION FIRST STAGE",
+        "intervalo": "150 FH",
+        "esperado": "DESCONTAMINACION_HID_INICIAL",
+        "final": "NINGUNA",
+        "acierto_final": false,
+        "error_aceptado": false,
+        "detalle": ""
+      },
+      {
+        "grupo": "positivo",
+        "fault_name": "BOTIQUIN DE PRIMEROS AUXILIOS VENCE 30-NOV-2026",
+        "intervalo": "100 DAY",
+        "esperado": "FAK",
+        "final": "NINGUNA",
+        "acierto_final": false,
+        "error_aceptado": false,
+        "detalle": ""
+      },
+      {
+        "grupo": "positivo",
+        "fault_name": "KIT MEDICO DE EMERGENCIA PROXIMO A VENCER",
+        "intervalo": "120 DAY",
+        "esperado": "EMK",
+        "final": "NINGUNA",
+        "acierto_final": false,
+        "error_aceptado": false,
+        "detalle": ""
+      },
+      {
+        "grupo": "positivo",
+        "fault_name": "HALOM EXTINGISHER COCKPIT WEIGHT DUE",
+        "intervalo": "60 DAY",
+        "esperado": "HALON_PORTATIL",
+        "final": "HALON_PORTATIL",
+        "acierto_final": true,
+        "error_aceptado": false,
+        "detalle": "'EXTINGISHER' se leyó como 'EXTINGUISHER'."
+      },
+      {
+        "grupo": "positivo",
+        "fault_name": "FUMIGATON CERT EXPIRING",
+        "intervalo": "5 DAY",
+        "esperado": "FUMIGACION",
+        "final": "FUMIGACION",
+        "acierto_final": true,
+        "error_aceptado": false,
+        "detalle": "'FUMIGATON' se leyó como 'FUMIGATION'."
+      },
+      {
+        "grupo": "positivo",
+        "fault_name": "MICROBIOLOGICAL CONTAMINATION TEST FUEL TANKS",
+        "intervalo": "4 DAY",
+        "esperado": "CRECIMIENTO_MICROBIANO",
+        "final": "NINGUNA",
+        "acierto_final": false,
+        "error_aceptado": false,
+        "detalle": ""
+      },
+      {
+        "grupo": "positivo",
+        "fault_name": "FLIGHT DATA RECORDER DATA REVIEW",
+        "intervalo": "30 DAY",
+        "esperado": "FDR",
+        "final": "FDR",
+        "acierto_final": true,
+        "error_aceptado": false,
+        "detalle": ""
+      },
+      {
+        "grupo": "positivo",
+        "fault_name": "NOSE STRUT X DIMENSION LOW",
+        "intervalo": "10 FC",
+        "esperado": "AMORTIGUADOR_NLG",
+        "final": "NINGUNA",
+        "acierto_final": false,
+        "error_aceptado": false,
+        "detalle": ""
+      },
+      {
+        "grupo": "positivo",
+        "fault_name": "MAIN GEAR #2 RUBBER CORD VISIBLE",
+        "intervalo": "5 FC",
+        "esperado": "LLANTA",
+        "final": "NINGUNA",
+        "acierto_final": false,
+        "error_aceptado": false,
+        "detalle": ""
+      },
+      {
+        "grupo": "positivo",
+        "fault_name": "PARK BRK FAIL HOLD CHECK",
+        "intervalo": "3 DAY",
+        "esperado": "FRENO_PARQUEO",
+        "final": "NINGUNA",
+        "acierto_final": false,
+        "error_aceptado": false,
+        "detalle": ""
+      },
+      {
+        "grupo": "positivo",
+        "fault_name": "LEFT WING AIL CABLE TENSION RECHECK",
+        "intervalo": "184 DAY",
+        "esperado": "CABLES_ALERON",
+        "final": "NINGUNA",
+        "acierto_final": false,
+        "error_aceptado": false,
+        "detalle": ""
+      },
+      {
+        "grupo": "positivo",
+        "fault_name": "IDG DELTA P INDICATOR POPPED",
+        "intervalo": "400 FH",
+        "esperado": "DPI",
+        "final": "NINGUNA",
+        "acierto_final": false,
+        "error_aceptado": false,
+        "detalle": ""
+      },
+      {
+        "grupo": "positivo",
+        "fault_name": "SURVIVOR KIT RAFT DUE DATE",
+        "intervalo": "50 DAY",
+        "esperado": "SURVIVAL_KIT",
+        "final": "NINGUNA",
+        "acierto_final": false,
+        "error_aceptado": false,
+        "detalle": ""
+      },
+      {
+        "grupo": "positivo",
+        "fault_name": "BACK FLOW CHECK VALVE INERT GAS SYS",
+        "intervalo": "90 DAY",
+        "esperado": "BACKFLOW",
+        "final": "NINGUNA",
+        "acierto_final": false,
+        "error_aceptado": false,
+        "detalle": ""
+      },
+      {
+        "grupo": "positivo",
+        "fault_name": "STROKE OF LIGHTING PHASE 2 INSPECTION",
+        "intervalo": "50 FC",
+        "esperado": "RAYO",
+        "final": "RAYO",
+        "acierto_final": true,
+        "error_aceptado": false,
+        "detalle": "'LIGHTING' se leyó como 'LIGHTNING'."
+      },
+      {
+        "grupo": "positivo",
+        "fault_name": "PROTECCION UNIVERSAL KIT FWD",
+        "intervalo": "90 DAY",
+        "esperado": "UPK",
+        "final": "NINGUNA",
+        "acierto_final": false,
+        "error_aceptado": false,
+        "detalle": ""
+      },
+      {
+        "grupo": "positivo",
+        "fault_name": "BRK 4 PIN FLUSH",
+        "intervalo": "20 FC",
+        "esperado": "DESGASTE_FRENOS",
+        "final": "NINGUNA",
+        "acierto_final": false,
+        "error_aceptado": false,
+        "detalle": ""
+      },
+      {
+        "grupo": "positivo",
+        "fault_name": "CHALECO SALVAVIDAS SEGURO DE COMPARTIMIENTO DANADO",
+        "intervalo": "60 DAY",
+        "esperado": "CHALECO",
+        "final": "NINGUNA",
+        "acierto_final": false,
+        "error_aceptado": false,
+        "detalle": ""
+      },
+      {
+        "grupo": "positivo",
+        "fault_name": "DIP - E1 PRIMARY EXHAUST NOZZLE WITH OVERHEATING EVIDENCE",
+        "intervalo": "10 DAY",
+        "esperado": "TOBERA_ESCAPE",
+        "final": "TOBERA_ESCAPE",
+        "acierto_final": true,
+        "error_aceptado": false,
+        "detalle": ""
+      },
+      {
+        "grupo": "positivo",
+        "fault_name": "RADIO STATION LICENCE EXPIRES",
+        "intervalo": "30 DAY",
+        "esperado": "LICENCIA_RADIO",
+        "final": "NINGUNA",
+        "acierto_final": false,
+        "error_aceptado": false,
+        "detalle": ""
+      },
+      {
+        "grupo": "positivo",
+        "fault_name": "BLEED CONTROLLER CARD FAULT SMT",
+        "intervalo": "2902 FH",
+        "esperado": "BLEED_CTRL_CARD",
+        "final": "NINGUNA",
+        "acierto_final": false,
+        "error_aceptado": false,
+        "detalle": ""
+      },
+      {
+        "grupo": "positivo",
+        "fault_name": "TOC FLAPS CONFIG WARNING SMT",
+        "intervalo": "30 FH",
+        "esperado": "FLAPS_TAKEOFF_CONFIG",
+        "final": "NINGUNA",
+        "acierto_final": false,
+        "error_aceptado": false,
+        "detalle": ""
+      },
+      {
+        "grupo": "negativo",
+        "fault_name": "DEFIBRILLATOR DUE DATE",
+        "intervalo": "38 DAY",
+        "esperado": "NINGUNA",
+        "final": "NINGUNA",
+        "acierto_final": true,
+        "error_aceptado": false,
+        "detalle": ""
+      },
+      {
+        "grupo": "negativo",
+        "fault_name": "DIP- wing tank # 2 access door 632AB",
+        "intervalo": "60 DAY",
+        "esperado": "NINGUNA",
+        "final": "NINGUNA",
+        "acierto_final": true,
+        "error_aceptado": false,
+        "detalle": ""
+      },
+      {
+        "grupo": "negativo",
+        "fault_name": "AFT COMP NET",
+        "intervalo": "10 DAY",
+        "esperado": "NINGUNA",
+        "final": "NINGUNA",
+        "acierto_final": true,
+        "error_aceptado": false,
+        "detalle": ""
+      },
+      {
+        "grupo": "negativo",
+        "fault_name": "DIP SEALANT INSTALLATION",
+        "intervalo": "7 DAY",
+        "esperado": "NINGUNA",
+        "final": "NINGUNA",
+        "acierto_final": true,
+        "error_aceptado": false,
+        "detalle": ""
+      },
+      {
+        "grupo": "negativo",
+        "fault_name": "DIP-31 UNDERWATER LOCATOR BEACON(FDR)",
+        "intervalo": "112 DAY",
+        "esperado": "NINGUNA",
+        "final": "NINGUNA",
+        "acierto_final": true,
+        "error_aceptado": false,
+        "detalle": ""
+      },
+      {
+        "grupo": "negativo",
+        "fault_name": "DIP- 25 PASSENGER LIFE VEST",
+        "intervalo": "145 DAY",
+        "esperado": "NINGUNA",
+        "final": "NINGUNA",
+        "acierto_final": true,
+        "error_aceptado": false,
+        "detalle": ""
+      },
+      {
+        "grupo": "negativo",
+        "fault_name": "AFT LAV SMOKE DETECTOR BATTERY",
+        "intervalo": "30 DAY",
+        "esperado": "NINGUNA",
+        "final": "NINGUNA",
+        "acierto_final": true,
+        "error_aceptado": false,
+        "detalle": ""
+      },
+      {
+        "grupo": "negativo",
+        "fault_name": "DIP- REPLACE FLEXIBLE HOSE",
+        "intervalo": "10 DAY",
+        "esperado": "NINGUNA",
+        "final": "NINGUNA",
+        "acierto_final": true,
+        "error_aceptado": false,
+        "detalle": ""
+      },
+      {
+        "grupo": "negativo",
+        "fault_name": "DIP - 7 DAYS 46 NFS OAS AIRPLANE KEY",
+        "intervalo": "6 DAY",
+        "esperado": "NINGUNA",
+        "final": "NINGUNA",
+        "acierto_final": true,
+        "error_aceptado": false,
+        "detalle": ""
+      },
+      {
+        "grupo": "negativo",
+        "fault_name": "DIP- to check spoiler cables tension .",
+        "intervalo": "7 DAY",
+        "esperado": "NINGUNA",
+        "final": "NINGUNA",
+        "acierto_final": true,
+        "error_aceptado": false,
+        "detalle": ""
+      },
+      {
+        "grupo": "negativo",
+        "fault_name": "DIP-BOROSCOPE DUE TO FOD IN ENGINE #1",
+        "intervalo": "10 FC",
+        "esperado": "NINGUNA",
+        "final": "NINGUNA",
+        "acierto_final": true,
+        "error_aceptado": false,
+        "detalle": ""
+      },
+      {
+        "grupo": "negativo",
+        "fault_name": "AHM - 320 451 00 AIR/GND SENSOR scheduled maintenance task shows: SMT",
+        "intervalo": "150 FH",
+        "esperado": "NINGUNA",
+        "final": "NINGUNA",
+        "acierto_final": true,
+        "error_aceptado": false,
+        "detalle": ""
+      },
+      {
+        "grupo": "negativo",
+        "fault_name": "OXYGEN MASK CREW STOWAGE BOX",
+        "intervalo": "10 DAY",
+        "esperado": "NINGUNA",
+        "final": "NINGUNA",
+        "acierto_final": true,
+        "error_aceptado": false,
+        "detalle": ""
+      },
+      {
+        "grupo": "negativo",
+        "fault_name": "foward cargo cilling shroud with damage.",
+        "intervalo": "120 DAY",
+        "esperado": "NINGUNA",
+        "final": "NINGUNA",
+        "acierto_final": true,
+        "error_aceptado": false,
+        "detalle": ""
+      },
+      {
+        "grupo": "negativo",
+        "fault_name": "DIP- check for hydraulic leakage at the NLG Swivel",
+        "intervalo": "15 FC",
+        "esperado": "NINGUNA",
+        "final": "NINGUNA",
+        "acierto_final": true,
+        "error_aceptado": false,
+        "detalle": ""
+      },
+      {
+        "grupo": "negativo",
+        "fault_name": "RE-EVALUATION",
+        "intervalo": "5 DAY",
+        "esperado": "NINGUNA",
+        "final": "NINGUNA",
+        "acierto_final": true,
+        "error_aceptado": false,
+        "detalle": ""
+      },
+      {
+        "grupo": "negativo",
+        "fault_name": "LAV WASTE TANK SENSOR INOP",
+        "intervalo": "10 DAY",
+        "esperado": "NINGUNA",
+        "final": "NINGUNA",
+        "acierto_final": true,
+        "error_aceptado": false,
+        "detalle": ""
+      },
+      {
+        "grupo": "negativo",
+        "fault_name": "PAX SEAT 23C RECLINE INOP",
+        "intervalo": "10 DAY",
+        "esperado": "NINGUNA",
+        "final": "NINGUNA",
+        "acierto_final": true,
+        "error_aceptado": false,
+        "detalle": ""
+      },
+      {
+        "grupo": "negativo",
+        "fault_name": "EMERGENCY LIGHT BATTERY PACK EXPIRING",
+        "intervalo": "60 DAY",
+        "esperado": "NINGUNA",
+        "final": "NINGUNA",
+        "acierto_final": true,
+        "error_aceptado": false,
+        "detalle": ""
+      }
+    ]
+  },
+  "tiempos": {
+    "preparacion_s": 0.05,
+    "auditoria_s": 0.08,
+    "casos_s": 0.14,
+    "total_s": 0.31
+  }
+}

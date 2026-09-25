@@ -29,7 +29,9 @@ COLUMNAS = {
     "due_date": ["Fault Due Date"],
     "orig_due_date": ["Orig Fault Due Date"],
     "found_date": ["Found On Date", "Fault Found on Date"],
+    "defer_date": ["Defer Dt", "Deferral Date", "Fault Deferral Date"],
     "scheduled_date": ["Scheduled Date"],
+    "work_package": ["Work Package Barcode"],
     "usage_remaining": ["Usage Remaining"],
     "complete_date": ["Complete Dt", "Completed Date", "Fault Completed Date", "Completion Date"],
     "referencia_tecnica": ["Technical References", "Technical Reference", "technical_references",
@@ -39,6 +41,9 @@ COLUMNAS = {
     "rir_nombre": ["Rir Name"],
     "rir_intervalo": ["Rir Driver Interval"],
     "rir_tipo": ["Rir Driver Type"],
+    # Attachments del DIP al exportar el Excel: "OK"/"PENDING" y cuántos hay.
+    "adjuntos_estado": ["Attachment Status"],
+    "adjuntos_cantidad": ["Attach Docs"],
 }
 OBLIGATORIAS = ["barcode", "nombre", "intervalo", "tipo_intervalo", "estado", "avion"]
 
@@ -233,6 +238,17 @@ def _rirs_del_excel(v) -> list:
     return [rir]
 
 
+def _adjuntos_del_excel(v, mapa: dict) -> int | None:
+    """Cantidad de attachments según el Excel (Attach Docs; PENDING = ninguno). None = sin dato."""
+    if "adjuntos_estado" not in mapa and "adjuntos_cantidad" not in mapa:
+        return None
+    cantidad = parse_numero(v("adjuntos_cantidad"))
+    if cantidad is not None:
+        return int(cantidad)
+    estado = parse_texto(v("adjuntos_estado")).upper()
+    return 0 if estado == "PENDING" else None
+
+
 def normalizar_lote(original: pd.DataFrame) -> tuple[pd.DataFrame, list[str]]:
     mapa = _mapear_columnas(list(original.columns))
     faltantes = [c for c in OBLIGATORIAS if c not in mapa]
@@ -283,7 +299,9 @@ def normalizar_lote(original: pd.DataFrame) -> tuple[pd.DataFrame, list[str]]:
             "due_date": due,
             "orig_due_date": parse_fecha(v("orig_due_date")),
             "found_date": found,
+            "defer_date": parse_fecha(v("defer_date")),
             "scheduled_date": parse_fecha(v("scheduled_date")),
+            "work_package": parse_texto(v("work_package")),
             "usage_remaining": parse_numero(v("usage_remaining")),
             "complete_date": parse_fecha(v("complete_date")),
             # None = el Excel no trae el dato; "" = el DIP no tiene referencia técnica.
@@ -296,6 +314,8 @@ def normalizar_lote(original: pd.DataFrame) -> tuple[pd.DataFrame, list[str]]:
             "intervalo_de_icam": False,
             "notas_diferimiento": "",
             "adjuntos": None,          # lista de nombres si se leyó ICAM; None = sin dato
+            "adjuntos_excel": _adjuntos_del_excel(v, mapa),  # cantidad según el Excel
+            "uso_encontrado": None,    # ICAM: {"CYCLES": n, "HOURS": n} al encontrar la falla
             # RIR del DIP (columnas Rir del Excel o Follow-on Tasks de ICAM); None = sin dato
             "rirs": _rirs_del_excel(v) if "rir_barcode" in mapa else None,
             "historico_rir": False,    # se leyó Show Historical Tasks
@@ -335,50 +355,62 @@ def normalizar_lote(original: pd.DataFrame) -> tuple[pd.DataFrame, list[str]]:
     return datos, notas
 
 
+def _dato_icam(r: dict, ficha=None) -> dict:
+    """Lo que usa la auditoría de un DIP leído en ICAM (registro del extractor)."""
+    from .icam import leer_ficha
+    from .rir import agrupar
+
+    secciones = (r.get("icam_detail") or r).get("sections", {})
+    ficha = ficha or leer_ficha(secciones, parse_texto(r["barcode"]), parse_texto(r.get("page_title")))
+    # Página de cada RIR (la lee el extractor): intervalo, Start y Parent Assembly.
+    detalles = {i: leer_ficha(d.get("sections", {}), i) for i, d in (r.get("rir") or {}).items()}
+    return {
+        "referencia_tecnica": "; ".join(ficha.referencias_tecnicas),
+        "descripcion": ficha.descripcion,
+        "notas_diferimiento": ficha.notas_diferimiento,
+        "adjuntos": ficha.adjuntos,
+        "intervalos": [{"value": i.valor, "parameter": i.parametro, "unit": i.unidad,
+                        "start": i.inicio} for i in ficha.intervalos],
+        "uso_encontrado": ficha.uso_encontrado,
+        "rirs": agrupar(ficha.tareas_siguientes, detalles),
+        "historico_rir": bool((secciones.get("FollowOnHistorico") or {}).get("text")),
+        "parent_icam": ficha.parent_assembly,
+        "accion_correctiva": ficha.accion_correctiva,
+        "sn_removidos": ficha.sn_removidos,
+        "cambios_deadline": ficha.cambios_deadline,
+        "marcas_auditoria": ficha.marcas_auditoria,
+        "fin_real": ficha.fin_real,
+    }
+
+
 def _registros_icam(ruta: Path) -> dict[str, dict]:
     """Datos de ICAM por barcode: referencia técnica, descripción, notas de diferimiento,
     intervalos y adjuntos.
 
-    Acepta la carpeta que llena el extractor (`data/icam/`, un JSON por DIP), un JSON de
-    extracción (`dips_dataset.json` o `icam_dips.json`) o un CSV/Excel con las columnas
+    Acepta el JSON que llena el extractor (`data/icam.json`, todos los DIPs juntos), otro
+    JSON de extracción (`dips_dataset.json` o `icam_dips.json`), una carpeta con un JSON
+    por DIP (formato anterior) o un CSV/Excel con las columnas
     `barcode`, `technical_references` y, opcional, `description`. El texto de las
     pestañas se interpreta con `icam.leer_ficha`.
     """
     import json
 
-    from .icam import leer_ficha
-    from .rir import agrupar
+    from .extractor_icam import cargar_registros
 
     if ruta.is_dir() or ruta.suffix.lower() == ".json":
         if ruta.is_dir():
             registros = [json.loads(x.read_text(encoding="utf-8")) for x in sorted(ruta.glob("*.json"))]
         else:
-            datos = json.loads(ruta.read_text(encoding="utf-8"))
-            registros = datos["records"] if isinstance(datos, dict) else datos
+            # JSON con "records" (todos los DIPs), una lista o un solo DIP. Si quedan JSON
+            # sueltos en la carpeta del mismo nombre (p. ej. data/icam/), se unen antes.
+            registros = list(cargar_registros(ruta).values())
+            if not ruta.exists():
+                raise ErrorCarga(f"No se encontraron los datos de ICAM: {ruta}")
         salida = {}
         for r in registros:
             if r.get("icam_capture_status", "six_tabs") != "six_tabs":
                 continue  # solo vino del Excel: no hay datos de ICAM
-            secciones = (r.get("icam_detail") or r).get("sections", {})
-            ficha = leer_ficha(secciones, parse_texto(r["barcode"]), parse_texto(r.get("page_title")))
-            # Página de cada RIR (la lee el extractor): intervalo, Start y Parent Assembly.
-            detalles = {i: leer_ficha(d.get("sections", {}), i) for i, d in (r.get("rir") or {}).items()}
-            salida[ficha.barcode] = {
-                "referencia_tecnica": "; ".join(ficha.referencias_tecnicas),
-                "descripcion": ficha.descripcion,
-                "notas_diferimiento": ficha.notas_diferimiento,
-                "adjuntos": ficha.adjuntos,
-                "intervalos": [{"value": i.valor, "parameter": i.parametro, "unit": i.unidad,
-                                "start": i.inicio} for i in ficha.intervalos],
-                "rirs": agrupar(ficha.tareas_siguientes, detalles),
-                "historico_rir": bool((secciones.get("FollowOnHistorico") or {}).get("text")),
-                "parent_icam": ficha.parent_assembly,
-                "accion_correctiva": ficha.accion_correctiva,
-                "sn_removidos": ficha.sn_removidos,
-                "cambios_deadline": ficha.cambios_deadline,
-                "marcas_auditoria": ficha.marcas_auditoria,
-                "fin_real": ficha.fin_real,
-            }
+            salida[parse_texto(r["barcode"])] = _dato_icam(r)
         return salida
     if ruta.suffix.lower() == ".csv":
         extra = pd.read_csv(ruta, dtype=str, keep_default_na=False, encoding="utf-8-sig")
@@ -399,16 +431,82 @@ def _registros_icam(ruta: Path) -> dict[str, dict]:
             for _, r in extra.iterrows()}
 
 
-def completar_con_icam(lote: Lote, ruta: Path) -> int:
+def _sin_utc(texto: str) -> str:
+    return texto.replace(" UTC", "").strip()
+
+
+def lote_desde_icam(r: dict, ruta: Path) -> Lote:
+    """Un DIP armado solo con lo leído en ICAM (`r`: su registro en `ruta`, data/icam.json),
+    sin Excel de entrada. Los datos del Excel salen de las pestañas de ICAM; el tipo de DIP
+    (Area) no está en ICAM y queda vacío, y la matrícula solo se conoce si el Parent Assembly
+    es el avión (en un motor, la flota sale del modelo: LEAP es MAX y CFM56, NG)."""
+    from .icam import leer_ficha
+
+    ruta = Path(ruta)
+    f = leer_ficha((r.get("icam_detail") or r).get("sections", {}), parse_texto(r["barcode"]),
+                   parse_texto(r.get("page_title")))
+    m = re.match(r"^Fault Details - (.*?)(?: \[[^\]]*\])?$", f.titulo)
+    matricula = re.search(r"\bHP-?\d{4}[A-Z]*\b", f.parent_assembly.upper())
+    ata = re.match(r"\d{2}", f.deferral_reference)
+    paquete = re.search(r"\[([A-Z0-9]+)\]\s*$", f.paquete_trabajo)
+    # Due date, como el Excel de entrada: el límite que vence primero. Uno por fecha vence
+    # en su Deadline; uno por uso (Deadline "Aircraft n / ..."), en su Estimated Date.
+    intervalo = f.intervalos[0] if f.intervalos else None
+
+    def vence(i, extendido: bool) -> datetime | None:
+        fecha = parse_fecha(_sin_utc(i.deadline_extendido if extendido else i.deadline))
+        return fecha or parse_fecha(_sin_utc(i.fecha_estimada))
+    due = min(filter(None, (vence(i, True) for i in f.intervalos)), default=None)
+    due_original = min(filter(None, (vence(i, False) for i in f.intervalos)), default=None)
+    estado = (f.estado_tarea or f.fault_status).split(" (")[0].upper()
+    fila = {
+        "Fault Barcode": f.barcode,
+        "ATA": ata.group(0) if ata else None,
+        "Fault Name": m.group(1) if m else f.titulo,
+        "Fault Description": f.descripcion,
+        "Fault Severity": f.severidad.split(" (")[0],
+        "Fault Status": estado,
+        "Found On Date": _sin_utc(f.found_on),
+        "Defer Dt": _sin_utc(f.diferido),
+        "Fault Due Date": due,
+        "Orig Fault Due Date": due_original,
+        # Cierre: cuando se certificó la falla (el Complete Dt del Excel).
+        "Complete Dt": _sin_utc(f.certificado or f.fin_real) if estado == "COMPLETE" else None,
+        "DIP Interval": intervalo.valor if intervalo else None,
+        "Interval Type": intervalo.parametro if intervalo else None,
+        "Usage Remaining": intervalo.restante if intervalo else None,
+        "Aircraft": matricula.group(0) if matricula else "",
+        "Task Parent Assy": f.parent_assembly,
+        "Deferral Reference": f.deferral_reference,
+        "Scheduled Date": _sin_utc(f.programado),
+        "Work Package Barcode": paquete.group(1) if paquete else "",
+    }
+    original = pd.DataFrame([fila], index=[1], dtype=object)
+    datos, _ = normalizar_lote(original)
+    if not datos.at[0, "flota"] and tipo_parent(f.parent_assembly) == "ENGINE":
+        motor = f.parent_assembly.upper()
+        datos.at[0, "flota"] = "MAX" if "LEAP" in motor or "MAX" in motor else (
+            "NG" if "CFM56" in motor else None)
+    lote = Lote(ruta=ruta, hoja="ICAM", fila_encabezado=0, original=original, datos=datos)
+    completar_con_icam(lote, ruta, {f.barcode: _dato_icam(r, f)})
+    lote.notas.clear()
+    if not matricula:
+        lote.notas.append("ICAM no trae la matrícula (el Parent Assembly no es el avión): no se "
+                          "revisa si los attachments son de otro avión.")
+    return lote
+
+
+def completar_con_icam(lote: Lote, ruta: Path, registros: dict[str, dict] | None = None) -> int:
     """Agrega al lote los datos extraídos de ICAM, por barcode.
 
     - Referencia técnica y descripción: para revisar la referencia del manual.
     - Intervalo: solo si el Excel de entrada no lo trae (queda anotado en el DIP).
     Un barcode que no está en el archivo queda sin el dato y no se revisa.
+    `registros`: los datos ya interpretados (si no, se leen de `ruta`).
     Devuelve cuántos DIPs del lote se completaron.
     """
     ruta = Path(ruta)
-    registros = _registros_icam(ruta)
+    registros = _registros_icam(ruta) if registros is None else registros
     datos = lote.datos
     completados = intervalos = 0
     for i, barcode in datos["barcode"].items():
@@ -427,7 +525,8 @@ def completar_con_icam(lote: Lote, ruta: Path) -> int:
         datos.at[i, "historico_rir"] = r.get("historico_rir", False)
         datos.at[i, "icam_intervalos"] = r["intervalos"]
         datos.at[i, "parent_icam"] = r.get("parent_icam", "")
-        for clave in ("accion_correctiva", "sn_removidos", "cambios_deadline", "marcas_auditoria"):
+        for clave in ("accion_correctiva", "sn_removidos", "cambios_deadline", "marcas_auditoria",
+                      "uso_encontrado"):
             if clave in r:
                 datos.at[i, clave] = r[clave]
         # Fecha de cierre: si el Excel no la trae, la de ICAM (Actual End Date, en UTC).

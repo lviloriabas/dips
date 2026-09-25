@@ -54,7 +54,7 @@ sequenceDiagram
         end
         E->>I: Show Historical Tasks (RIR cerrados)
         E->>I: Página de cada RIR vigente (Scheduling, Task Information)
-        P->>P: Valida y guarda data/icam/barcode.json
+        P->>P: Valida y guarda en data/icam.json
     end
 ```
 
@@ -114,7 +114,12 @@ flowchart TD
 | RIR faltante o con intervalo distinto del de la tabla | DISCREPANCIA NO CRÍTICA |
 | RIR sin un límite del T/A o en otro Parent Assembly | DISCREPANCIA NO CRÍTICA |
 | RIR con Start distinto del T/A | POSIBLE DISCREPANCIA |
+| Sin attachments (apertura o cierre) | DISCREPANCIA NO CRÍTICA |
+| Start del T/A distinto de la apertura (o de la apertura + A en ventanas "AFTER A, BEFORE B") | DISCREPANCIA NO CRÍTICA |
+| S/N distinto del de las notas del diferimiento | DISCREPANCIA NO CRÍTICA |
+| Barcode de trabajo citado como referencia (no específica) | DISCREPANCIA NO CRÍTICA |
 | Sin intervalo, due date dudoso | POSIBLE DISCREPANCIA |
+| TA o RIR según el daño o el tipo ("DEPENDING ON...", "CONSULT REF.") | REVISAR (ir al manual) |
 | Sin referencia en la tabla | SIN FUENTE |
 
 Qué tipos de discrepancia y reglas se revisan, y la severidad de cada regla, se configuran en `config/discrepancias.yaml`.

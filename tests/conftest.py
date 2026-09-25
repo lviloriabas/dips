@@ -24,6 +24,12 @@ def auditor(config):
 
 
 @pytest.fixture(scope="session")
+def auditor_others(config):
+    """Auditor que audita solo los DIPs Others (los demás quedan FUERA DE ALCANCE)."""
+    return Auditor({**config, "tipos_auditados": ["Others"]}, fecha_auditoria=date(2026, 8, 20))
+
+
+@pytest.fixture(scope="session")
 def catalogo(auditor):
     return auditor.catalogo
 

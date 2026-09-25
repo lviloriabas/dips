@@ -19,7 +19,7 @@ def _fila(barcode, estado, due, completo, apertura, cierre, discrepancia=" ", ti
             cierre, "AUDITOR2" if cierre else " "]
 
 
-def test_compara_apertura_y_cierre_a_la_hora_de_cada_auditoria(tmp_path, auditor):
+def test_compara_apertura_y_cierre_a_la_hora_de_cada_auditoria(tmp_path, auditor_others):
     due = datetime(2026, 8, 21, 23, 59)
     filas = [
         # Auditado al abrir, antes del due: OK para ambos.
@@ -34,7 +34,7 @@ def test_compara_apertura_y_cierre_a_la_hora_de_cada_auditoria(tmp_path, auditor
         _fila("S1", "ACTV", due, None, None, None),
         _fila("P1", "ACTV", due, None, datetime(2026, 8, 18, 12, 0), None, tipo="Powerplant"),
     ]
-    c = comparar(auditor, crear_export(tmp_path / "e.xlsx", filas, encabezado=ENCABEZADO))
+    c = comparar(auditor_others, crear_export(tmp_path / "e.xlsx", filas, encabezado=ENCABEZADO))
     t = c.detalle.set_index("Fault Barcode")
     assert list(t.index) == ["A1", "C1", "C2"]
     assert t.loc["A1", "Apertura: resultado del programa"] == "OK"
@@ -64,7 +64,7 @@ def test_exporta_excel(tmp_path, auditor):
 
 
 def test_modo_prueba_separa_icam_y_salidas_y_marca_los_resultados(tmp_path, config, monkeypatch):
-    """Un Excel dentro de la carpeta de pruebas usa pruebas/icam y pruebas/salidas, y el
+    """Un Excel dentro de la carpeta de pruebas usa pruebas/icam.json y pruebas/salidas, y el
     resultado lleva el prefijo PRUEBA_ y el aviso en el Excel."""
     import copy
 
@@ -82,7 +82,7 @@ def test_modo_prueba_separa_icam_y_salidas_y_marca_los_resultados(tmp_path, conf
                         [_fila("A1", "ACTV", due, None, datetime(2026, 8, 18, 12, 0), None)],
                         encabezado=ENCABEZADO)
     assert cli.main(["comparar", str(ruta)]) == 0
-    assert config["icam"]["carpeta"] == (tmp_path / "pruebas" / "icam").resolve()
+    assert config["icam"]["archivo"] == (tmp_path / "pruebas" / "icam.json").resolve()
     salidas = list((tmp_path / "pruebas" / "salidas").glob("PRUEBA_*_COMPARACION_*.xlsx"))
     assert len(salidas) == 1
     assert "PRUEBA" in openpyxl.load_workbook(salidas[0])["Resumen"]["A3"].value

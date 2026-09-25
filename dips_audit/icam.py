@@ -32,6 +32,7 @@ class Intervalo:
     extension: str
     deadline_extendido: str
     restante: str
+    fecha_estimada: str = ""    # Estimated Date: el due date de un límite por uso (FH, FC)
 
 
 @dataclass
@@ -59,9 +60,13 @@ class FichaICAM:
     notas_diferimiento: str = ""     # "Deferral Notes" del historial (parte de la apertura)
     accion_correctiva: str = ""      # cierre: no se usa en la auditoría de apertura
     referencias_tecnicas: list[str] = field(default_factory=list)
-    marcas_auditoria: list[str] = field(default_factory=list)   # tipo AUDITDIP
+    # Marcas que pone el auditor al terminar (tipo AUDITDIP o AUDITTR): no son referencias.
+    marcas_auditoria: list[str] = field(default_factory=list)
     adjuntos: list[str] = field(default_factory=list)
     intervalos: list[Intervalo] = field(default_factory=list)
+    # Uso de la tarea cuando se encontró la falla (History, "Usage When Found"):
+    # {"CYCLES": 14496, "HOURS": 54442.44}. Es el Start que debe tener un T/A por uso.
+    uso_encontrado: dict[str, float] = field(default_factory=dict)
     cambios_deadline: list[str] = field(default_factory=list)
     sn_removidos: list[tuple[str, str]] = field(default_factory=list)   # (P/N, S/N)
     sn_instalados: list[tuple[str, str]] = field(default_factory=list)
@@ -71,9 +76,13 @@ class FichaICAM:
     deferral_class: str = ""
     deferral_reference: str = ""
     found_on: str = ""
+    diferido: str = ""               # Fault History: "Corrective action was deferred"
+    certificado: str = ""            # Fault History: "Fault has been certified" (cierre)
     parent_assembly: str = ""
     estado_tarea: str = ""
     fin_real: str = ""
+    programado: str = ""             # Scheduled Start Date
+    paquete_trabajo: str = ""        # Subtask Of: "NOMBRE [T40S...]"
 
     def como_dict(self) -> dict:
         return asdict(self)
@@ -134,6 +143,20 @@ def _numero(texto: str) -> float | None:
 
 _DUE_USO = re.compile(r"^(-?[\d.,]+)\s*([A-Z]+)")
 _FECHA_ICAM = re.compile(r"\d{2}-[A-Z]{3}-\d{4}(?:\s+\d{2}:\d{2}\s+UTC)?")
+_MARCA_AUDITORIA = re.compile(r"RT AUDIT COMPLETED", re.I)
+# "Cycles ( CYCLES )<TAB>14496" y "Flying Hours ( HOURS )<TAB>54442.44"
+_USO = re.compile(r"\(\s*(CYCLES|HOURS)\s*\)\s*\t\s*(-?[\d.,]+)")
+
+
+def leer_uso_encontrado(historial: str) -> dict[str, float]:
+    """Bloque "Usage When Found" de History: uso de la tarea al encontrar la falla."""
+    bloque = _bloque(historial, "Usage When Found", ["History", "Usage At Completion"])
+    uso: dict[str, float] = {}
+    for parametro, valor in _USO.findall(bloque):
+        numero = _numero(valor)
+        if numero is not None:
+            uso.setdefault(parametro, numero)
+    return uso
 
 
 def leer_tareas_siguientes(texto: str) -> list[TareaSiguiente]:
@@ -215,6 +238,8 @@ def leer_ficha(secciones: dict, barcode: str = "", titulo: str = "") -> FichaICA
     f.parent_assembly = campos.get("Parent Assembly", "")
     f.estado_tarea = campos.get("Status", "")
     f.fin_real = campos.get("Actual End Date", "")
+    f.programado = campos.get("Scheduled Start Date", "")
+    f.paquete_trabajo = campos.get("Subtask Of", "")
     refs = _bloque(tarea, "Technical References", ["Attachments"])
     documentos = [v for k, v in _pares(refs).items() if k.startswith("Document Reference") and v]
     documentos += [_limpio(m) for m in re.findall(r"Document Reference:\t([^\t\n]+)", refs)]
@@ -223,7 +248,9 @@ def leer_ficha(secciones: dict, barcode: str = "", titulo: str = "") -> FichaICA
         nombre, tipo = _celda(fila, enc.index("Name")), _celda(fila, enc.index("Type"))
         if not nombre:
             continue
-        (f.marcas_auditoria if tipo.upper() == "AUDITDIP" else documentos).append(nombre)
+        # La marca del auditor puede venir como AUDITDIP, AUDITTR o sin tipo.
+        marca = tipo.upper().startswith("AUDIT") or _MARCA_AUDITORIA.search(nombre)
+        (f.marcas_auditoria if marca else documentos).append(nombre)
     if seleccionada:
         documentos.append(seleccionada)
     f.referencias_tecnicas = list(dict.fromkeys(d for d in documentos if d))
@@ -249,8 +276,10 @@ def leer_ficha(secciones: dict, barcode: str = "", titulo: str = "") -> FichaICA
                 deadline=_celda(fila, i.get("Deadline")),
                 extension=_celda(fila, i.get("Extension")),
                 deadline_extendido=_celda(fila, i.get("Extended Deadline")),
-                restante=_celda(fila, i.get("Usage Remaining"))))
+                restante=_celda(fila, i.get("Usage Remaining")),
+                fecha_estimada=_celda(fila, i.get("Estimated Date"))))
 
+    f.uso_encontrado = leer_uso_encontrado(texto("History"))
     historial = texto("History") + "\n\n" + falla
     # Follow-on Tasks: las abiertas (vista por defecto) y, si se leyó, "Show Historical Tasks".
     fin_siguientes = ["Component Faults", "Failure Effects", "Fault History"]
@@ -263,6 +292,15 @@ def leer_ficha(secciones: dict, barcode: str = "", titulo: str = "") -> FichaICA
     f.cambios_deadline = list(dict.fromkeys(
         _limpio(l) for l in historial.splitlines()
         if re.search(r"deadline (has been|was) (modified|added|removed|extended)", l, re.I)))
+    # Fault History va de la más nueva a la más vieja: el primer diferimiento es el último
+    # y la última certificación (el cierre), la primera.
+    def fechas_historial(evento: str) -> list[str]:
+        return [m.group(0) for l in falla.splitlines() if evento in l
+                for m in [_FECHA_ICAM.match(_limpio(l))] if m]
+    diferidos = fechas_historial("Corrective action was deferred")
+    f.diferido = diferidos[-1] if diferidos else ""
+    certificados = fechas_historial("Fault has been certified")
+    f.certificado = certificados[0] if certificados else ""
     notas = re.findall(r"Deferral Notes:\s*(.+?)(?:\t|\n\n|$)", historial, re.S)
     f.notas_diferimiento = " | ".join(dict.fromkeys(_limpio(n) for n in notas if _limpio(n)))
     return f

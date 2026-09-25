@@ -11,7 +11,7 @@ from pathlib import Path
 
 import yaml
 
-SEVERIDADES = ("CRITICA", "NO CRITICA", "REVISAR", "SIN FUENTE", "OBSERVACION")
+SEVERIDADES = ("CRITICA", "NO CRITICA", "REVISAR", "CONSULTAR MANUAL", "SIN FUENTE", "OBSERVACION")
 
 
 @dataclass(frozen=True)

@@ -110,7 +110,8 @@ def test_documento_en_la_auditoria_completa(config, tmp_path):
 def test_filtrar_categorias(ctx, catalogo):
     d = cargar_discrepancias(Path(RAIZ / "config" / "discrepancias.yaml"))
     assert d.buscar_tipos(["technical reference"]) == {
-        "Missing Technical Reference", "Incorrect Technical Reference"}
+        "Missing Technical Reference", "Incorrect Technical Reference",
+        "Non-Specific Technical Reference"}
     assert d.buscar_tipos(["rir"]) == {"RIR"}  # nombre exacto antes que parte de otro
     with pytest.raises(ValueError, match="no es un tipo"):
         d.buscar_tipos(["no existe"])

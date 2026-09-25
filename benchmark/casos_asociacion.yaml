@@ -28,6 +28,8 @@ positivos:
   - {nombre: "PROTECCION UNIVERSAL KIT FWD", intervalo: "90 DAY", esperado: UPK}
   - {nombre: "BRK 4 PIN FLUSH", intervalo: "20 CYCLES", esperado: DESGASTE_FRENOS}
   - {nombre: "CHALECO SALVAVIDAS SEGURO DE COMPARTIMIENTO DANADO", intervalo: "60 DAY", esperado: CHALECO}
+  # Fila Powerplant de la tabla (antes el catálogo solo tenía Others y era un caso sin referencia).
+  - {nombre: "DIP - E1 PRIMARY EXHAUST NOZZLE WITH OVERHEATING EVIDENCE", intervalo: "10 DAY", esperado: TOBERA_ESCAPE}
   - {nombre: "RADIO STATION LICENCE EXPIRES", intervalo: "30 DAY", esperado: LICENCIA_RADIO}
   - {nombre: "BLEED CONTROLLER CARD FAULT SMT", intervalo: "2902 HOUR", esperado: BLEED_CTRL_CARD}
   - {nombre: "TOC FLAPS CONFIG WARNING SMT", intervalo: "30 HOUR", esperado: FLAPS_TAKEOFF_CONFIG}
@@ -44,7 +46,6 @@ negativos:
   - {nombre: "DIP - 7 DAYS 46 NFS OAS AIRPLANE KEY", intervalo: "6 DAY"}
   - {nombre: "DIP- to check spoiler cables tension .", intervalo: "7 DAY"}
   - {nombre: "DIP-BOROSCOPE DUE TO FOD IN ENGINE #1", intervalo: "10 CYCLES"}
-  - {nombre: "DIP - E1 PRIMARY EXHAUST NOZZLE WITH OVERHEATING EVIDENCE", intervalo: "10 DAY"}
   - {nombre: "AHM - 320 451 00 AIR/GND SENSOR scheduled maintenance task shows: SMT", intervalo: "150 HOUR"}
   - {nombre: "OXYGEN MASK CREW STOWAGE BOX", intervalo: "10 DAY"}
   - {nombre: "foward cargo cilling shroud with damage.", intervalo: "120 DAY"}

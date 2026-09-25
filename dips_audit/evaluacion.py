@@ -14,8 +14,8 @@ from .auditor import Auditor, ResultadoAuditoria
 from .cargador import cargar_export, parse_fecha
 
 ESTADOS_HUMANOS = ["OK", "DISCREPANCIA NO CRÍTICA", "DISCREPANCIA CRÍTICA"]
-# Resultados del programa (ver reglas.ESTADOS). SIN FUENTE no es OK ni discrepancia.
-ESTADOS_IA = ["OK", "SIN FUENTE", "POSIBLE DISCREPANCIA"]
+# Resultados del programa (ver reglas.ESTADOS). SIN FUENTE y REVISAR no son OK ni discrepancia.
+ESTADOS_IA = ["OK", "REVISAR", "SIN FUENTE", "POSIBLE DISCREPANCIA"]
 # Temas de los comentarios humanos (en orden de prioridad). Los primeros dependen
 # de información que no viene en el Excel de entrada (attachments, RIRs, tarjetas).
 TEMAS = [

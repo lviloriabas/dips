@@ -17,7 +17,8 @@ import pytest
 
 pytest.importorskip("playwright")
 
-from dips_audit.extractor_icam import ErrorExtraccion, ErrorSesion, extraer, ruta_cache  # noqa: E402
+from dips_audit.extractor_icam import (  # noqa: E402
+    ErrorExtraccion, ErrorSesion, extraer, leer_registro)
 from dips_audit.icam import PESTANAS, leer_ficha  # noqa: E402
 
 TEXTOS = {
@@ -187,14 +188,17 @@ def test_lee_por_barcode_rapido_y_solo_lectura(icam, tmp_path):
     barcodes = [f"T40S009T{n:03d}" for n in range(12)]
     _ICAMSimulado.fallar_una_vez = {"T40S009T003/Scheduling"}
     inicio = time.monotonic()
-    estado = _extraer(barcodes, icam, tmp_path / "icam")
+    estado = _extraer(barcodes, icam, tmp_path / "icam.json")
     segundos = time.monotonic() - inicio
     assert estado == {b: "leido" for b in barcodes}
     # Solo llegaron búsquedas (DIP y RIR vigente): sin scripts de ICAM, sin onload y sin imágenes.
     assert _ICAMSimulado.envios == [ESCANEO] * (2 * len(barcodes))
     assert segundos < 30, f"12 DIPs con RIR en {segundos:.1f} s"
 
-    registro = json.loads(ruta_cache(tmp_path / "icam", "T40S009T003").read_text(encoding="utf-8"))
+    # Todos los DIPs quedan juntos en un solo JSON.
+    datos = json.loads((tmp_path / "icam.json").read_text(encoding="utf-8"))
+    assert [r["barcode"] for r in datos["records"]] == barcodes
+    registro = leer_registro(tmp_path / "icam.json", "T40S009T003")
     ficha = leer_ficha(registro["sections"], registro["barcode"])
     assert ficha.descripcion.startswith("T40S009T003 CREW O2 850 PSI")
     assert ficha.referencias_tecnicas == ["TASK 12-15-21-210-801"]
@@ -213,15 +217,15 @@ def test_lee_por_barcode_rapido_y_solo_lectura(icam, tmp_path):
 
     # Segunda corrida: aunque ya estén leídos, se vuelven a leer todos.
     _ICAMSimulado.envios.clear()
-    assert _extraer(barcodes, icam, tmp_path / "icam") == {b: "leido" for b in barcodes}
+    assert _extraer(barcodes, icam, tmp_path / "icam.json") == {b: "leido" for b in barcodes}
     assert _ICAMSimulado.envios == [ESCANEO] * (2 * len(barcodes))
 
 
 def test_sin_sesion_avisa_y_no_se_queda_en_el_login(icam, tmp_path):
     _ICAMSimulado.sin_sesion = True
     with pytest.raises(ErrorSesion, match="No hay sesión iniciada en ICAM"):
-        _extraer(["T40S009T000"], icam, tmp_path / "icam")
-    assert not list((tmp_path / "icam").glob("*.json"))
+        _extraer(["T40S009T000"], icam, tmp_path / "icam.json")
+    assert not (tmp_path / "icam.json").exists()
 
 
 def test_sin_sesion_espera_a_que_el_usuario_la_inicie(icam, tmp_path):
@@ -230,7 +234,7 @@ def test_sin_sesion_espera_a_que_el_usuario_la_inicie(icam, tmp_path):
     avisos = []
     threading.Timer(6, lambda: setattr(_ICAMSimulado, "sin_sesion", False)).start()
     try:
-        estado = extraer(["T40S009T000"], icam, tmp_path / "icam", al_avanzar=avisos.append)
+        estado = extraer(["T40S009T000"], icam, tmp_path / "icam.json", al_avanzar=avisos.append)
     except ErrorExtraccion as e:
         if "Edge" in str(e):
             pytest.skip(f"No se pudo abrir Edge: {e}")
@@ -245,7 +249,7 @@ def test_error_al_iniciar_sesion_se_detecta_de_inmediato(icam, tmp_path):
     icam["espera_sesion_minutos"] = 1
     inicio = time.monotonic()
     with pytest.raises(ErrorSesion, match="No se pudo iniciar sesión en ICAM: Invalid username"):
-        _extraer(["T40S009T000"], icam, tmp_path / "icam")
+        _extraer(["T40S009T000"], icam, tmp_path / "icam.json")
     assert time.monotonic() - inicio < 20
-    assert not list((tmp_path / "icam").glob("*.json"))
+    assert not (tmp_path / "icam.json").exists()
 

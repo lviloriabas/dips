@@ -131,7 +131,8 @@ def _registro(barcode, filas):
         "TaskExecution": {"text": "Description\nPARK BRK FAIL HOLD CHECK IAW AMM TASK 32-44-00-790-801 "
                                   "REV 90, 15-JUN-2026\nLabor"},
         "FaultInformation": {"text": FOLLOW_ON.format(filas=filas)},
-        "TaskInformation": {"text": "Parent Assembly:\tBoeing 737-8V3 - HP-1837CMP\n"},
+        "TaskInformation": {"text": "Parent Assembly:\tBoeing 737-8V3 - HP-1837CMP\n\n"
+                                    "Attachments\n\tName\tAttachment\tType\n\tAMM.png\t\tPIC\n"},
         "Scheduling": {"text": "\tDriver1\tParameter2\tUnit\tScheduled From\tStart\tInterval\tDeadline\n"
                                "\t\tCDY\tDAY\tCUSTOM\t18-AUG-2026 23:59 UTC\t3\t21-AUG-2026 23:59 UTC"},
         "History": {"text": "18-AUG-2026 09:05 UTC"}}}
@@ -158,7 +159,7 @@ def test_auditoria_con_rir_de_icam(config, tmp_path):
     assert f.loc["P1", "RIR EN ICAM"] == "RIR - PARK BRAKE (P1A, P1B): 1 DAY"
     assert "la referencia pide 1 DAY" in f.loc["P2", "HALLAZGOS"]
     assert f.loc["P2", "RESULTADO"] == "POSIBLE DISCREPANCIA"
-    assert "Sin RIR en Follow-on Tasks" in f.loc["P3", "HALLAZGOS"]
+    assert "Sin RIR; la referencia pide" in f.loc["P3", "HALLAZGOS"]
     assert f.loc["P3", "RIR EN ICAM"] == "Sin RIR"
 
 

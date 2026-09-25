@@ -3,10 +3,12 @@
     python -m dips_audit auditar  "entrada.xlsx" [--hoja HOJA] [--datos-icam ICAM.csv]
     python -m dips_audit abrir-icam
     python -m dips_audit auditar  "entrada.xlsx" --icam
+    python -m dips_audit barcode  T40S... [T40S...]      (solo ICAM, resultado en consola)
     python -m dips_audit extraer-icam "entrada.xlsx" | --barcode T40S...
     python -m dips_audit benchmark
     python -m dips_audit anonimizar [--historico ARCHIVO]
     python -m dips_audit auditar  "entrada.xlsx" --categorias "Incorrect DIP Interval" RIR
+    python -m dips_audit auditar  "entrada.xlsx" --tipos-dip Others
     python -m dips_audit referencias
     python -m dips_audit categorias
 """
@@ -14,6 +16,7 @@
 from __future__ import annotations
 
 import argparse
+import re
 import sys
 import time
 from datetime import datetime
@@ -37,6 +40,7 @@ from .referencias import ErrorCatalogo
 consola = Console()
 ESTILOS = {
     "POSIBLE DISCREPANCIA": "bold yellow",
+    "REVISAR": "bold magenta",
     "SIN FUENTE": "bold cyan",
     "OK": "bold green",
     "FUERA DE ALCANCE": "dim",
@@ -56,13 +60,13 @@ def _duracion(segundos: float) -> str:
 
 
 def _tabla_estados(filas: pd.DataFrame) -> Table:
-    """DIPs por resultado. El % de OK, SIN FUENTE y POSIBLE DISCREPANCIA es sobre los auditados;
+    """DIPs por resultado. El % de OK, REVISAR, SIN FUENTE y POSIBLE DISCREPANCIA es sobre los auditados;
     el de FUERA DE ALCANCE, sobre el total del archivo."""
     total = len(filas)
     conteo = filas["RESULTADO"].value_counts().to_dict()
     auditados = total - conteo.get("FUERA DE ALCANCE", 0)
     t = Table(title=f"Resultado por DIP ({auditados} auditados de {total})",
-              caption="% sobre los auditados; fuera de alcance, sobre el total.")
+              caption="% sobre los auditados; fuera de alcance (otro tipo de DIP), sobre el total.")
     t.add_column("Resultado")
     t.add_column("DIPs", justify="right")
     t.add_column("%", justify="right")
@@ -77,7 +81,7 @@ def _tabla_estados(filas: pd.DataFrame) -> Table:
 def _tabla_hallazgos(resultado) -> Table | None:
     """Tipos de discrepancia: cuántos hallazgos y en cuántos DIPs (% de los auditados)."""
     h = resultado.hallazgos
-    h = h[~h["Severidad"].isin(["OBSERVACION", "SIN FUENTE"])]
+    h = h[~h["Severidad"].isin(["OBSERVACION", "SIN FUENTE", "CONSULTAR MANUAL"])]
     if h.empty:
         return None
     auditados = int((resultado.filas["RESULTADO"] != "FUERA DE ALCANCE").sum())
@@ -110,18 +114,24 @@ def _resumen(resultado, tiempos: dict[str, float]) -> Panel:
     auditados = len(en_alcance)
     posibles = int((en_alcance["RESULTADO"] == "POSIBLE DISCREPANCIA").sum())
     sin_fuente = int((en_alcance["RESULTADO"] == "SIN FUENTE").sum())
+    revisar = int((en_alcance["RESULTADO"] == "REVISAR").sum())
     ok = int((en_alcance["RESULTADO"] == "OK").sum())
     h = resultado.hallazgos
     observaciones = int((h["Severidad"] == "OBSERVACION").sum())
-    discrepancias = len(h) - observaciones - int((h["Severidad"] == "SIN FUENTE").sum())
+    discrepancias = len(h) - observaciones - int(h["Severidad"].isin(["SIN FUENTE", "CONSULTAR MANUAL"]).sum())
     manuales = int((en_alcance["VERIFICACIÓN MANUAL"] != "").sum())
+    tipos = dict(zip(resultado.lote.datos["fila"], resultado.lote.datos["tipo"]))
+    fuera = filas.loc[filas["RESULTADO"] == "FUERA DE ALCANCE", "Fila Excel"].map(tipos)
+    detalle_fuera = ", ".join(f"{t} {n}" for t, n in fuera.value_counts().items())
     cierre = int((en_alcance["AUDITORÍA"] == "CIERRE").sum())
     lineas = [
         f"[bold]DIPs en el archivo:[/] {total}   [bold]Auditados:[/] {auditados} "
-        f"(apertura {auditados - cierre}, cierre {cierre})   "
-        f"[bold]Fuera de alcance:[/] {total - auditados}",
+        f"(apertura {auditados - cierre}, cierre {cierre})",
+        f"[bold]Fuera de alcance (otro tipo de DIP):[/] {total - auditados}"
+        + (f" ({detalle_fuera})" if detalle_fuera else ""),
         f"[{ESTILOS['POSIBLE DISCREPANCIA']}]POSIBLE DISCREPANCIA:[/] {posibles} "
-        f"({_pct(posibles, auditados)})   [{ESTILOS['SIN FUENTE']}]SIN FUENTE:[/] {sin_fuente} "
+        f"({_pct(posibles, auditados)})   [{ESTILOS['REVISAR']}]REVISAR:[/] {revisar} "
+        f"({_pct(revisar, auditados)})   [{ESTILOS['SIN FUENTE']}]SIN FUENTE:[/] {sin_fuente} "
         f"({_pct(sin_fuente, auditados)})   [{ESTILOS['OK']}]OK:[/] {ok} ({_pct(ok, auditados)})",
         f"[bold]Hallazgos:[/] {discrepancias} posibles discrepancias"
         + (f" ({discrepancias / posibles:.1f} por DIP marcado)" if posibles else "")
@@ -146,31 +156,108 @@ def _extraer_icam(config, archivo: Path, hoja: str | None,
     if not barcodes:
         barcodes = cargar_export(archivo, hoja).datos["barcode"].tolist()
     consola.print(f"Lectura de ICAM (solo lectura): {len(barcodes)} DIPs, "
-                  f"se guardan en {icam['carpeta']}.")
-    estado = extraer(barcodes, icam, icam["carpeta"], consola.print)
+                  f"se guardan en {icam['archivo']}.")
+    estado = extraer(barcodes, icam, icam["archivo"], consola.print)
     errores = {b: e for b, e in estado.items() if e.startswith("error")}
     leidos = sum(e == "leido" for e in estado.values())
     consola.print(f"[bold green]ICAM:[/] {leidos} leídos, {len(errores)} con error.")
     for b, e in list(errores.items())[:10]:
         consola.print(f"[yellow]{b}:[/] {e}")
-    return icam["carpeta"]
+    return icam["archivo"]
 
 
 def cmd_extraer_icam(args, config) -> int:
-    carpeta = _extraer_icam(config, Path(args.archivo) if args.archivo else None, args.hoja,
+    archivo = _extraer_icam(config, Path(args.archivo) if args.archivo else None, args.hoja,
                             args.barcode)
     if args.barcode and len(args.barcode) == 1:
         # Diagnóstico: muestra lo que se interpretó del DIP.
         import json
 
-        from .extractor_icam import ruta_cache
+        from .extractor_icam import leer_registro
         from .icam import leer_ficha
-        ruta = ruta_cache(carpeta, args.barcode[0])
-        if ruta.exists():
-            r = json.loads(ruta.read_text(encoding="utf-8"))
+        r = leer_registro(archivo, args.barcode[0])
+        if r:
             f = leer_ficha(r["sections"], r["barcode"], r.get("page_title", ""))
             consola.print_json(json.dumps(f.como_dict(), ensure_ascii=False, default=str))
     return 0
+
+
+def _fecha(valor) -> str:
+    return f"{valor:%d-%b-%Y %H:%M}" if valor else "-"
+
+
+def _ficha_dip(resultado) -> Panel:
+    """Un DIP auditado desde ICAM: sus datos, el resultado y los hallazgos."""
+    f = resultado.filas.iloc[0]
+    dip = resultado.lote.datos.iloc[0]
+    estilo = ESTILOS.get(f["RESULTADO"], "bold")
+    intervalo = (f"{dip['intervalo']:g} {dip['tipo_intervalo_original']}"
+                 if dip["intervalo"] is not None else "-")
+    lineas = [
+        f"[bold]{f['Fault Name']}[/]",
+        f"[bold]Avión:[/] {f['Aircraft'] or '-'}" + (f" ({f['Flota']})" if f["Flota"] else "")
+        + f"   [bold]Parent:[/] {dip['parent_assy'] or '-'}",
+        f"[bold]Estado:[/] {f['Fault Status']}   [bold]Auditoría:[/] {f['AUDITORÍA']} "
+        f"(al {_fecha(f['FECHA AUDITORÍA'])})",
+        f"[bold]Intervalo:[/] {intervalo}   [bold]Apertura:[/] {_fecha(dip['found_date'])}   "
+        f"[bold]Due:[/] {_fecha(dip['due_date'])}"
+        + (f"   [bold]Cierre:[/] {_fecha(dip['complete_date'])}" if dip["complete_date"] else ""),
+        f"[bold]Referencia asociada:[/] {f['REFERENCIA ASOCIADA'] or '-'}"
+        + (f" ({f['ASOCIACIÓN']})" if f["REFERENCIA ASOCIADA"] else ""),
+    ]
+    for titulo, columna in (("T/A según referencia", "TA SEGÚN REFERENCIA"),
+                            ("Referencia técnica esperada", "REFERENCIA TÉCNICA ESPERADA"),
+                            ("Referencia técnica del DIP", "REFERENCIA TÉCNICA DEL DIP"),
+                            ("RIR", "RIR EN ICAM"), ("Attachments", "ADJUNTOS EN ICAM")):
+        if f[columna]:
+            lineas.append(f"[bold]{titulo}:[/] {f[columna]}")
+    lineas += ["", f"[bold]Resultado:[/] [{estilo}]{f['RESULTADO']}[/]"
+               + (f"   (apertura: {f['ESTADO APERTURA']}"
+                  + (f", cierre: {f['ESTADO CIERRE']}" if f["ESTADO CIERRE"] else "") + ")"
+                  if f["ESTADO APERTURA"] else "")]
+    for titulo, columna in (("Hallazgos", "HALLAZGOS"), ("Verificación manual", "VERIFICACIÓN MANUAL"),
+                            ("Comentario sugerido", "COMENTARIO SUGERIDO")):
+        if f[columna]:
+            lineas += ["", f"[bold]{titulo}:[/]", f[columna]]
+    for nota in resultado.advertencias:
+        lineas += ["", f"[yellow]Nota:[/] {nota}"]
+    return Panel("\n".join(lineas), title=f"DIP {f['Fault Barcode']}", title_align="left",
+                 border_style=estilo.replace("bold ", ""))
+
+
+def cmd_barcode(args, config) -> int:
+    """Audita DIPs solo con ICAM, sin Excel de entrada: lee cada barcode en ICAM y muestra el
+    resultado en consola (no se genera ningún archivo de resultado)."""
+    from .cargador import lote_desde_icam
+    from .extractor_icam import cargar_registros, extraer
+
+    barcodes = list(dict.fromkeys(b.strip().upper() for b in args.barcodes))
+    invalidos = [b for b in args.barcodes if not re.fullmatch(r"[A-Z0-9]{8,15}", b.strip().upper())]
+    if invalidos:
+        consola.print(f"[bold red]Error:[/] {', '.join(invalidos)} no es un barcode ni un "
+                      "Excel de entrada que exista.")
+        return 1
+    if args.datos_icam:
+        archivo = Path(args.datos_icam)
+    else:
+        archivo = config["icam"]["archivo"]
+        with consola.status(f"Leyendo en ICAM (solo lectura) {', '.join(barcodes)}..."):
+            estado = extraer(barcodes, config["icam"], archivo)
+        errores = {b: e for b, e in estado.items() if e != "leido"}
+        for b, e in errores.items():
+            consola.print(f"[bold red]{b}:[/] no se pudo leer en ICAM ({e}).")
+        barcodes = [b for b in barcodes if b not in errores]
+    registros = cargar_registros(archivo)
+    auditor = Auditor(config, fecha_auditoria=_fecha_hora(args.fecha))
+    _filtrar_categorias(args, auditor)
+    codigo = 0 if barcodes else 1
+    for b in barcodes:
+        if b not in registros:
+            consola.print(f"[bold red]{b}:[/] no está en {archivo}.")
+            codigo = 1
+            continue
+        consola.print(_ficha_dip(auditor.auditar_lote(lote_desde_icam(registros[b], archivo))))
+    return codigo
 
 
 def cmd_abrir_icam(args, config) -> int:
@@ -196,7 +283,7 @@ def _fecha_hora(texto: str | None) -> datetime | None:
 
 def _modo_prueba(args, config: dict) -> bool:
     """Modo prueba: el Excel está dentro de la carpeta de pruebas (config carpeta_pruebas)
-    o se pidió --prueba. Los datos de ICAM y los resultados van a pruebas/icam y
+    o se pidió --prueba. Los datos de ICAM y los resultados van a pruebas/icam.json y
     pruebas/salidas, y los resultados se marcan como PRUEBA, para no mezclarlos con
     auditorías reales."""
     carpeta = Path(config["carpeta_pruebas"]).resolve()
@@ -205,13 +292,31 @@ def _modo_prueba(args, config: dict) -> bool:
     if not (getattr(args, "prueba", False) or dentro):
         return False
     config["modo_prueba"] = True
-    config["icam"]["carpeta"] = carpeta / "icam"
+    config["icam"]["archivo"] = carpeta / "icam.json"
     config["carpeta_salida"] = carpeta / "salidas"
     consola.print(Panel.fit(
         "[bold]MODO PRUEBA[/]: datos de prueba, no es una auditoría real.\n"
-        f"ICAM: {config['icam']['carpeta']}\nResultados: {config['carpeta_salida']} "
+        f"ICAM: {config['icam']['archivo']}\nResultados: {config['carpeta_salida']} "
         "(con el prefijo PRUEBA_)", border_style="yellow"))
     return True
+
+
+def _filtrar_tipos_dip(args, config) -> None:
+    """--tipos-dip: auditar solo esos tipos de DIP (por defecto, los de config.yaml; vacío = todos)."""
+    if args.tipos_dip:
+        config["tipos_auditados"] = args.tipos_dip
+    tipos = config.get("tipos_auditados")
+    consola.print(f"[bold]Tipos de DIP auditados:[/] {', '.join(tipos) if tipos else 'todos'}")
+
+
+def _avisar_tipos_ausentes(config, lote) -> None:
+    """Avisa si un tipo pedido no aparece en el Excel (p. ej. por un error de escritura)."""
+    en_archivo = {str(t) for t in lote.datos["tipo"].dropna() if t}
+    presentes = {t.upper() for t in en_archivo}
+    ausentes = [t for t in config.get("tipos_auditados") or [] if str(t).upper() not in presentes]
+    if ausentes:
+        consola.print(f"[bold yellow]Aviso:[/] el Excel no tiene DIPs de tipo {', '.join(ausentes)}. "
+                      f"Tipos en el archivo: {', '.join(sorted(en_archivo)) or 'ninguno'}.")
 
 
 def _filtrar_categorias(args, auditor: Auditor) -> None:
@@ -232,6 +337,7 @@ def cmd_comparar(args, config) -> int:
     inicio = time.perf_counter()
     if args.icam and not args.datos_icam:
         args.datos_icam = str(_extraer_icam(config, Path(args.archivo), args.hoja))
+    _filtrar_tipos_dip(args, config)
     auditor = Auditor(config)
     _filtrar_categorias(args, auditor)
     with consola.status("Auditando a la fecha y hora de cada auditoría manual..."):
@@ -255,13 +361,30 @@ def cmd_comparar(args, config) -> int:
     return 0
 
 
+def _pendientes(args) -> None:
+    """--pendientes: auditar solo los DIPs a los que les falta la auditoría manual."""
+    from .filtrar import filtrar
+
+    try:
+        salida, resumen = filtrar(Path(args.archivo))
+    except (ValueError, OSError) as e:
+        raise SystemExit(f"--pendientes: {e}")
+    detalle = "\n".join(f"{hoja}: {quedan} de {total} filas" for hoja, (quedan, total) in resumen.items())
+    consola.print(Panel.fit(f"{detalle}\n[bold]Archivo filtrado:[/] {salida}",
+                            title="Solo DIPs pendientes de auditar", border_style="cyan"))
+    args.archivo = str(salida)
+
+
 def cmd_auditar(args, config) -> int:
     inicio = time.perf_counter()
     tiempos: dict[str, float] = {}
+    if args.pendientes:
+        _pendientes(args)
     if args.icam and not args.datos_icam:
         args.datos_icam = str(_extraer_icam(config, Path(args.archivo), args.hoja))
         tiempos["Lectura de ICAM"] = time.perf_counter() - inicio
     marca = time.perf_counter()
+    _filtrar_tipos_dip(args, config)
     auditor = Auditor(config, fecha_auditoria=_fecha_hora(args.fecha))
     _filtrar_categorias(args, auditor)
     tiempos["Carga de referencias"] = time.perf_counter() - marca
@@ -273,6 +396,7 @@ def cmd_auditar(args, config) -> int:
     fecha = auditor.fecha_auditoria
 
     lote = resultado.lote
+    _avisar_tipos_ausentes(config, lote)
     consola.print(Panel.fit(
         f"[bold]Archivo:[/] {lote.ruta.name}\n[bold]Hoja:[/] {lote.hoja} "
         f"(encabezado en fila {lote.fila_encabezado})\n[bold]DIPs:[/] {len(resultado.filas)}   "
@@ -377,12 +501,16 @@ def cmd_referencias(args, config) -> int:
     for e in cat.entradas:
         if e.hasta_vencimiento:
             intervalo = "UNTIL DUE DATE"
+        elif e.ta_segun_manual:
+            intervalo = f"[magenta]REVISAR en el manual[/] ({e.ta_segun_manual})"
         elif e.no_verificable:
             intervalo = "[yellow]manual[/]"
         else:
             intervalo = "; ".join(
                 " o ".join(map(str, v.limites)) + (f" [{','.join(v.flotas)}]" if v.flotas else "")
                 + (f" RIR {v.rir}" if v.rir else "") for v in e.variantes)
+        if e.rir_segun_manual:
+            intervalo += f" [magenta]RIR: REVISAR en el manual[/] ({e.rir_segun_manual})"
         t.add_row(e.id, intervalo, "/".join(sorted(e.parent_assy)), e.referencias_tecnicas[:60])
     consola.print(t)
     for a in cat.advertencias:
@@ -415,6 +543,9 @@ def _argumentos_categorias(p: argparse.ArgumentParser) -> None:
                         "p. ej. \"technical reference\"). Ver: python -m dips_audit categorias")
     p.add_argument("-e", "--excluir-categorias", nargs="+", metavar="TIPO",
                    help="No revisar estos tipos de discrepancia")
+    p.add_argument("-t", "--tipos-dip", nargs="+", metavar="TIPO",
+                   help="Auditar solo estos tipos de DIP (columna Type DIP / Area, p. ej. Others). "
+                        "Por defecto, todos; los demás quedan FUERA DE ALCANCE")
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -427,7 +558,7 @@ def main(argv: list[str] | None = None) -> int:
     a = sub.add_parser("auditar", help="Audita un Excel de entrada")
     a.add_argument("archivo")
     a.add_argument("-j", "--hoja", help="Hoja a leer (por defecto, la primera con 'Fault Barcode')")
-    a.add_argument("-p", "--prueba", action="store_true", help="Datos de prueba: usa pruebas/icam y pruebas/salidas y marca los resultados como PRUEBA (automático si el Excel está en pruebas/)")
+    a.add_argument("-p", "--prueba", action="store_true", help="Datos de prueba: usa pruebas/icam.json y pruebas/salidas y marca los resultados como PRUEBA (automático si el Excel está en pruebas/)")
     a.add_argument("-o", "--salida", help="Ruta del Excel de resultado")
     a.add_argument("-f", "--fecha", help="Fecha y hora de auditoría 'AAAA-MM-DD HH:MM' "
                    "(por defecto, ahora)")
@@ -436,6 +567,10 @@ def main(argv: list[str] | None = None) -> int:
                         "datos (sin esta opción, se audita solo con el Excel de entrada)")
     a.add_argument("--datos-icam", metavar="RUTA", help="CSV o Excel con datos extraídos de ICAM por barcode "
                                   "(columnas barcode y technical_references; description opcional)")
+    a.add_argument("--pendientes", action="store_true",
+                   help="Filtrar antes el Excel (copia con ' FILTERED' junto al original) y auditar "
+                        "solo los DIPs ACTV sin 'DIP Open Audit User' y COMPLETE sin 'DIP Closed "
+                        "Audit User' (sin esta opción, se auditan todos)")
     a.add_argument("-n", "--sin-excel", action="store_true", help="Solo mostrar en consola")
     a.add_argument("--max-filas", type=int, default=40, help="Filas a mostrar en consola")
     _argumentos_categorias(a)
@@ -444,11 +579,11 @@ def main(argv: list[str] | None = None) -> int:
                                         "(apertura y cierre, a la fecha y hora de cada una)")
     c.add_argument("archivo")
     c.add_argument("-j", "--hoja", help="Hoja a leer")
-    c.add_argument("-p", "--prueba", action="store_true", help="Datos de prueba: usa pruebas/icam y pruebas/salidas y marca los resultados como PRUEBA (automático si el Excel está en pruebas/)")
+    c.add_argument("-p", "--prueba", action="store_true", help="Datos de prueba: usa pruebas/icam.json y pruebas/salidas y marca los resultados como PRUEBA (automático si el Excel está en pruebas/)")
     c.add_argument("-i", "--icam", action="store_true",
                    help="Leer antes en ICAM (solo lectura) todos los DIPs del archivo y usar esos "
                         "datos (sin esta opción, se compara solo con el Excel de entrada)")
-    c.add_argument("--datos-icam", metavar="RUTA", help="Datos de ICAM ya extraídos (p. ej. data/icam)")
+    c.add_argument("--datos-icam", metavar="RUTA", help="Datos de ICAM ya extraídos (p. ej. data/icam.json)")
     _argumentos_categorias(c)
 
     sub.add_parser("benchmark", help="Mide el programa con los DIPs ya auditados de benchmark/")
@@ -464,12 +599,26 @@ def main(argv: list[str] | None = None) -> int:
 
     sub.add_parser("abrir-icam", help="Abre el Edge de ICAM del programa para iniciar sesión")
     x = sub.add_parser("extraer-icam", help="Lee en ICAM (solo lectura) los DIPs de un Excel de "
-                                             "entrada y los guarda en data/icam/")
+                                             "entrada y los guarda en data/icam.json")
     x.add_argument("archivo", nargs="?", help="Excel de entrada (o use --barcode)")
     x.add_argument("-j", "--hoja", help="Hoja a leer")
-    x.add_argument("-p", "--prueba", action="store_true", help="Datos de prueba: usa pruebas/icam y pruebas/salidas y marca los resultados como PRUEBA (automático si el Excel está en pruebas/)")
+    x.add_argument("-p", "--prueba", action="store_true", help="Datos de prueba: usa pruebas/icam.json y pruebas/salidas y marca los resultados como PRUEBA (automático si el Excel está en pruebas/)")
     x.add_argument("-b", "--barcode", action="append", help="Leer solo este barcode (se puede repetir); "
                                                       "con uno solo, muestra lo interpretado")
+
+    b = sub.add_parser("barcode", help="Audita DIPs por barcode solo con ICAM, sin Excel de "
+                                       "entrada; el resultado se muestra en consola")
+    b.add_argument("barcodes", nargs="+", metavar="BARCODE")
+    b.add_argument("-f", "--fecha", help="Fecha y hora de auditoría 'AAAA-MM-DD HH:MM' "
+                   "(por defecto, ahora)")
+    b.add_argument("-p", "--prueba", action="store_true", help="Datos de prueba: usa pruebas/icam.json")
+    b.add_argument("--datos-icam", metavar="RUTA",
+                   help="Usar datos de ICAM ya leídos (p. ej. data/icam.json), sin leer ICAM")
+    b.add_argument("-i", "--icam", action="store_true", help=argparse.SUPPRESS)  # siempre lee ICAM
+    b.add_argument("-c", "--categorias", nargs="+", metavar="TIPO",
+                   help="Revisar solo estos tipos de discrepancia (basta una parte del nombre)")
+    b.add_argument("-e", "--excluir-categorias", nargs="+", metavar="TIPO",
+                   help="No revisar estos tipos de discrepancia")
 
     sub.add_parser("referencias", help="Muestra cómo se interpretó la tabla de referencias")
     sub.add_parser("categorias", help="Muestra los tipos de discrepancia y sus reglas "
@@ -480,7 +629,7 @@ def main(argv: list[str] | None = None) -> int:
         config = cargar_configuracion(Path(args.config) if args.config else None)
         _modo_prueba(args, config)
         return {"auditar": cmd_auditar, "comparar": cmd_comparar, "benchmark": cmd_benchmark, "anonimizar": cmd_anonimizar,
-                "extraer-icam": cmd_extraer_icam, "abrir-icam": cmd_abrir_icam,
+                "barcode": cmd_barcode, "extraer-icam": cmd_extraer_icam, "abrir-icam": cmd_abrir_icam,
                 "referencias": cmd_referencias, "categorias": cmd_categorias}[args.comando](args, config)
     except (ErrorCarga, ErrorCatalogo, ErrorAnonimizacion, ErrorExtraccion,
             FileNotFoundError,

@@ -37,9 +37,8 @@ def export(tmp_path):
     return crear_export(tmp_path / "export_icam.xlsx", FILAS)
 
 
-def test_auditoria_de_punta_a_punta(config, export, tmp_path):
-    auditor = Auditor(config, fecha_auditoria=date(2026, 8, 20))
-    resultado = auditor.auditar_archivo(export)
+def test_auditoria_de_punta_a_punta(auditor_others, export, tmp_path):
+    resultado = auditor_others.auditar_archivo(export)
     # Tres resultados: OK, SIN FUENTE (no está en la tabla) o POSIBLE DISCREPANCIA.
     estados = dict(zip(resultado.filas["Fault Barcode"], resultado.filas["RESULTADO"]))
     assert estados == {
@@ -80,6 +79,26 @@ def test_cli_auditar(export, tmp_path, capsys):
     assert codigo == 0 and salida.exists()
     salida_consola = capsys.readouterr().out
     assert "POSIBLE DISCREPANCIA" in salida_consola and "CRÍTICA" not in salida_consola
+
+
+def test_por_defecto_audita_todos_los_tipos(auditor, export):
+    resultado = auditor.auditar_archivo(export)
+    estados = dict(zip(resultado.filas["Fault Barcode"], resultado.filas["RESULTADO"]))
+    assert "FUERA DE ALCANCE" not in estados.values()
+    # Powerplant: fila VCD SEAL de la tabla, que va en el motor; este DIP está en el avión.
+    fila = resultado.filas.set_index("Fault Barcode").loc["T6"]
+    assert fila["REFERENCIA ASOCIADA"] == "VCD SEAL"
+    assert estados["T6"] == "POSIBLE DISCREPANCIA" and "indica ENGINE" in fila["HALLAZGOS"]
+
+
+def test_cli_tipos_dip(export, capsys):
+    codigo = main(["auditar", str(export), "--sin-excel", "--fecha", "2026-08-20",
+                   "--tipos-dip", "others", "Avionics"])
+    assert codigo == 0
+    salida = " ".join(capsys.readouterr().out.split())
+    assert "Tipos de DIP auditados: others, Avionics" in salida
+    assert "el Excel no tiene DIPs de tipo Avionics" in salida
+    assert "Fuera de alcance (otro tipo de DIP): 1 (Powerplant 1)" in salida
 
 
 def test_cli_archivo_inexistente(tmp_path):

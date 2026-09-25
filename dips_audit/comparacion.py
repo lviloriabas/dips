@@ -34,15 +34,16 @@ COLUMNAS_MANUALES = {
     "auditor_cierre": "DIP Closed Audit User",
     "discrepancia": "DIP Discrepancy Found",
 }
-# Estado del programa -> texto para el reporte, de mejor a peor. El programa da tres
-# resultados: OK, sin fuente (el DIP no está en la tabla de referencias) o posible
-# discrepancia (sin niveles).
+# Estado del programa -> texto para el reporte, de mejor a peor. El programa da cuatro
+# resultados: OK, sin fuente (el DIP no está en la tabla de referencias), revisar (la tabla
+# da el TA o el RIR según el daño: ir al manual) o posible discrepancia (sin niveles).
 POSIBLE = "Posible discrepancia"
 SIN_FUENTE = "Sin fuente"
-RESULTADOS = ["OK", SIN_FUENTE, POSIBLE]
+REVISAR = "Revisar en el manual"
+RESULTADOS = ["OK", SIN_FUENTE, REVISAR, POSIBLE]
 # Gravedad interna del hallazgo -> cómo se muestra.
 SEVERIDADES = {"CRITICA": POSIBLE, "NO CRITICA": POSIBLE, "REVISAR": POSIBLE,
-               "SIN FUENTE": SIN_FUENTE, "OBSERVACION": "Observación"}
+               "CONSULTAR MANUAL": REVISAR, "SIN FUENTE": SIN_FUENTE, "OBSERVACION": "Observación"}
 # Código del hallazgo -> motivo en palabras simples.
 MOTIVOS = {
     "sin_referencia": "Sin fuente: el DIP no está en la tabla de referencias",
@@ -69,6 +70,7 @@ MOTIVOS = {
     "sin_sn_en_descripcion": "Sin S/N del componente en la descripción",
     "sn_repetido": "Mismo S/N en otro DIP activo del avión",
     "duplicado": "Posible DIP duplicado",
+    "duplicado_declarado": "DIP duplicado o creado por error",
     "fault_severity": "Fault Severity distinta de DIP",
     "intervalo_de_icam": "Intervalo tomado de ICAM (el Excel no lo trae)",
     "rir_faltante": "Falta el RIR que pide la tabla",
@@ -76,6 +78,7 @@ MOTIVOS = {
     "rir_limite_faltante": "RIR sin uno de los límites del T/A",
     "rir_inicio_distinto": "RIR empieza en otra fecha que el T/A",
     "rir_parent_distinto": "RIR en otro Parent Assembly",
+    "rir_intervalo_menor": "RIR más seguido que la tabla (más conservador)",
     "asociacion_aproximada": "Fault Name con errores de escritura",
     "asociacion_por_referencia_tecnica": "Asociado por la referencia técnica, no por el nombre",
     "asociacion_por_descripcion": "Asociado por la descripción, no por el nombre",
@@ -85,7 +88,22 @@ MOTIVOS = {
     "cierre_sin_referencia_tecnica": "Acción correctiva sin referencia del manual",
     "cierre_referencia_incompleta": "Acción correctiva con referencia sin revisión o sin fecha",
     "cierre_sn_distinto": "S/N removido distinto del de la descripción",
-    "cierre_sin_adjuntos": "Cerrado sin attachments en ICAM",
+    "cierre_sin_adjuntos": "Cerrado sin attachments",
+    "sin_adjuntos": "Sin attachments",
+    "inicio_ta_incorrecto": "Start del T/A distinto de la apertura (Incorrect DIP Start Values)",
+    "sn_inconsistente": "S/N distinto del de las notas del diferimiento",
+    "referencia_tecnica_no_especifica": "Referencia no específica (barcode de trabajo)",
+    "limite_faltante": "Al T/A le falta uno de los límites de la tabla (X o Y)",
+    "intervalo_segun_manual": "TA según el daño o el tipo: revisar en el manual",
+    "rir_segun_manual": "RIR según el daño o el tipo: revisar en el manual",
+    "intervalo_mayor_a_descripcion": "Intervalo mayor que el plazo de la descripción",
+    "tipo_intervalo_distinto_a_descripcion": "Tipo de intervalo distinto del de la descripción",
+    "limite_declarado_faltante": "Al T/A le falta un límite que pide la descripción",
+    "rir_descripcion_faltante": "Falta el RIR que pide la descripción",
+    "rir_descripcion_distinto": "RIR distinto del que pide la descripción",
+    "parent_assy_distinto_a_pares": "Parent Assembly distinto de otros DIPs con la misma referencia",
+    "programado_despues_del_due": "Paquete de trabajo programado después del due date",
+    "adjunto_otro_avion": "Attachment con la matrícula de otro avión",
 }
 COINCIDENCIAS = {  # (auditor con discrepancia, resultado del programa) -> texto
     (True, POSIBLE): "Sí: ambos encuentran discrepancia",
@@ -95,6 +113,9 @@ COINCIDENCIAS = {  # (auditor con discrepancia, resultado del programa) -> texto
     # Sin fuente no es OK ni discrepancia: no se cuenta como acierto ni como error.
     (True, SIN_FUENTE): "Sin fuente: el auditor encontró discrepancia",
     (False, SIN_FUENTE): "Sin fuente: el auditor no encontró discrepancia",
+    # Revisar tampoco: el programa no decide, remite al manual.
+    (True, REVISAR): "Revisar en el manual: el auditor encontró discrepancia",
+    (False, REVISAR): "Revisar en el manual: el auditor no encontró discrepancia",
 }
 # Las columnas que vienen del Excel de entrada conservan su nombre original; las
 # del programa usan los mismos nombres que el reporte de auditoría.
@@ -126,9 +147,9 @@ def _columnas_manuales(original: pd.DataFrame) -> dict[str, str]:
 
 
 def _resultado(estado: str) -> str:
-    """Estado del programa -> resultado mostrado: OK, sin fuente, posible discrepancia o ""
+    """Estado del programa -> resultado mostrado: OK, sin fuente, revisar, posible discrepancia o ""
     (no auditado)."""
-    return {"": "", "OK": "OK", "SIN FUENTE": SIN_FUENTE}.get(estado or "", POSIBLE)
+    return {"": "", "OK": "OK", "SIN FUENTE": SIN_FUENTE, "REVISAR": REVISAR}.get(estado or "", POSIBLE)
 
 
 def _peor(resultados: list[str]) -> str:
@@ -232,12 +253,15 @@ def _tablas_resumen(d: pd.DataFrame, h: pd.DataFrame, n_apertura: int,
 
     iguales, distintos = cuenta(coincide.str.startswith("Sí")), cuenta(coincide.str.startswith("No"))
     sin_fuente = cuenta(coincide.str.startswith("Sin fuente"))
+    revisar = cuenta(coincide.str.startswith(REVISAR))
     tablas.append(("¿El programa llega al mismo resultado que el auditor?",
                    "El programa marca posible discrepancia si alguna de las auditorías del DIP la tiene. "
-                   "Sin fuente: el DIP no está en la tabla de referencias y no se compara.",
+                   "Sin fuente: el DIP no está en la tabla de referencias y no se compara. "
+                   "Revisar en el manual: la tabla da el TA o el RIR según el daño y no se compara.",
                    lista([("Sí, mismo resultado", iguales, _pct(iguales, total)),
                           ("No, resultado distinto", distintos, _pct(distintos, total)),
-                          ("Sin fuente", sin_fuente, _pct(sin_fuente, total))],
+                          ("Sin fuente", sin_fuente, _pct(sin_fuente, total)),
+                          (REVISAR, revisar, _pct(revisar, total))],
                          ["Respuesta", "DIPs", "%"])))
 
     def segun_programa(grupo: pd.DataFrame, lecturas: dict[str, str]) -> pd.DataFrame:
@@ -251,12 +275,14 @@ def _tablas_resumen(d: pd.DataFrame, h: pd.DataFrame, n_apertura: int,
                    segun_programa(sin_disc, {
                        "OK": "Coincide con el auditor",
                        SIN_FUENTE: "No está en la tabla de referencias",
+                       REVISAR: "La tabla remite al manual",
                        POSIBLE: "El auditor no la marcó"})))
     tablas.append((f"DIPs en que el auditor encontró discrepancia ({len(con_disc)})",
                    "Lo ideal: que el programa también marque discrepancia.",
                    segun_programa(con_disc, {
                        "OK": "No la detecta",
                        SIN_FUENTE: "No está en la tabla de referencias",
+                       REVISAR: "La tabla remite al manual",
                        POSIBLE: "Coincide con el auditor"})))
 
     for nombre, columna in (("apertura", "Apertura: resultado del programa"),
@@ -296,12 +322,15 @@ _ORIGINALES = {"Fault Barcode", "Aircraft", "Fault Name", "Fault Status",
                *COLUMNAS_MANUALES.values()}
 _BORDE = Border(*(Side(style="thin", color="BFBFBF"),) * 4)
 _COLORES = {
-    "OK": "C9E7C9", POSIBLE: "FCE3B0", SIN_FUENTE: "D6E4F0", "Observación": "EFEFEF",
+    "OK": "C9E7C9", POSIBLE: "FCE3B0", SIN_FUENTE: "D6E4F0", REVISAR: "FFF59D",
+    "Observación": "EFEFEF",
     "Sí: ambos OK": "C9E7C9", "Sí: ambos encuentran discrepancia": "C9E7C9",
     "No: el programa no la detecta": "F4B6B6",
     "No: el programa marca posible discrepancia y el auditor no": "FCE3B0",
     "Sin fuente: el auditor encontró discrepancia": "D6E4F0",
     "Sin fuente: el auditor no encontró discrepancia": "D6E4F0",
+    "Revisar en el manual: el auditor encontró discrepancia": "FFF59D",
+    "Revisar en el manual: el auditor no encontró discrepancia": "FFF59D",
 }
 _ANCHOS = {"Fault Name": 42, "Apertura: motivos": 70, "Cierre: motivos": 60,
            "REFERENCIA ASOCIADA": 34, "¿Coinciden?": 34, "Motivo": 58, "Ejemplos": 42,

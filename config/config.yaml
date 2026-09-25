@@ -5,12 +5,13 @@ referencias: "DIPs References.xlsx"
 hoja_referencias: "References"
 catalogo: "config/catalogo_others.yaml"
 carpeta_salida: "salidas"
-# Corridas de prueba: un Excel dentro de esta carpeta (o con --prueba) usa pruebas/icam y
+# Corridas de prueba: un Excel dentro de esta carpeta (o con --prueba) usa pruebas/icam.json y
 # pruebas/salidas, y sus resultados llevan el prefijo PRUEBA_.
 carpeta_pruebas: "pruebas"
 
-# Tipo de DIP que se audita (columna "Area" o "Type DIP" del Excel de entrada).
-tipos_auditados: ["Others"]
+# Tipos de DIP que se auditan (columna "Area" o "Type DIP" del Excel de entrada), p. ej.
+# ["Others"]. Vacío = todos. Al ejecutar: --tipos-dip Others. Los demás quedan FUERA DE ALCANCE.
+tipos_auditados: []
 
 tolerancias:
   dias: 1          # diferencia aceptada en días (redondeos de hora de apertura)
@@ -19,6 +20,10 @@ tolerancias:
   # Cierre: Complete Dt viene en UTC y el due date en hora de Panamá (UTC-5). Los auditores
   # aceptan cierres hasta 5 h después del due date (criterio a confirmar).
   horas_cierre: 5
+  # Start de un T/A por uso: diferencia aceptada con el uso al encontrar la falla (ICAM,
+  # "Usage When Found"). En días se usa la tolerancia de días.
+  inicio_fh: 2
+  inicio_fc: 0
 
 # Tipos de discrepancia y reglas: cuáles se revisan y cuándo son críticas.
 discrepancias: "config/discrepancias.yaml"
@@ -38,7 +43,7 @@ icam:
   url: "https://copa.ifs.cloud/maintenix/"
   perfil: ".icam_perfil"          # perfil del Edge de ICAM (no se sube al repositorio)
   puerto: 9222                    # puerto local por el que el programa usa ese Edge
-  carpeta: "data/icam"            # un JSON por DIP leído
+  archivo: "data/icam.json"       # todos los DIPs leídos, juntos en un solo JSON
   paralelo: 3                     # DIPs que se leen a la vez
   intentos: 3                     # reintentos por búsqueda o pestaña que falla
   espera_segundos: 30             # máximo por página

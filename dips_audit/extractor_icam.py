@@ -10,8 +10,9 @@ Por cada barcode hace, con la sesión de Edge, las mismas consultas que el naveg
   1. POST /maintenix/servlet/ScanBarcode (Barcode Search) -> página del DIP.
   2. GET de cada pestaña (Fault Information, Task Information, Scheduling, History).
 El HTML se muestra en una página aislada (sin red y sin los scripts de ICAM) y se copia el
-texto visible de cada pestaña (`#idTab<Pestaña>`). Se guarda en `data/icam/<barcode>.json`
-con el formato de la extracción manual (`sections.<pestaña>.text`); `icam.py` lo interpreta.
+texto visible de cada pestaña (`#idTab<Pestaña>`). Todos los DIPs se guardan juntos en un solo
+JSON (`data/icam.json`, `{"records": [...]}`), un registro por barcode con el formato de la
+extracción manual (`sections.<pestaña>.text`); `icam.py` lo interpreta.
 
 Solo lectura: las únicas consultas a ICAM son la búsqueda y los GET de las pestañas. No se
 abre ningún formulario de edición ni se ejecuta código de ICAM.
@@ -89,8 +90,50 @@ class ErrorSesion(ErrorExtraccion):
     """No hay sesión iniciada en ICAM (o venció durante la lectura)."""
 
 
-def ruta_cache(carpeta: Path, barcode: str) -> Path:
-    return Path(carpeta) / f"{re.sub(r'[^A-Za-z0-9_-]', '_', barcode)}.json"
+# ------------------------------------------------------------------ JSON con todos los DIPs
+def _mas_reciente(a: dict | None, b: dict) -> dict:
+    return b if a is None or b.get("captured_at_utc", "") >= a.get("captured_at_utc", "") else a
+
+
+def guardar_registros(archivo: Path, registros: dict[str, dict]) -> None:
+    """Guarda todos los DIPs en un solo JSON, ordenados por barcode. Se escribe en un
+    temporal y se reemplaza: nunca queda un archivo a medias."""
+    archivo = Path(archivo)
+    archivo.parent.mkdir(parents=True, exist_ok=True)
+    temporal = archivo.with_suffix(".tmp")
+    temporal.write_text(json.dumps({"records": [registros[b] for b in sorted(registros)]},
+                                   ensure_ascii=False, indent=1), encoding="utf-8")
+    temporal.replace(archivo)
+
+
+def cargar_registros(archivo: Path) -> dict[str, dict]:
+    """DIPs guardados en `archivo`, por barcode. Si quedan JSON sueltos de versiones
+    anteriores (un archivo por DIP en la carpeta del mismo nombre, p. ej. `data/icam/`),
+    se unen a `archivo` (queda la lectura más reciente de cada DIP) y se borran."""
+    archivo = Path(archivo)
+    registros: dict[str, dict] = {}
+    if archivo.exists():
+        datos = json.loads(archivo.read_text(encoding="utf-8"))
+        for r in datos.get("records", [datos]) if isinstance(datos, dict) else datos:
+            registros[r["barcode"]] = _mas_reciente(registros.get(r["barcode"]), r)
+    carpeta = archivo.with_suffix("")
+    sueltos = sorted(carpeta.glob("*.json")) if carpeta.is_dir() else []
+    if sueltos:
+        for x in sueltos:
+            r = json.loads(x.read_text(encoding="utf-8"))
+            registros[r["barcode"]] = _mas_reciente(registros.get(r["barcode"]), r)
+        guardar_registros(archivo, registros)
+        for x in sueltos:
+            x.unlink()
+        for x in carpeta.glob("*.tmp"):
+            x.unlink()
+        if not any(carpeta.iterdir()):
+            carpeta.rmdir()
+    return registros
+
+
+def leer_registro(archivo: Path, barcode: str) -> dict | None:
+    return cargar_registros(archivo).get(barcode)
 
 
 def pestana_valida(nombre: str, texto: str) -> bool:
@@ -409,8 +452,9 @@ def _minutos(segundos: float) -> str:
     return f"{m} min {s:02d} s" if m else f"{s} s"
 
 
-async def _extraer(pendientes: list[str], config: dict, carpeta: Path,
-                   avisar: Callable[[str], None], estado: dict[str, str]) -> None:
+async def _extraer(pendientes: list[str], config: dict, registros: dict[str, dict],
+                   guardar: Callable[[], None], avisar: Callable[[str], None],
+                   estado: dict[str, str]) -> None:
     cola: asyncio.Queue[str] = asyncio.Queue()
     for b in pendientes:
         cola.put_nowait(b)
@@ -424,13 +468,9 @@ async def _extraer(pendientes: list[str], config: dict, carpeta: Path,
             while not cola.empty():
                 barcode = cola.get_nowait()
                 try:
-                    registro = await ext.leer(barcode)
-                    ruta = ruta_cache(carpeta, barcode)
-                    temporal = ruta.with_suffix(".tmp")
-                    temporal.write_text(json.dumps(registro, ensure_ascii=False, indent=1),
-                                        encoding="utf-8")
-                    temporal.replace(ruta)   # nunca queda un archivo a medias
+                    registros[barcode] = await ext.leer(barcode)
                     estado[barcode] = "leido"
+                    guardar()
                 except ErrorSesion:
                     raise
                 except Exception as e:
@@ -446,19 +486,33 @@ async def _extraer(pendientes: list[str], config: dict, carpeta: Path,
         await asyncio.gather(*(trabajador() for _ in range(paralelo)))
 
 
-def extraer(barcodes: list[str], config: dict, carpeta: Path,
+def extraer(barcodes: list[str], config: dict, archivo: Path,
             al_avanzar: Callable[[str], None] | None = None) -> dict[str, str]:
-    """Lee en ICAM todos los barcodes, aunque ya estén en `carpeta`, para auditar siempre
-    con los datos actuales (p. ej. la acción correctiva y los adjuntos del cierre).
+    """Lee en ICAM todos los barcodes, aunque ya estén en `archivo`, para auditar siempre
+    con los datos actuales (p. ej. la acción correctiva y los adjuntos del cierre). Cada DIP
+    leído se agrega (o reemplaza) en `archivo`, junto a los demás.
 
     Devuelve {barcode: "leido" | "error: ..."}. Sin sesión, o si la sesión vence, lanza
     ErrorSesion (lo ya leído queda guardado).
     """
     avisar = al_avanzar or (lambda _: None)
-    carpeta = Path(carpeta)
-    carpeta.mkdir(parents=True, exist_ok=True)
+    registros = cargar_registros(archivo)
     estado: dict[str, str] = {}
     pendientes = list(dict.fromkeys(barcodes))
+    ultimo = [time.monotonic()]
+    cambios = [False]
+
+    def guardar(siempre: bool = False) -> None:
+        # Todo el JSON se reescribe: a lo sumo cada 5 s y al terminar (también si falla).
+        cambios[0] = True
+        if siempre or time.monotonic() - ultimo[0] >= 5:
+            guardar_registros(archivo, registros)
+            ultimo[0], cambios[0] = time.monotonic(), False
+
     if pendientes:
-        asyncio.run(_extraer(pendientes, config, carpeta, avisar, estado))
+        try:
+            asyncio.run(_extraer(pendientes, config, registros, guardar, avisar, estado))
+        finally:
+            if cambios[0]:
+                guardar(siempre=True)
     return estado

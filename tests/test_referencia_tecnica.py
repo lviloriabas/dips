@@ -127,7 +127,7 @@ def test_auditoria_con_referencia_tecnica_en_el_excel(config, tmp_path):
     assert f.loc["R1", "REFERENCIA TÉCNICA DEL DIP"] == "AMM TASK 12-15-21-210-801 REV 85, 15-MAY-2026"
     # Sin datos de ICAM no se sabe si tiene captura adjunta: queda para verificar.
     assert f.loc["R2", "RESULTADO"] == "OK"
-    assert "Verificar en ICAM la referencia técnica" in f.loc["R2", "VERIFICACIÓN MANUAL"]
+    assert "Verificar la referencia técnica" in f.loc["R2", "VERIFICACIÓN MANUAL"]
     # AMM sin revisión ni fecha: no hace falta (revision_opcional en config.yaml).
     assert "Referencia técnica sin REV" not in f.loc["R5", "HALLAZGOS"]
     assert f.loc["R5", "RESULTADO"] == "OK"
@@ -209,7 +209,7 @@ def test_apertura_solo_con_mgm_no_tiene_referencia(auditor, ctx):
     r = ResultadoReglas()
     auditor._referencia_tecnica(dip, asoc, ctx, r)
     h = next(h for h in r.hallazgos if h.codigo == "sin_referencia_tecnica")
-    assert "MGM, que no es referencia técnica" in h.mensaje
+    assert "el MGM no es referencia técnica" in h.mensaje
 
 
 def test_opcion_revision_opcional_en_la_auditoria(config, tmp_path):
@@ -318,6 +318,29 @@ def test_carpeta_del_extractor(config, tmp_path):
     assert fila["REFERENCIA TÉCNICA DEL DIP"] == "TASK 12-15-21-210-801; Adjunto: foto.jpg"
 
 
+def test_json_sueltos_se_unen_en_un_solo_json(config, tmp_path):
+    """Los JSON por DIP de versiones anteriores (data/icam/) se unen en data/icam.json,
+    con la lectura más reciente de cada DIP, y se borran."""
+    import json
+
+    from dips_audit.extractor_icam import cargar_registros
+    archivo, carpeta = tmp_path / "icam.json", tmp_path / "icam"
+    carpeta.mkdir()
+    viejo = {"barcode": "J1", "captured_at_utc": "2026-09-01", "sections": {}}
+    archivo.write_text(json.dumps({"records": [viejo]}), encoding="utf-8")
+    for b in ("J1", "J2"):
+        (carpeta / f"{b}.json").write_text(json.dumps(
+            {"barcode": b, "captured_at_utc": "2026-09-20", "sections": SECCIONES}), encoding="utf-8")
+    ruta = crear_export(tmp_path / "entrada.xlsx", [_fila("J1", "CREW OXYGEN 850 PSI", 3, "DAY", 35)])
+    resultado = Auditor(config, fecha_auditoria=date(2026, 8, 20)).auditar_archivo(ruta, icam=archivo)
+    assert not carpeta.exists()
+    registros = cargar_registros(archivo)
+    assert sorted(registros) == ["J1", "J2"]
+    assert registros["J1"]["captured_at_utc"] == "2026-09-20"
+    fila = resultado.filas.set_index("Fault Barcode").loc["J1"]
+    assert fila["REFERENCIA TÉCNICA DEL DIP"] == "TASK 12-15-21-210-801; Adjunto: foto.jpg"
+
+
 def test_sin_referencia_con_datos_de_icam(config, tmp_path):
     """Con ICAM: sin referencia cargada, sin captura adjunta y sin cita, es discrepancia.
     La task card JIC de la descripción es donde se encontró la falla, no la referencia."""
@@ -335,7 +358,7 @@ def test_sin_referencia_con_datos_de_icam(config, tmp_path):
     ruta = crear_export(tmp_path / "entrada.xlsx", [_fila("J1", "CREW OXYGEN 850 PSI", 3, "DAY", 35)])
     resultado = Auditor(config, fecha_auditoria=date(2026, 8, 20)).auditar_archivo(ruta, icam=carpeta)
     fila = resultado.filas.set_index("Fault Barcode").loc["J1"]
-    assert "Sin referencia técnica: no está cargada en ICAM" in fila["HALLAZGOS"]
+    assert "Sin referencia técnica. Corresponde" in fila["HALLAZGOS"]
     codigos = set(resultado.hallazgos["Código"])
     assert not codigos & {"referencia_tecnica_equivocada", "referencia_tecnica_distinta"}
 

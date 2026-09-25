@@ -37,6 +37,33 @@ def sin_task_cards(texto: object) -> str:
     return _JIC.sub(" ", str(texto)) if texto else ""
 
 
+# Un barcode de trabajo citado como la fuente del DIP: "TO BE ACCOMPLISHED IN 500FH IAW
+# BARCODE: TRF7N00900V4, STEP 63". Los auditores lo marcan como "Non-Specific Technical
+# Reference": el barcode no es una referencia del manual.
+_CITA_BARCODE = re.compile(
+    r"\b(?:IAW|I\.A\.W\.?|PER|REF(?:ERENCE)?\.?|IN ACCORDANCE WITH)\s*:?\s*"
+    r"(?:BARCODE|BC|WORK\s*ORDER)?\s*[:#.]?\s*\[?((?:TRF7N|T40S)[0-9A-Z]{6,})", re.I)
+
+
+# Attachment que es la captura de una task card JIC o de un barcode de trabajo
+# ("DIP B737-28-1-9001-U-JIC (Fuel Tanks ...).png", "[TRF7N0091HEX].png"), no de la referencia.
+_CAPTURA_DE_TAREA = re.compile(r"-U-JIC|\bJIC\b|\[(?:T40S|TRF7N)[0-9A-Z]+\]|^\s*(?:T40S|TRF7N)[0-9A-Z]{6,}"
+                               r"|TASK\s*CARD|SERVICE\s*VISIT", re.I)
+
+
+def es_captura_de_tarea(nombre: str) -> bool:
+    return bool(_CAPTURA_DE_TAREA.search(nombre or ""))
+
+
+def cita_barcode(*textos: object) -> str | None:
+    """Barcode de trabajo que el DIP cita como su referencia ("IAW BARCODE: TRF7N00900V4")."""
+    for texto in textos:
+        m = _CITA_BARCODE.search(str(texto or ""))
+        if m:
+            return m.group(1).upper()
+    return None
+
+
 # Entradas de Technical References que no son una referencia: el marcador que ICAM pone
 # cuando falta, las marcas de auditoría y el MGM.
 _NO_REFERENCIA = re.compile(r"^\s*REFERENCE REQUIRED\s*$|RT AUDIT COMPLETED|^\s*MGM\b", re.I)
@@ -228,8 +255,8 @@ def revisar(texto: str | None, entrada: EntradaCatalogo, catalogo: Catalogo,
     mismo_tema = [c for c in cargados if _tema(c) in temas]
     if mismo_tema:
         return Revision("referencia_tecnica_mismo_tema",
-                        f"Referencia técnica {_lista(mismo_tema)}: mismo tema que la tabla "
-                        f"({_lista(esperados)}), otra tarea. Verificar que aplique.")
+                        f"Referencia técnica {_lista(mismo_tema)}, del mismo tema pero otra "
+                        f"tarea. Corresponde {_lista(esperados)}.")
     return Revision("referencia_tecnica_distinta",
                     f"Referencia técnica {_lista(cargados)} no está en la tabla. "
                     f"Corresponde {_lista(esperados)}.")

@@ -13,20 +13,22 @@ import yaml
 from .asociacion import Asociacion, asociar, asociar_por_codigos, similares_en_tabla
 from .cargador import Lote, cargar_export, completar_con_icam
 from .discrepancias import Discrepancias, cargar_discrepancias
-from .referencia_tecnica import (IndiceReferencias, buscar_referencia, cita_mgm,
-                                 extraer_codigos, referencias_cargadas, revisar, sin_task_cards)
+from .referencia_tecnica import (IndiceReferencias, buscar_referencia, cita_barcode, cita_mgm,
+                                 es_captura_de_tarea, extraer_codigos, referencias_cargadas, revisar,
+                                 sin_task_cards)
 from .rir import requerido as rir_requerido
 from .rir import revisar as revisar_rir
 from .referencias import Catalogo, EntradaCatalogo, cargar_catalogo, cargar_referencias
+from .reglas_descripcion import buscar_parent_distinto_de_pares, revisar_descripcion
 from .reglas import (ACTIVOS, MOSTRAR_SEVERIDAD, ORDEN_SEVERIDAD, POSIBLE_DISCREPANCIA,
-                     SIN_FUENTE, Contexto, Hallazgo, auditar_dip, buscar_duplicados,
-                     buscar_sn_repetidos, como_fecha_hora, estado_final, etapa)
+                     REVISAR, SIN_FUENTE, Contexto, Hallazgo, auditar_dip, buscar_duplicados,
+                     buscar_sn_repetidos, como_fecha_hora, dip_por_error, estado_final, etapa)
 
 RAIZ = Path(__file__).resolve().parent.parent
 FUERA_DE_ALCANCE = "FUERA DE ALCANCE"
-# Resultado para el auditor: OK, SIN FUENTE o POSIBLE DISCREPANCIA (ver reglas.ESTADOS).
-RESULTADOS = {POSIBLE_DISCREPANCIA: POSIBLE_DISCREPANCIA, SIN_FUENTE: SIN_FUENTE, "OK": "OK",
-              FUERA_DE_ALCANCE: FUERA_DE_ALCANCE}
+# Resultado para el auditor: OK, REVISAR, SIN FUENTE o POSIBLE DISCREPANCIA (ver reglas.ESTADOS).
+RESULTADOS = {POSIBLE_DISCREPANCIA: POSIBLE_DISCREPANCIA, REVISAR: REVISAR, SIN_FUENTE: SIN_FUENTE,
+              "OK": "OK", FUERA_DE_ALCANCE: FUERA_DE_ALCANCE}
 
 
 def cargar_configuracion(ruta: Path | None = None) -> dict:
@@ -38,7 +40,7 @@ def cargar_configuracion(ruta: Path | None = None) -> dict:
         config[clave] = p if p.is_absolute() else RAIZ / p
     icam = config.get("icam")
     if icam:
-        for clave in ("perfil", "carpeta"):
+        for clave in ("perfil", "archivo"):
             p = Path(icam[clave])
             icam[clave] = p if p.is_absolute() else RAIZ / p
     return config
@@ -57,6 +59,7 @@ class ResultadoAuditoria:
         return self.filas["ESTADO IA"].value_counts().to_dict()
 
 
+
 class Auditor:
     def __init__(self, config: dict, fecha_auditoria: datetime | date | None = None):
         self.config = config
@@ -66,13 +69,16 @@ class Auditor:
                                                                              "References"))
         self.catalogo: Catalogo = cargar_catalogo(config["catalogo"], referencias)
         self.indice_referencias = IndiceReferencias.desde_catalogo(self.catalogo)
-        self.tipos = {t.upper() for t in config.get("tipos_auditados", ["Others"])}
+        # Tipos de DIP que se auditan; None = todos.
+        tipos = config.get("tipos_auditados")
+        self.tipos = {str(t).upper() for t in tipos} if tipos else None
         tol = config.get("tolerancias", {})
         self.discrepancias: Discrepancias = cargar_discrepancias(config["discrepancias"])
         self._ctx_base = dict(
             discrepancias=self.discrepancias,
             tol_dias=tol.get("dias", 1), meses_min=tol.get("meses_min", 30),
             meses_max=tol.get("meses_max", 31), horas_cierre=tol.get("horas_cierre", 0),
+            inicio_fh=tol.get("inicio_fh", 2), inicio_fc=tol.get("inicio_fc", 0),
             revision_opcional=frozenset(
                 str(m).upper() for m in (config.get("referencia_tecnica") or {}).get(
                     "revision_opcional", [])))
@@ -93,7 +99,8 @@ class Auditor:
         """`fechas_referencia`: día y hora de auditoría de cada DIP (None = la del auditor)."""
         inicio = time.perf_counter()
         dips = lote.datos.to_dict("records")
-        en_alcance = [not d["tipo"] or d["tipo"].upper() in self.tipos for d in dips]
+        en_alcance = [self.tipos is None or not d["tipo"] or d["tipo"].upper() in self.tipos
+                      for d in dips]
 
         asociaciones: list[Asociacion | None] = [
             self._asociar(dip) if alcance else None for dip, alcance in zip(dips, en_alcance)]
@@ -107,6 +114,9 @@ class Auditor:
         duplicados = {indices_alcance[k]: v for k, v in duplicados.items()}
         sn_repetidos = {indices_alcance[k]: v
                         for k, v in buscar_sn_repetidos(dips_alcance).items()}
+        # DIPs SIN FUENTE en otro Parent Assembly que los demás con la misma EC/AMM/SRM.
+        parent_pares = {indices_alcance[k]: v for k, v in buscar_parent_distinto_de_pares(
+            dips_alcance, [entradas[i] for i in indices_alcance]).items()}
         por_barcode = {d["barcode"]: d for d in dips}
 
         filas, hallazgos = [], []
@@ -120,9 +130,15 @@ class Auditor:
             r = auditar_dip(dip, asoc.entrada, ctx)
             self._referencia_tecnica(dip, asoc, ctx, r)
             self._rir(dip, asoc, ctx, r)
+            revisar_descripcion(dip, asoc.entrada, ctx, r)
+            if i in parent_pares:
+                tipo, n, codigo = parent_pares[i]
+                r.agregar(ctx, "parent_assy_distinto_a_pares", "Incorrect Parent Assembly",
+                          f"Asignado a {dip['parent_tipo']}; los otros {n} DIPs con la {codigo} "
+                          f"están en {tipo}.")
             if dip.get("intervalo_de_icam"):
                 r.agregar(ctx, "intervalo_de_icam", "Missing Data",
-                          f"El Excel de entrada no trae intervalo: se usó el de ICAM "
+                          f"Sin intervalo en el Excel; se usó el de ICAM "
                           f"({dip['intervalo']:g} {dip['tipo_intervalo_original']}).")
             if asoc.metodo == "REGLAS" and asoc.detalle:
                 r.agregar(ctx, "asociacion_aproximada", "Reference Match",
@@ -130,30 +146,30 @@ class Auditor:
             elif asoc.metodo == "REF_TECNICA":
                 r.agregar(ctx, "asociacion_por_referencia_tecnica", "Reference Match",
                           f"Referencia '{asoc.entrada.nombre}' identificada por la referencia "
-                          f"técnica {asoc.detalle}, no por el Fault Name.")
+                          f"técnica {asoc.detalle}.")
             elif asoc.metodo == "DESCRIPCION":
                 r.agregar(ctx, "asociacion_por_descripcion", "Reference Match",
-                          f"Referencia '{asoc.entrada.nombre}' identificada por la descripción, "
-                          f"no por el Fault Name. Verificar que corresponda.")
+                          f"Referencia '{asoc.entrada.nombre}' identificada por la descripción. "
+                          f"Verificar.")
             if asoc.entrada is None:
                 if asoc.metodo == "AMBIGUA":
-                    motivo = (f"coincide con varias referencias de la tabla "
-                              f"({', '.join(asoc.candidatos[:3])})")
+                    motivo = f"varias referencias posibles ({', '.join(asoc.candidatos[:3])})"
                 else:
-                    motivo = "no está en la tabla de referencias (DIPs References, Others)"
+                    motivo = "no está en la tabla de referencias"
                 similares = similares_en_tabla(dip["nombre"], self.catalogo)
                 pista = "; ".join(f"'{f.descripcion}' ({f.tipo}, fila {f.fila})"
                                   for f, _ in similares)
                 r.agregar(ctx, "sin_referencia", "Missing Reference in Table",
-                          f"Sin fuente: el DIP {motivo}. Verificar contra la fuente que cita."
-                          + (f" Parecido en la tabla: {pista}." if pista else ""))
-                otros_tipos = {f.tipo for f, p in similares if p >= 90} - self.tipos
+                          f"Sin fuente: {motivo}.")
+                if pista:
+                    r.manuales.append(f"Parecido en la tabla: {pista}.")
+                otros_tipos = {f.tipo for f, p in similares
+                               if p >= 90 and f.tipo.upper() != (dip["tipo"] or "").upper()}
                 if otros_tipos and dip["tipo"]:
                     r.agregar(ctx, "tipo_dip_distinto_a_referencia", "Incorrect DIP Type",
-                              f"Abierto como {dip['tipo']}, pero se parece a una referencia "
-                              f"{'/'.join(sorted(otros_tipos))}.")
+                              f"Abierto como {dip['tipo']}; parece {'/'.join(sorted(otros_tipos))}.")
             if i in duplicados:
-                otro_barcode, otro_nombre = duplicados[i]
+                otro_barcode, _ = duplicados[i]
                 # Si uno de los dos ya se cerró a la hora de la auditoría, el duplicado ya
                 # se corrigió: queda como observación.
                 cerrado = next((d for d in (por_barcode.get(otro_barcode), dip)
@@ -161,15 +177,13 @@ class Auditor:
                                 and d["complete_date"] <= como_fecha_hora(ctx.fecha_referencia)),
                                None)
                 r.agregar(ctx, "duplicado", "Duplicated DIP",
-                          f"Posible DIP duplicado de {otro_barcode} ('{otro_nombre}'): mismo "
-                          f"avión, mismo componente y abiertos al mismo tiempo."
-                          + (f" Ya corregido: {cerrado['barcode']} se cerró el "
-                             f"{cerrado['complete_date']:%d-%b-%Y %H:%M}." if cerrado else ""),
+                          f"Posible duplicado de {otro_barcode}."
+                          + (f" {cerrado['barcode']} ya se cerró." if cerrado else ""),
                           "OBSERVACION" if cerrado else None)
             elif i in sn_repetidos:
                 r.agregar(ctx, "sn_repetido", "Incorrect S/N",
-                          f"El mismo S/N aparece en otro DIP activo del avión: "
-                          f"{', '.join(sn_repetidos[i])}.")
+                          f"S/N repetido en otro DIP activo: {', '.join(sn_repetidos[i])}.")
+            self._por_error(dip, ctx, r)
             estado = estado_final(r.hallazgos)
             comentario = self._comentario(r)
             filas.append(self._fila(dip, asoc, r, r.hallazgos, r.manuales, estado, comentario,
@@ -208,7 +222,9 @@ class Auditor:
         References), una captura adjunta o citada en la descripción. Si falta la revisión o
         su fecha, se anota como observación (salvo en los manuales de revision_opcional de
         config.yaml). El MGM no es referencia técnica. Las task cards JIC de la descripción
-        son la tarea donde se encontró la falla, no la referencia del DIP."""
+        son la tarea donde se encontró la falla, no la referencia del DIP. Un barcode de
+        trabajo citado como fuente ("IAW BARCODE: TRF7N00900V4, STEP 63") sin referencia del
+        manual es una referencia no específica."""
         if not dip.get("datos_referencia"):
             return  # no hay descripción ni referencias: no se puede revisar
         cargadas = referencias_cargadas(dip.get("referencia_tecnica"))
@@ -224,21 +240,32 @@ class Auditor:
         corresponde = f" Corresponde {', '.join(sorted(esperada))}." if esperada else ""
         if not (cargadas or adjuntos or encontrada.manual):
             if adjuntos is None:  # sin datos de ICAM no se sabe si hay captura adjunta
-                r.manuales.append("Verificar en ICAM la referencia técnica (Technical References "
-                                  "o captura adjunta)." + corresponde)
+                r.manuales.append("Verificar la referencia técnica." + corresponde)
             else:
                 mgm = cita_mgm(dip.get("referencia_tecnica"), descripcion,
                                dip.get("notas_diferimiento"), dip.get("nombre"))
                 r.agregar(ctx, "sin_referencia_tecnica", "Missing Technical Reference",
-                          "Sin referencia técnica: no está cargada en ICAM, no tiene captura "
-                          "adjunta ni se cita en la descripción"
-                          + (" (cita el MGM, que no es referencia técnica)." if mgm else ".")
+                          "Sin referencia técnica"
+                          + (" (el MGM no es referencia técnica)." if mgm else ".")
                           + corresponde)
         elif (encontrada.manual and not adjuntos
               and encontrada.faltantes_exigidos(ctx.revision_opcional)):
             r.agregar(ctx, "referencia_tecnica_incompleta", "Missing Technical Reference",
                       f"Referencia técnica sin {' ni '.join(encontrada.faltantes)} "
                       f"({encontrada}).")
+        elif (adjuntos and not cargadas and all(es_captura_de_tarea(a) for a in adjuntos)
+              and not [c for c in extraer_codigos(descripcion) if not c.startswith("JIC")]
+              and (esperada is None or any(not c.startswith("JIC") for c in esperada))):
+            # Los tres filtros de combustible de HP-1846: "Per AMM 73-11-02" y como único
+            # attachment la task card donde se encontró la falla. El auditor: Missing Technical
+            # Reference. Si la tabla da una task card (FDR, halon), esa captura es la referencia.
+            r.agregar(ctx, "sin_referencia_tecnica", "Missing Technical Reference",
+                      "Sin referencia técnica: el attachment es de la task card."
+                      + corresponde)
+        barcode = cita_barcode(dip.get("descripcion"), dip.get("notas_diferimiento"))
+        if barcode and (not encontrada.manual or encontrada.tipo == "TASK CARD"):
+            r.agregar(ctx, "referencia_tecnica_no_especifica", "Non-Specific Technical Reference",
+                      f"Cita el barcode {barcode}, no el manual." + corresponde)
         if asoc.entrada:
             # Una task card JIC adjunta, como en la descripción, es la tarea donde se
             # encontró la falla (el Service Visit), no la referencia del DIP.
@@ -248,14 +275,33 @@ class Auditor:
                 return  # sin número de tarea que comparar con la tabla
             revision = revisar(texto, asoc.entrada, self.catalogo, self.indice_referencias)
             if revision and revision.codigo and revision.codigo != "sin_referencia_tecnica":
+                severidad = None
+                if revision.codigo == "referencia_tecnica_distinta":
+                    citados = extraer_codigos(texto)
+                    grave = ((any(c.startswith("EC ") for c in esperada or ()) and
+                              not set(citados) & set(esperada or ()))
+                             or (citados and all(c.startswith("JIC") for c in citados)))
+                    severidad = None if grave else "OBSERVACION"
                 r.agregar(ctx, revision.codigo, "Incorrect Technical Reference",
-                          revision.mensaje)
+                          revision.mensaje, severidad)
 
     def _rir(self, dip: dict, asoc: Asociacion, ctx, r) -> None:
         """RIR del DIP (columnas Rir del Excel o Follow-on Tasks de ICAM) contra la referencia y el T/A."""
+        entrada = asoc.entrada
+        if entrada and entrada.rir_segun_manual:
+            # El RIR cambia según el daño o la medición: no se compara, se revisa en el manual.
+            rirs = dip.get("rirs")
+            en_icam = ("" if rirs is None else " En ICAM: " + ("; ".join(map(str, rirs))
+                                                              if rirs else "sin RIR") + ".")
+            manual = entrada.referencias_tecnicas
+            r.agregar(ctx, "rir_segun_manual", "RIR",
+                      f"La referencia da el RIR según el daño o el tipo "
+                      f"('{entrada.rir_segun_manual}'). Revisar en el manual"
+                      + (f" ({manual})." if manual else ".") + en_icam)
+            r.manuales = [m for m in r.manuales if not m.startswith("Verificar RIR")]
+            return
         if dip.get("rirs") is None:
             return  # sin datos de RIR: queda la verificación manual
-        entrada = asoc.entrada
         texto = ""
         if entrada:
             variante = next((v for v in entrada.variantes if v.nombre == r.variante and v.rir), None)
@@ -287,18 +333,25 @@ class Auditor:
         a = asociar(dip["nombre"], self.catalogo)
         if a.entrada is not None:
             return a
-        codigos = extraer_codigos(dip.get("referencia_tecnica"))
+        # Una SRM (53-00-01) es un capítulo de daños admisibles, no un ítem: no asocia.
+        codigos = [c for c in extraer_codigos(dip.get("referencia_tecnica")) if not c.startswith("SRM")]
         entrada = asociar_por_codigos(codigos, self.catalogo, self.indice_referencias)
-        if entrada:
-            return Asociacion(entrada, "REF_TECNICA", detalle=", ".join(codigos),
-                              candidatos=a.candidatos)
         descripcion = sin_task_cards(dip.get("descripcion"))
-        citados = extraer_codigos(descripcion)
+        citados = [c for c in extraer_codigos(descripcion) if not c.startswith("SRM")]
         d = asociar(descripcion, self.catalogo, aproximada=False)
+        por_descripcion = None
         if d.entrada:
             esperados = self.indice_referencias.por_entrada.get(d.entrada.id, set())
             if not citados or not esperados or esperados & set(citados):
-                return Asociacion(d.entrada, "DESCRIPCION", candidatos=a.candidatos)
+                por_descripcion = d.entrada
+        # Si la referencia cargada es de un ítem y la descripción dice otro, manda la
+        # descripción (un mensaje LONG TIME con la AMM del EGT cargada): la revisión de la
+        # referencia técnica marca después que la cargada es de otra referencia.
+        if entrada and not (por_descripcion and por_descripcion.id != entrada.id):
+            return Asociacion(entrada, "REF_TECNICA", detalle=", ".join(codigos),
+                              candidatos=a.candidatos)
+        if por_descripcion:
+            return Asociacion(por_descripcion, "DESCRIPCION", candidatos=a.candidatos)
         entrada = asociar_por_codigos(citados, self.catalogo, self.indice_referencias)
         if entrada:
             return Asociacion(entrada, "REF_TECNICA",
@@ -307,12 +360,26 @@ class Auditor:
         return a
 
     @staticmethod
+    def _por_error(dip: dict, ctx, r) -> None:
+        """DIP que el técnico marcó como duplicado o creado por error: no se audita, basta
+        con anotarlo. Cerrado, ya está corregido (observación); abierto, falta cerrarlo."""
+        mensaje = dip_por_error(dip)
+        if not mensaje or not ctx.discrepancias.activa("duplicado_declarado", "Duplicated DIP"):
+            return
+        r.hallazgos, r.manuales, r.intervalo_ok = [], [], False
+        r.agregar(ctx, "duplicado_declarado", "Duplicated DIP", mensaje,
+                  None if dip["estado"] in ACTIVOS else "OBSERVACION")
+
+    @staticmethod
     def _comentario(r) -> str:
+        if any(h.codigo == "duplicado_declarado" for h in r.hallazgos):
+            return r.hallazgos[0].mensaje
         partes = []
         if r.intervalo_ok:
             partes.append("T/A aperturado correctamente")
         for h in r.hallazgos:
-            if h.severidad != "OBSERVACION":
+            # "Revisar en el manual" es para el auditor, no un comentario de discrepancia.
+            if h.severidad not in {"OBSERVACION", "CONSULTAR MANUAL"}:
                 partes.append(h.mensaje)
         return " // ".join(partes)
 

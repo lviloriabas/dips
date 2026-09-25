@@ -16,12 +16,15 @@ from openpyxl.utils import get_column_letter
 from .auditor import ResultadoAuditoria
 from .reglas import MOSTRAR_SEVERIDAD
 
-# El resultado es OK, SIN FUENTE o POSIBLE DISCREPANCIA: sin niveles (crítica / no crítica)
-# ni tipos de discrepancia, que todavía no coinciden con el proceso de los auditores.
-COLORES_RESULTADO = {"POSIBLE DISCREPANCIA": "FCE3B0", "SIN FUENTE": "D6E4F0", "OK": "C9E7C9",
-                     "FUERA DE ALCANCE": "E4E4E4"}
-COLORES_SEVERIDAD = {"POSIBLE DISCREPANCIA": "FCE3B0", "SIN FUENTE": "D6E4F0",
+# El resultado es OK, REVISAR, SIN FUENTE o POSIBLE DISCREPANCIA: sin niveles (crítica / no
+# crítica) ni tipos de discrepancia, que todavía no coinciden con el proceso de los auditores.
+COLORES_RESULTADO = {"POSIBLE DISCREPANCIA": "FCE3B0", "REVISAR": "FFF59D", "SIN FUENTE": "D6E4F0",
+                     "OK": "C9E7C9", "FUERA DE ALCANCE": "E4E4E4"}
+COLORES_SEVERIDAD = {"POSIBLE DISCREPANCIA": "FCE3B0", "REVISAR": "FFF59D", "SIN FUENTE": "D6E4F0",
                      "OBSERVACIÓN": "EFEFEF"}
+# Mismos tonos que las celdas, pero saturados: en los gráficos los pasteles no se distinguen.
+COLORES_GRAFICO = {"POSIBLE DISCREPANCIA": "F39C12", "REVISAR": "F4D03F", "SIN FUENTE": "2E86DE",
+                   "OK": "27AE60", "FUERA DE ALCANCE": "95A5A6"}
 _ENCABEZADO = PatternFill("solid", fgColor="1F3A5F")
 # Columnas agregadas por el programa: encabezado morado y celdas lila, para
 # distinguirlas de las columnas originales del Excel de entrada.
@@ -126,7 +129,7 @@ def hallazgos_para_mostrar(h: pd.DataFrame) -> pd.DataFrame:
     return h.rename(columns={"Severidad": "Resultado"})
 
 
-_RESULTADOS = ["POSIBLE DISCREPANCIA", "SIN FUENTE", "OK"]
+_RESULTADOS = ["POSIBLE DISCREPANCIA", "REVISAR", "SIN FUENTE", "OK"]
 _TITULO = Font(bold=True, size=16, color="1F3A5F")
 _SUBTITULO = Font(bold=True, size=11, color="1F3A5F")
 _BORDE = Border(bottom=Side(style="thin", color="C3C2B7"))
@@ -207,7 +210,7 @@ def _hoja_dashboard(ws, resultado: ResultadoAuditoria) -> None:
     pie.set_categories(Reference(ws, min_col=col, min_row=f1 + 1, max_row=f2))
     for i, r in enumerate(_RESULTADOS):
         punto = DataPoint(idx=i)
-        punto.graphicalProperties.solidFill = COLORES_RESULTADO[r]
+        punto.graphicalProperties.solidFill = COLORES_GRAFICO[r]
         pie.series[0].dPt.append(punto)
     pie.dataLabels = _etiquetas(porcentaje=True)
     pie.legend.position = "b"
@@ -226,7 +229,7 @@ def _hoja_dashboard(ws, resultado: ResultadoAuditoria) -> None:
                     titles_from_data=True)
     barras.set_categories(Reference(ws, min_col=col, min_row=g1 + 1, max_row=g2))
     for serie, c in zip(barras.series, columnas):
-        serie.graphicalProperties.solidFill = COLORES_RESULTADO[c]
+        serie.graphicalProperties.solidFill = COLORES_GRAFICO[c]
         serie.graphicalProperties.line.solidFill = "FFFFFF"
     barras.y_axis.title = "DIPs"
     barras.legend.position = "b"
@@ -250,7 +253,7 @@ def _hoja_dashboard(ws, resultado: ResultadoAuditoria) -> None:
         grafico.legend = None
         grafico.add_data(Reference(ws, min_col=col + 1, min_row=d1, max_row=d2), titles_from_data=True)
         grafico.set_categories(Reference(ws, min_col=col, min_row=d1 + 1, max_row=d2))
-        grafico.series[0].graphicalProperties.solidFill = COLORES_RESULTADO["POSIBLE DISCREPANCIA"]
+        grafico.series[0].graphicalProperties.solidFill = COLORES_GRAFICO["POSIBLE DISCREPANCIA"]
         grafico.dataLabels = _etiquetas(valor=True)
         _ejes_visibles(grafico)
         grafico.height, grafico.width = 8, 26

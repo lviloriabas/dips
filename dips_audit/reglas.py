@@ -6,12 +6,15 @@ import re
 from dataclasses import dataclass, field
 from datetime import date, datetime, time, timedelta
 
+from rapidfuzz.distance import Levenshtein
+
 from .discrepancias import Discrepancias
 from .referencias import EntradaCatalogo, Limite, Variante
 from .texto import extraer_fechas, extraer_psi, extraer_sn, normalizar, posiciones
 
-ORDEN_SEVERIDAD = {"CRITICA": 5, "NO CRITICA": 4, "REVISAR": 3, "SIN FUENTE": 2, "OBSERVACION": 1}
-# El resultado de un DIP es OK, SIN FUENTE o POSIBLE DISCREPANCIA: los niveles (crítica /
+ORDEN_SEVERIDAD = {"CRITICA": 6, "NO CRITICA": 5, "REVISAR": 4, "CONSULTAR MANUAL": 3,
+                   "SIN FUENTE": 2, "OBSERVACION": 1}
+# El resultado de un DIP es OK, REVISAR, SIN FUENTE o POSIBLE DISCREPANCIA: los niveles (crítica /
 # no crítica) y los tipos de discrepancia todavía no coinciden con el proceso de los
 # auditores. La severidad de cada regla (config/discrepancias.yaml) solo ordena los hallazgos
 # y decide si un hallazgo es una observación, que no cambia el resultado.
@@ -19,15 +22,20 @@ POSIBLE_DISCREPANCIA = "POSIBLE DISCREPANCIA"
 # El DIP no está en la tabla de referencias: no hay contra qué auditarlo. Una posible
 # discrepancia que no depende de la tabla (vencido, cierre tarde...) pesa más.
 SIN_FUENTE = "SIN FUENTE"
+# La tabla da el TA o el RIR según el daño o el tipo ("DEPENDING ON...", "CONSULT REF."):
+# el auditor lo revisa en el manual. Una posible discrepancia pesa más.
+REVISAR = "REVISAR"
 ESTADOS = {
     "CRITICA": POSIBLE_DISCREPANCIA,
     "NO CRITICA": POSIBLE_DISCREPANCIA,
     "REVISAR": POSIBLE_DISCREPANCIA,
+    "CONSULTAR MANUAL": REVISAR,
     "SIN FUENTE": SIN_FUENTE,
 }
 # Cómo se muestra cada hallazgo según su severidad.
 MOSTRAR_SEVERIDAD = {"CRITICA": POSIBLE_DISCREPANCIA, "NO CRITICA": POSIBLE_DISCREPANCIA,
-                     "REVISAR": POSIBLE_DISCREPANCIA, "SIN FUENTE": SIN_FUENTE,
+                     "REVISAR": POSIBLE_DISCREPANCIA, "CONSULTAR MANUAL": REVISAR,
+                     "SIN FUENTE": SIN_FUENTE,
                      "OBSERVACION": "OBSERVACIÓN"}
 # Cada DIP se audita dos veces: al abrirse (APERTURA) y al cerrarse (CIERRE). Estos códigos
 # son de la auditoría de cierre; todos los demás, de la de apertura.
@@ -46,7 +54,7 @@ def etapa(codigo: str) -> str:
 class Hallazgo:
     codigo: str       # regla en config/discrepancias.yaml (p. ej. intervalo_excedido)
     categoria: str    # tipo de discrepancia (nomenclatura del departamento)
-    severidad: str    # CRITICA, NO CRITICA, REVISAR, OBSERVACION
+    severidad: str    # CRITICA, NO CRITICA, REVISAR, CONSULTAR MANUAL, OBSERVACION
     mensaje: str
 
 
@@ -59,6 +67,9 @@ class Contexto:
     meses_min: int = 30
     meses_max: int = 31
     revision_opcional: frozenset[str] = frozenset()  # manuales cuya cita no pide REV ni fecha
+    # Diferencia aceptada entre el Start de un T/A por uso y el uso al encontrar la falla.
+    inicio_fh: float = 2
+    inicio_fc: float = 0
 
 
 @dataclass
@@ -125,6 +136,20 @@ def _inicio_ta(dip: dict) -> date | None:
     return None
 
 
+# Unidad del DIP -> parámetro del T/A en ICAM, y al revés.
+_PARAMETRO = {"FH": "HOURS", "FC": "CYCLES"}
+_UNIDAD_PARAMETRO = {"CDY": "DAY", "DAY": "DAY", "HOURS": "FH", "HOUR": "FH", "CYCLES": "FC", "CYCLE": "FC"}
+
+
+def _inicio_ta_uso(dip: dict, unidad: str) -> list[float]:
+    """Start de un T/A por uso (FH, FC) en ICAM: 'Aircraft 14496 / Component 14496' ->
+    [14496, 14496]. En un motor viene también el uso del avión: se devuelven todos."""
+    for i in dip.get("icam_intervalos") or []:
+        if (i.get("parameter") or "").upper() == _PARAMETRO[unidad]:
+            return [float(x) for x in re.findall(r"-?\d+(?:\.\d+)?", i.get("start") or "")]
+    return []
+
+
 def _rango_limite(lim: Limite, unidad_dip: str, ctx: Contexto) -> tuple[float, float] | None:
     """Rango aceptado para el valor del DIP según un límite de la referencia."""
     if lim.unidad == "MONTH":
@@ -146,12 +171,42 @@ def _misma_flota(flota: str, flotas: list[str]) -> bool:
     return flota in flotas or (flota == "NG" and any(f.startswith("NG") for f in flotas))
 
 
+def _variantes_aplicables(dip: dict, entrada: EntradaCatalogo) -> list[Variante]:
+    """Variantes de la referencia que valen para la flota del DIP (todas si no se sabe)."""
+    flota = dip.get("flota")
+    if flota and any(v.flotas for v in entrada.variantes):
+        return [v for v in entrada.variantes if not v.flotas or _misma_flota(flota, v.flotas)]
+    return list(entrada.variantes)
+
+
+def _ventana(dip: dict, entrada: EntradaCatalogo | None) -> tuple[Variante, Limite] | None:
+    """Variante con ventana "AFTER A, BEFORE B" en la unidad del DIP, y su límite B.
+
+    Solo si el T/A está armado para esa ventana (intervalo B - A o B). Con otro intervalo es
+    otro trabajo sobre el mismo ítem: "NLG STRUT COMPRESSED UNDER 5 INCHES" en 4 FC no es el
+    chequeo del amortiguador después del servicio, y empieza en la apertura."""
+    if entrada is None or dip["unidad"] is None:
+        return None
+    for v in _variantes_aplicables(dip, entrada):
+        for lim in v.limites:
+            desde_inicio = v.intervalo_desde_inicio(lim)
+            if lim.unidad == dip["unidad"] and desde_inicio is not None \
+                    and dip["intervalo"] in (desde_inicio, lim.valor):
+                return v, lim
+    return None
+
+
 def regla_intervalo(dip: dict, entrada: EntradaCatalogo, ctx: Contexto, r: ResultadoReglas) -> None:
     valor, unidad = dip["intervalo"], dip["unidad"]
     if valor is None or unidad is None:
+        if dip.get("rirs") and (entrada.no_verificable or not entrada.variantes):
+            # Solo sigue un RIR y la tabla no da plazo (EXHAUST PLUG CRACK: TA "-").
+            r.manuales.append("DIP sin T/A: solo sigue el RIR. Verificar contra la referencia "
+                              f"('{'; '.join(x.ta for x in entrada.referencias)}').")
+            return
         r.agregar(ctx, "datos_incompletos", "Deferral Interval Not Documented",
-                  f"Sin intervalo o tipo de intervalo válido en el Excel de entrada "
-                  f"('{_fmt(valor)}' '{dip['tipo_intervalo_original']}').")
+                  f"Sin intervalo válido en el Excel ('{_fmt(valor)}' "
+                  f"'{dip['tipo_intervalo_original']}').")
         r.intervalo_ok = False
         return
     if valor <= 0:
@@ -163,11 +218,18 @@ def regla_intervalo(dip: dict, entrada: EntradaCatalogo, ctx: Contexto, r: Resul
     if entrada.hasta_vencimiento:
         if unidad != "DAY":
             r.agregar(ctx, "tipo_intervalo_incorrecto", "Incorrect DIP Interval",
-                      f"T/A aperturado en {_fmt(valor)} {unidad}; la referencia es UNTIL DUE "
-                      f"DATE (días calendario).")
+                      f"T/A en {_fmt(valor)} {unidad}; la referencia es UNTIL DUE DATE.")
             r.intervalo_ok = False
         else:
             r.intervalo_ok = True
+        return
+
+    if entrada.ta_segun_manual:
+        manual = entrada.referencias_tecnicas
+        r.agregar(ctx, "intervalo_segun_manual", "Incorrect DIP Interval",
+                  f"T/A con {_fmt(valor)} {unidad}; la referencia lo da según el daño o el tipo "
+                  f"('{entrada.ta_segun_manual}'). Revisar en el manual"
+                  + (f" ({manual})." if manual else "."))
         return
 
     if entrada.no_verificable or not entrada.variantes:
@@ -175,17 +237,11 @@ def regla_intervalo(dip: dict, entrada: EntradaCatalogo, ctx: Contexto, r: Resul
                           f"('{'; '.join(x.ta for x in entrada.referencias)}').")
         return
 
-    variantes = entrada.variantes
     flota = dip.get("flota")
-    if any(v.flotas for v in variantes):
-        if flota:
-            aplicables = [v for v in variantes if not v.flotas or _misma_flota(flota, v.flotas)]
-        else:
-            aplicables = variantes
-            r.manuales.append("No se pudo determinar la flota del avión; se aceptó el "
-                              "intervalo de cualquier flota.")
-    else:
-        aplicables = variantes
+    aplicables = _variantes_aplicables(dip, entrada)
+    if any(v.flotas for v in entrada.variantes) and not flota:
+        r.manuales.append("No se pudo determinar la flota del avión; se aceptó el "
+                          "intervalo de cualquier flota.")
     if not aplicables:
         r.manuales.append(f"La referencia no define intervalo para la flota {flota}.")
         return
@@ -197,19 +253,21 @@ def regla_intervalo(dip: dict, entrada: EntradaCatalogo, ctx: Contexto, r: Resul
             rango = _rango_limite(lim, unidad, ctx)
             if rango is None:
                 continue
-            if rango[0] <= valor <= rango[1]:
+            # Con ventana "AFTER A, BEFORE B" el T/A dura B - A desde su Start. B también se
+            # acepta aquí: regla_inicio_ta revisa desde dónde cuenta.
+            if rango[0] <= valor <= rango[1] or valor == v.intervalo_desde_inicio(lim):
                 coincidentes.append((v, lim))
             if maximo is None or rango[1] > maximo[0]:
                 maximo = (rango[1], lim)
 
     texto_ref = "; ".join(
         " o ".join(str(l) for l in v.limites) + (f" [{', '.join(v.flotas)}]" if v.flotas else "")
+        + (f", empezando {v.inicio} después de la apertura" if v.inicio else "")
         for v in aplicables)
 
     if maximo is None:
         r.agregar(ctx, "tipo_intervalo_incorrecto", "Incorrect DIP Interval",
-                  f"T/A aperturado en {unidad} ({_fmt(valor)} {dip['tipo_intervalo_original']}); "
-                  f"la referencia indica {texto_ref}.")
+                  f"T/A en {_fmt(valor)} {unidad}; la referencia indica {texto_ref}.")
         r.intervalo_ok = False
         return
 
@@ -225,9 +283,17 @@ def regla_intervalo(dip: dict, entrada: EntradaCatalogo, ctx: Contexto, r: Resul
                       f"El intervalo {_fmt(valor)} {unidad} corresponde a la condición "
                       f"'{variante.nombre}'. Verificar que aplique.{extra}")
         if len(variante.limites) > 1:
-            r.manuales.append("Verificar límite dual en ICAM: " +
-                              " o ".join(str(l) for l in variante.limites) +
-                              " (lo que ocurra primero).")
+            # Con ICAM se ve el T/A completo; el Excel solo trae el límite que vence primero.
+            en_ta = {_UNIDAD_PARAMETRO.get((i.get("parameter") or "").upper())
+                     for i in dip.get("icam_intervalos") or []}
+            faltan = [l for l in variante.limites
+                      if ("DAY" if l.unidad == "MONTH" else l.unidad) not in en_ta]
+            limites = " o ".join(str(l) for l in variante.limites)
+            if dip.get("icam_intervalos") and faltan:
+                r.agregar(ctx, "limite_faltante", "Incorrect DIP Interval",
+                          f"T/A sin {' ni '.join(map(str, faltan))}; la referencia pide {limites}.")
+            elif not dip.get("icam_intervalos"):
+                r.manuales.append(f"Verificar límite dual en ICAM: {limites} (lo que ocurra primero).")
         if variante.rir:
             r.manuales.append(f"Verificar RIR cada {variante.rir}.")
         return
@@ -235,12 +301,10 @@ def regla_intervalo(dip: dict, entrada: EntradaCatalogo, ctx: Contexto, r: Resul
     r.intervalo_ok = False
     if valor > maximo[0]:
         r.agregar(ctx, "intervalo_excedido", "Incorrect DIP Interval",
-                  f"T/A aperturado con {_fmt(valor)} {unidad}, mayor que la referencia "
-                  f"({texto_ref}).")
+                  f"T/A con {_fmt(valor)} {unidad}; la referencia indica {texto_ref}.")
     else:
         r.agregar(ctx, "intervalo_menor", "Incorrect DIP Interval",
-                  f"T/A aperturado con {_fmt(valor)} {unidad}, distinto de la referencia "
-                  f"({texto_ref}).")
+                  f"T/A con {_fmt(valor)} {unidad}; la referencia indica {texto_ref}.")
 
 
 def regla_fechas(dip: dict, entrada: EntradaCatalogo | None, ctx: Contexto,
@@ -258,19 +322,25 @@ def regla_fechas(dip: dict, entrada: EntradaCatalogo | None, ctx: Contexto,
     hasta_vencimiento = entrada is not None and entrada.hasta_vencimiento
     if due and found and valor is not None and unidad == "DAY" and not hasta_vencimiento:
         inicio = _inicio_ta(dip)
-        base = inicio or found
-        desde = f"el Start del T/A en ICAM ({_fecha(base)})" if inicio else f"apertura ({_fecha(base)})"
+        # Sin ICAM, un T/A armado con la ventana (FDR: 7 días + 23) cuenta desde la apertura + 7.
+        ventana = _ventana(dip, entrada)
+        retraso = (int(ventana[0].inicio.valor) if ventana and not inicio
+                   and valor == ventana[0].intervalo_desde_inicio(ventana[1]) else 0)
+        base = inicio or found + timedelta(days=retraso)
+        desde = (f"Start del T/A {_fecha(base)}" if inicio
+                 else f"apertura + {retraso} DAY" if retraso
+                 else f"apertura {_fecha(base)}")
         esperado = base + timedelta(days=valor)
         diferencia = (due - esperado).days
         if diferencia > ctx.tol_dias:
             r.agregar(ctx, "due_date_posterior_a_intervalo", "Incorrect Due Date",
-                      f"Due date {_fecha(due)} es {diferencia} días posterior a {desde} "
-                      f"+ {_fmt(valor)} DAY = {_fecha(esperado)}."
-                      + ("" if inicio else " Verificar el Start Date del T/A en ICAM."))
+                      f"Due date {_fecha(due)}; corresponde {_fecha(esperado)} ({desde} "
+                      f"+ {_fmt(valor)} DAY)."
+                      + ("" if inicio else " Verificar el Start del T/A."))
         elif diferencia < -ctx.tol_dias:
             r.agregar(ctx, "due_date_anterior_a_intervalo", "Incorrect Due Date",
-                      f"Due date {_fecha(due)} es {-diferencia} días anterior a {desde} "
-                      f"+ {_fmt(valor)} DAY = {_fecha(esperado)}.")
+                      f"Due date {_fecha(due)}; corresponde {_fecha(esperado)} ({desde} "
+                      f"+ {_fmt(valor)} DAY).")
 
     # Ítems con vencimiento: el due date no puede superar la fecha del ítem.
     if entrada is not None and entrada.hasta_vencimiento and due:
@@ -280,12 +350,12 @@ def regla_fechas(dip: dict, entrada: EntradaCatalogo | None, ctx: Contexto,
             vence = fechas[0]
             if due > vence:
                 r.agregar(ctx, "due_date_posterior_a_vencimiento_item", "Incorrect Due Date",
-                          f"Due date del DIP ({_fecha(due)}) es posterior al vencimiento "
-                          f"indicado en la descripción ({_fecha(vence)}).")
+                          f"Due date {_fecha(due)}, después del vencimiento del ítem "
+                          f"({_fecha(vence)}).")
             elif (vence - due).days > ctx.tol_dias:
                 r.agregar(ctx, "due_date_anterior_a_vencimiento_item", "Incorrect Due Date",
-                          f"Due date del DIP ({_fecha(due)}) es anterior al vencimiento "
-                          f"indicado en la descripción ({_fecha(vence)}).")
+                          f"Due date {_fecha(due)}, antes del vencimiento del ítem "
+                          f"({_fecha(vence)}).")
         else:
             r.manuales.append("Verificar en el attachment la fecha de vencimiento del ítem "
                               "y que coincida con el due date del DIP.")
@@ -295,11 +365,10 @@ def regla_fechas(dip: dict, entrada: EntradaCatalogo | None, ctx: Contexto,
     auditoria = como_fecha_hora(ctx.fecha_referencia)
     if activo and dip["due_date"] and _fin_del_plazo(dip["due_date"]) < auditoria:
         r.agregar(ctx, "dip_vencido", "Overdue DIP",
-                  f"DIP {estado} con due date {_fecha_hora(dip['due_date'])} vencido a la fecha "
-                  f"de auditoría ({_fecha_hora(auditoria)}).")
+                  f"DIP vencido: due date {_fecha_hora(dip['due_date'])}.")
     elif activo and dip["usage_remaining"] is not None and dip["usage_remaining"] < 0:
         r.agregar(ctx, "dip_vencido", "Overdue DIP",
-                  f"DIP {estado} con Usage Remaining negativo ({_fmt(dip['usage_remaining'])}).")
+                  f"DIP vencido: Usage Remaining {_fmt(dip['usage_remaining'])}.")
 
     if estado == "COMPLETE":
         regla_cierre(dip, ctx, r)
@@ -310,8 +379,8 @@ def regla_fechas(dip: dict, entrada: EntradaCatalogo | None, ctx: Contexto,
         tol = ctx.tol_dias if unidad == "DAY" else 0
         if rem > valor + tol:
             r.agregar(ctx, "usage_remaining_mayor_a_intervalo", "Incorrect DIP Interval",
-                      f"Usage Remaining ({_fmt(rem)}) es mayor que el intervalo del DIP "
-                      f"({_fmt(valor)} {unidad}); revisar el T/A configurado en scheduling.")
+                      f"Usage Remaining {_fmt(rem)}, mayor que el intervalo "
+                      f"({_fmt(valor)} {unidad}).")
 
 
 # Acción correctiva que remite a otra tarea: "CLOSED IN REFERENCE BARCODE [T40S009H0DK]",
@@ -322,6 +391,38 @@ _SIN_TRABAJO = re.compile(
     r"MISTAKE|BY ERROR|DUPLICAT|PREVIOUS(?:LY)?\s+(?:ACCOMPLISHED|REPLACED|PERFORMED|DONE)"
     r"|NO(?:T)?\s+(?:REQUIRE[DS]?\s+)?(?:FURTHER\s+)?(?:MAINT(?:ENANCE)?\.?\s+)?(?:FURTHER\s+)?ACTION"
     r"|NO\s+ANOMAL", re.I)
+
+
+# El técnico dice que el DIP se creó por error o está duplicado: en la acción correctiva
+# ("ENTERED BY MISTAKE", "DIP OPEN BY MISTAKE IN WRONG WP", "DUPLICATED DIP") o en el nombre,
+# la descripción o las notas del diferimiento ("DIP DUPLICADO, VER BC T40S009J3HP"). En esos
+# textos, "BY MISTAKE" suelto puede ser la falla ("OXYGEN MASK DEPLOYED BY MISTAKE"): tiene que
+# referirse al DIP.
+_POR_ERROR_ACCION = re.compile(
+    r"DUPLICA[DT]|BY\s+(?:MISTAKE|ERROR)|POR\s+(?:ERROR|EQUIVOCACI)|MISTAKENLY|ERRONEOUSLY", re.I)
+_POR_ERROR_DIP = re.compile(
+    r"\b(?:DIP|ITEM|FAULT|DEFERRAL)\b[^.\n]{0,30}?(?:DUPLICA[DT]|BY\s+(?:MISTAKE|ERROR)"
+    r"|POR\s+(?:ERROR|EQUIVOCACI))|\bDUPLICA[DT]\w*\s+(?:DIP|ITEM|FAULT)\b", re.I)
+
+
+def dip_por_error(dip: dict) -> str | None:
+    """Comentario si el técnico marcó el DIP como duplicado o creado por error; None si no."""
+    accion = re.sub(r"^\s*\d+\.\s[^\n]*UTC\s*", "", dip.get("accion_correctiva") or "")
+    textos = [dip.get("nombre"), dip.get("descripcion"), dip.get("notas_diferimiento")]
+    if _POR_ERROR_ACCION.search(accion):
+        texto = accion
+    else:
+        texto = next((t for t in textos if t and _POR_ERROR_DIP.search(str(t))), None)
+        if texto is None:
+            return None
+    duplicado = re.search(r"DUPLICA[DT]", str(texto), re.I)
+    otro = next((b.upper() for b in _OTRA_TAREA.findall(str(texto))
+                 if b.upper() != (dip.get("barcode") or "").upper()), None)
+    mensaje = ("DIP duplicado" if duplicado else "DIP creado por error") + (
+        f" (ver {otro})" if otro else "")
+    if dip.get("estado") in ACTIVOS:
+        return mensaje + "; sigue abierto."
+    return mensaje + "."
 
 
 def regla_cierre(dip: dict, ctx: Contexto, r: ResultadoReglas) -> None:
@@ -344,16 +445,13 @@ def regla_cierre(dip: dict, ctx: Contexto, r: ResultadoReglas) -> None:
                               "verificar ahí la fecha en que se hizo el trabajo.")
         elif tarde:
             r.agregar(ctx, "completado_fuera_de_plazo", "Late Completion",
-                      f"Completado el {_fecha_hora(completo)}, después del due date "
-                      f"{_fecha_hora(due)}"
-                      + (f" (Usage Remaining al cerrar: {_fmt(restante)})." if restante is not None
-                         else "."))
+                      f"Cerrado el {_fecha_hora(completo)}, después del due date "
+                      f"{_fecha_hora(due)}.")
         elif (original and _fin_del_plazo(original) < _fin_del_plazo(due)
               and _fin_del_plazo(original) + timedelta(hours=ctx.horas_cierre) < completo):
             r.agregar(ctx, "cierre_deadline_extendido", "Late Completion",
-                      f"Completado el {_fecha_hora(completo)}: dentro del due date extendido "
-                      f"({_fecha_hora(due)}), pero después del original ({_fecha_hora(original)}). "
-                      "Verificar el sustento de la extensión.")
+                      f"Cerrado el {_fecha_hora(completo)}, después del due date original "
+                      f"({_fecha_hora(original)}). Verificar la extensión.")
     elif not completo:
         r.manuales.append("DIP COMPLETE: verificar en ICAM que se cerró dentro del plazo.")
     # "A new ... deadline has been added" es la apertura del T/A, no un cambio.
@@ -368,7 +466,7 @@ def regla_cierre(dip: dict, ctx: Contexto, r: ResultadoReglas) -> None:
         encontrada = buscar_referencia(texto)
         if not texto.strip():
             r.agregar(ctx, "cierre_sin_accion_correctiva", "Missing Technical Reference",
-                      "DIP cerrado sin acción correctiva en ICAM.")
+                      "DIP cerrado sin acción correctiva.")
         elif not encontrada.manual and otra_tarea:
             # El trabajo se hizo en otra tarea: la referencia técnica está en esa tarea.
             r.manuales.append(f"Cierre en otra tarea ({otra_tarea.group(0)}): verificar ahí la "
@@ -377,24 +475,160 @@ def regla_cierre(dip: dict, ctx: Contexto, r: ResultadoReglas) -> None:
             r.manuales.append(f"Cerrado sin trabajo de mantenimiento: '{texto.strip()[:120]}'.")
         elif not encontrada.manual:
             r.agregar(ctx, "cierre_sin_referencia_tecnica", "Missing Technical Reference",
-                      "La acción correctiva no cita la referencia del manual"
-                      + (" (el MGM no es referencia técnica)." if cita_mgm(texto) else ".")
-                      + f" Acción: '{texto.strip()[:120]}'.")
+                      "Acción correctiva sin referencia técnica"
+                      + (" (el MGM no es referencia técnica)." if cita_mgm(texto) else "."))
         elif encontrada.faltantes_exigidos(ctx.revision_opcional):
             r.agregar(ctx, "cierre_referencia_incompleta", "Missing Technical Reference",
-                      f"Referencia de la acción correctiva incompleta ({encontrada}): falta "
-                      f"{' y '.join(encontrada.faltantes_exigidos(ctx.revision_opcional))}.")
+                      f"Acción correctiva con referencia técnica sin "
+                      f"{' ni '.join(encontrada.faltantes_exigidos(ctx.revision_opcional))} "
+                      f"({encontrada}).")
 
     removidos = {sn.upper() for _, sn in dip.get("sn_removidos") or []}
     en_descripcion = set(extraer_sn(dip["nombre"] + " " + dip["descripcion"]))
     if removidos and en_descripcion and not removidos & en_descripcion:
         r.agregar(ctx, "cierre_sn_distinto", "Incorrect S/N",
-                  f"S/N removido al cerrar ({', '.join(sorted(removidos))}) distinto del S/N de "
-                  f"la descripción ({', '.join(sorted(en_descripcion))}).")
+                  f"S/N removido {', '.join(sorted(removidos))}; la descripción dice "
+                  f"{', '.join(sorted(en_descripcion))}.")
 
-    if dip.get("adjuntos") is not None and not dip["adjuntos"]:
+    if cantidad_adjuntos(dip) == 0:
         r.agregar(ctx, "cierre_sin_adjuntos", "Missing Attachment",
-                  "DIP cerrado sin attachments en ICAM.")
+                  f"DIP cerrado sin attachments{_sin_adjuntos(dip)}.")
+
+
+def regla_inicio_ta(dip: dict, entrada: EntradaCatalogo | None, ctx: Contexto,
+                    r: ResultadoReglas) -> None:
+    """Start del T/A en ICAM: debe ser la apertura del DIP ("Incorrect DIP Start Values").
+
+    En días, el Start debe caer entre la fecha en que se encontró la falla y la del
+    diferimiento (un T/A "within 4 months from the performance date" cuenta desde el
+    trabajo). En FH y FC, debe ser el uso al encontrar la falla (History, "Usage When Found").
+    Con ventana "AFTER A, BEFORE B" (amortiguador, FDR, desgaste de frenos) el T/A empieza
+    A después de la apertura y dura B - A. Los auditores marcan el T/A que empieza en la
+    apertura con B (vence igual, pero con otro Start) y el que empieza antes de la apertura.
+    No aplica a los ítems con vencimiento (UNTIL DUE DATE): ahí manda la fecha del ítem."""
+    unidad, valor = dip["unidad"], dip["intervalo"]
+    if unidad is None or (entrada is not None and entrada.hasta_vencimiento):
+        return
+    ventana = _ventana(dip, entrada)
+    retraso = ventana[0].inicio.valor if ventana else 0
+    limite = ventana[1].valor if ventana else 0
+    esperado = (f"{_fmt(retraso)} {unidad} después de la apertura, con {_fmt(limite - retraso)} "
+                f"{unidad} ('{ventana[0].nombre}')" if ventana else "en la apertura")
+    if unidad == "DAY":
+        inicio, found = _inicio_ta(dip), _como_fecha(dip["found_date"])
+        if inicio is None or found is None:
+            return
+        diferido = max(found, _como_fecha(dip.get("defer_date")) or found)
+        desde = found + timedelta(days=retraso - ctx.tol_dias)
+        hasta = diferido + timedelta(days=retraso + ctx.tol_dias)
+        corrido = (inicio - found).days
+        tolerancia = ctx.tol_dias
+        fuera = not desde <= inicio <= hasta
+        detalle = (f"Start del T/A {_fecha(inicio)}: "
+                   + (f"{abs(corrido)} días {'antes' if corrido < 0 else 'después'} de" if corrido
+                      else "el día de") + f" la apertura ({_fecha(found)})")
+    elif unidad in _PARAMETRO:
+        uso = (dip.get("uso_encontrado") or {}).get(_PARAMETRO[unidad])
+        starts = _inicio_ta_uso(dip, unidad)
+        if uso is None or not starts:
+            return
+        corrido = min((x - uso for x in starts), key=lambda d: abs(d - retraso))
+        if uso <= 0 or abs(corrido - retraso) > 10 * max(valor or 1, 1):
+            return  # uso en 0 o de otro contador (motor contra avión): no se puede comparar
+        tolerancia = ctx.inicio_fh if unidad == "FH" else ctx.inicio_fc
+        fuera = abs(corrido - retraso) > tolerancia
+        detalle = (f"Start del T/A {_fmt(round(uso + corrido, 2))} {unidad}: "
+                   + (f"{_fmt(abs(round(corrido, 2)))} {unidad} "
+                      f"{'antes' if corrido < 0 else 'después'} del" if corrido else "igual al")
+                   + f" uso al encontrar la falla ({_fmt(uso)})")
+    else:
+        return
+    if fuera and ventana is not None and ventana[0].inicio_opcional and valor == limite:
+        # Ventana opcional: también vale empezar en la apertura con el intervalo completo.
+        fuera = abs(corrido) > tolerancia
+    if fuera and ventana is None and entrada is not None:
+        # Empieza donde empieza la ventana del ítem, con otro intervalo (amortiguador MAX con
+        # 5 FC + 15 FC): el Start es correcto y la regla del intervalo revisa el resto.
+        fuera = not any(abs(corrido - v.inicio.valor) <= tolerancia
+                        for v in _variantes_aplicables(dip, entrada)
+                        if v.inicio is not None and v.inicio.unidad == unidad)
+    if fuera:
+        # Sin fuente no se sabe si el ítem tiene una ventana: un Start posterior a la
+        # apertura queda para verificar. Uno anterior nunca es correcto.
+        verificar = entrada is None and corrido > 0
+        r.agregar(ctx, "inicio_ta_incorrecto", "Incorrect DIP Start Values",
+                  f"{detalle}; debe empezar {esperado}"
+                  + (" (salvo que la fuente que cita diga otra cosa: verificar)." if verificar else "."),
+                  "OBSERVACION" if verificar else None)
+        return
+    # Empieza bien, pero con el intervalo B: vence después de la ventana.
+    if ventana and valor is not None and corrido + valor > limite + tolerancia:
+        r.agregar(ctx, "intervalo_excedido", "Incorrect DIP Interval",
+                  f"T/A empieza {_fmt(corrido)} {unidad} después de la apertura con "
+                  f"{_fmt(valor)} {unidad}: vence a los {_fmt(corrido + valor)} {unidad}, "
+                  f"después de los {_fmt(limite)} de la referencia ('{ventana[0].nombre}').")
+
+
+def cantidad_adjuntos(dip: dict) -> int | None:
+    """Attachments del DIP: los de ICAM y, sin ICAM, los del Excel (Attach Docs). None = sin dato."""
+    if dip.get("adjuntos") is not None:
+        return len(dip["adjuntos"])
+    return dip.get("adjuntos_excel")
+
+
+def _sin_adjuntos(dip: dict) -> str:
+    return "" if dip.get("adjuntos") is not None else " (Attachment Status PENDING)"
+
+
+def regla_adjuntos(dip: dict, ctx: Contexto, r: ResultadoReglas) -> None:
+    """Todo DIP debe tener attachments (captura de la referencia, foto del componente...):
+    sin ninguno es posible discrepancia, aunque la descripción cite el manual. Un attachment
+    con la matrícula de otro avión en el nombre puede ser de otro DIP."""
+    if cantidad_adjuntos(dip) == 0:
+        r.agregar(ctx, "sin_adjuntos", "Missing Attachment", f"DIP sin attachments{_sin_adjuntos(dip)}.")
+    avion = re.sub(r"\D", "", dip.get("avion") or "")
+    for adjunto in dip.get("adjuntos") or []:
+        otras = {m for m in re.findall(r"HP\s*-?\s*(\d{4})", adjunto.upper()) if m != avion}
+        if avion and otras:
+            r.agregar(ctx, "adjunto_otro_avion", "Missing Attachment",
+                      f"Attachment '{adjunto}' de otro avión "
+                      f"(HP-{', HP-'.join(sorted(otras))}).")
+
+
+def regla_programado_despues_del_due(dip: dict, ctx: Contexto, r: ResultadoReglas) -> None:
+    """Un DIP activo en un paquete de trabajo programado después de su due date va a vencer."""
+    programado, due = dip.get("scheduled_date"), dip.get("due_date")
+    if dip.get("estado") not in ACTIVOS or not programado or not due:
+        return
+    if como_fecha_hora(programado) > _fin_del_plazo(due) + timedelta(hours=ctx.horas_cierre):
+        paquete = dip.get("work_package") or "El paquete de trabajo"
+        r.agregar(ctx, "programado_despues_del_due", "Overdue DIP",
+                  f"{paquete} programado el {_fecha_hora(programado)}, después del due date "
+                  f"({_fecha_hora(due)}).")
+
+
+def _sn_parecidos(a: str, b: str) -> bool:
+    """El mismo S/N con un error de escritura: P11101989 / 11101989, AB7 / A87."""
+    return a in b or b in a or Levenshtein.distance(a, b) <= 1
+
+
+def regla_sn_consistente(dip: dict, ctx: Contexto, r: ResultadoReglas) -> None:
+    """El S/N del Fault Name y la descripción debe ser el de las notas del diferimiento
+    (ICAM). Si no coinciden, los auditores marcan "Incorrect Serial Number Referenced".
+    Un S/N de más en uno de los textos (otro componente del mismo DIP) no cuenta."""
+    notas = dip.get("notas_diferimiento") or ""
+    en_dip = set(extraer_sn(dip["nombre"] + " " + dip["descripcion"]))
+    en_notas = set(extraer_sn(notas))
+    if not en_dip or not en_notas or en_dip == en_notas:
+        return
+    parecidos = [(a, b) for a in sorted(en_dip - en_notas) for b in sorted(en_notas - en_dip)
+                 if _sn_parecidos(a, b)]
+    if not parecidos and en_dip & en_notas:
+        return
+    pares = parecidos or [(", ".join(sorted(en_dip)), ", ".join(sorted(en_notas)))]
+    r.agregar(ctx, "sn_inconsistente", "Incorrect S/N",
+              "S/N distinto entre el DIP y las notas del diferimiento: "
+              + "; ".join(f"'{a}' / '{b}'" for a, b in pares) + ".")
 
 
 def regla_parent_assy(dip: dict, entrada: EntradaCatalogo, ctx: Contexto,
@@ -410,13 +644,14 @@ def regla_parent_assy(dip: dict, entrada: EntradaCatalogo, ctx: Contexto,
         texto_esp = "/".join(sorted(esperado))
         if entrada.parent_assy_flexible:
             r.agregar(ctx, "parent_assy_incorrecto", "Incorrect Parent Assembly",
-                      f"Asignado a {actual}; la referencia indica {texto_esp}* (se abre a "
-                      f"AIRCRAFT y se transfiere a ENGINE si se roba el motor). Verificar.",
+                      f"Asignado a {actual}; la referencia indica {texto_esp} (a ENGINE si "
+                      f"se roba el motor). Verificar.",
                       "OBSERVACION")
         else:
+            # Si es el avión basta con AIRCRAFT; el modelo (737-800...) no aporta.
+            asignado = actual if actual == "AIRCRAFT" else f"{actual} ({dip['parent_assy']})"
             r.agregar(ctx, "parent_assy_incorrecto", "Incorrect Parent Assembly",
-                      f"Asignado a {actual} ({dip['parent_assy']}); la referencia indica "
-                      f"{texto_esp}.")
+                      f"Asignado a {asignado}; la referencia indica {texto_esp}.")
 
 
 def regla_ata(dip: dict, entrada: EntradaCatalogo | None, ctx: Contexto,
@@ -457,6 +692,10 @@ def auditar_dip(dip: dict, entrada: EntradaCatalogo | None, ctx: Contexto) -> Re
         regla_parent_assy(dip, entrada, ctx, r)
         regla_sn(dip, entrada, ctx, r)
     regla_fechas(dip, entrada, ctx, r)
+    regla_inicio_ta(dip, entrada, ctx, r)
+    regla_adjuntos(dip, ctx, r)
+    regla_programado_despues_del_due(dip, ctx, r)
+    regla_sn_consistente(dip, ctx, r)
     regla_ata(dip, entrada, ctx, r)
     regla_severidad(dip, ctx, r)
     r.manuales.append("Verificar attachments: captura de referencia técnica y EC/RA adjunta.")

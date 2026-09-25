@@ -11,6 +11,10 @@
 #               Unidades: DAY, FH, FC, MONTH. El texto de "variante" y "nombre"
 #               se copia tal cual de la tabla (en inglés, sin traducir).
 #   flotas:     NG (NG-700, NG-800, NG-900) o MAX (matrículas HP-98xx y HP-99xx).
+#   inicio:     (opcional, en una variante) ventana "AFTER A, BEFORE B": el T/A empieza A
+#               después de la apertura (Start) y su intervalo es B - A, así vence a los B
+#               de la tabla. Así lo exigen los auditores ("Incorrect DIP Start Values"):
+#               amortiguador NG 5 FC + 15 FC, FDR 7 días + 23 días.
 #   requiere_sn: el Fault Name debería mencionar el S/N del componente.
 #
 # Las frases se escriben en MAYÚSCULAS y sin acentos. Antes de comparar, el
@@ -86,6 +90,12 @@
   referencias: ["FDR REPORT"]
   requiere: [[FDR, FLIGHT DATA RECORDER]]
   excluir: [UNDERWATER, ULB, BEACON]
+  # La tarea (S-NG-31-0002) pide consultar a Ingeniería no antes de 7 días de la descarga y
+  # vence a los 30: el T/A empieza 7 días después de la apertura, con 23 días.
+  intervalos:
+    - variante: "30 DAYS"
+      limites: [{valor: 30, unidad: DAY}]
+      inicio: {valor: 7, unidad: DAY}
 
 - id: HALON_PORTATIL
   nombre: HALON FIRE EXTINGUISHER DUE OR WEIGHT (PORTABLE, CABIN, ETC)
@@ -125,6 +135,12 @@
   nombre: ENGINE FUEL FILTER
   referencias: ["ENGINE FUEL FILTER"]
   requiere: [[FUEL FILTER]]
+  # "Replace the fuel filter after 10 hours but prior to 75 hours" (AMM 73-11-02): el T/A
+  # empieza 10 FH después de la apertura, con 65 FH (así lo aceptaron los auditores).
+  intervalos:
+    - variante: "75 FH"
+      limites: [{valor: 75, unidad: FH}]
+      inicio: {valor: 10, unidad: FH}
 
 - id: FUMIGACION
   nombre: CERTIFICATE OF FUMIGATION
@@ -162,12 +178,15 @@
   requiere: [[NLG, NOSE LANDING GEAR, NOSE GEAR], [STRUT, X DIMENSION]]
   excluir: [SWIVEL]   # fuga en el swivel del NLG no es servicio del amortiguador
   intervalos: &intervalos_amortiguador
+    # Empieza a los 5 aterrizajes: NG 5 FC + 15 FC, MAX 5 FC + 5 FC (auditoría 11 a 23-sep).
     - variante: "NG: 20 FC (AFTER 5 LANDINGS, NOT LATER THAN 20 LANDINGS)"
       flotas: [NG, NG-700, NG-800, NG-900]
       limites: [{valor: 20, unidad: FC}]
+      inicio: {valor: 5, unidad: FC}
     - variante: "MAX: 10 FC (FIVE TO TEN IN-SERVICE LANDINGS AFTER A COMPLETE OIL AND NITROGEN SERVICING)"
       flotas: [MAX]
       limites: [{valor: 10, unidad: FC}]
+      inicio: {valor: 5, unidad: FC}
 
 - id: AMORTIGUADOR_MLG
   nombre: MAIN LANDING GEAR SHOCK STRUT
@@ -191,15 +210,18 @@
     - variante: "737NG-700: AFTER 27 FC, BEFORE 37 FC"
       flotas: [NG-700]
       limites: [{valor: 37, unidad: FC}]
+      inicio: {valor: 27, unidad: FC}
     - variante: "737NG-800: AFTER 12 FC, BEFORE 20 FC"
       flotas: [NG-800, NG-900]
       limites: [{valor: 20, unidad: FC}]
+      inicio: {valor: 12, unidad: FC}
     - variante: "737NG-800: IF OVERNIGHT CHECK AT LESS THAN 1/32\": 5 FC"
       flotas: [NG-800, NG-900]
       limites: [{valor: 5, unidad: FC}]
     - variante: "B737MAX-9/8: AFTER 34 FC, BEFORE 42 FC"
       flotas: [MAX]
       limites: [{valor: 42, unidad: FC}]
+      inicio: {valor: 34, unidad: FC}
 
 - id: FRENO_PARQUEO
   nombre: PARKING BREAK SYSTEM FNC FAIL / HOLD CHECK
@@ -252,7 +274,12 @@
 - id: RAYO
   nombre: LIGHTNING STRIKE PHASE II
   referencias: ["LIGHTNING STRIKE PHASE II"]
+  # La inspección de fase (AMM 05-51-19) después de un rayo. El daño encontrado en la
+  # estructura (con estación, piel, fuselaje...) es LIGHTING STRIKE FOUND (SRM 53-00-01).
   requiere: [[LIGHTNING]]
+  # "LIGHTNING STRIKE NEW THRESHOLD INSP" es otra tarea: el umbral de una reparación SRM
+  # ("THRESHOLD INSPECTION IN 50.000 FC"), con un DIP de 3 meses para Ingeniería.
+  excluir: [THRESHOLD]
 
 - id: RADOMO
   nombre: RADOME INTERNAL INSPECTION DUE TO BIRDSTRIKE
@@ -281,7 +308,7 @@
 
 - id: BLEED_FAMV
   nombre: BLEED FAMV
-  referencias: ["BLEED FAMV"]
+  referencias: ["BLEED FAMV RVDT"]
   requiere: [[FAMV]]
 
 - id: BLEED_PM_SENSOR
@@ -303,3 +330,165 @@
   nombre: TAKEOFF CONFIG FLAPS
   referencias: ["TAKEOFF CONFIG FLAPS"]
   requiere: [[TAKEOFF CONFIG]]
+
+# --- Powerplant y Structures ----------------------------------------------------------------
+# Filas de la tabla con TYPE POWERPLANT o STRUCTURES. Falta SHORT TIME (ECRA 7300-0142C): la
+# tabla dice AIRCRAFT y los DIPs de mensajes short time están en ENGINE (a confirmar).
+
+- id: VCD_SEAL
+  nombre: VCD SEAL
+  referencias: ["VCD SEAL"]
+  requiere: [[VCD]]
+
+- id: BIRDSTRIKE_MOTOR
+  nombre: ENGINE BIRDSTRIKE REPORT
+  referencias: ["ENGINE BIRDSTRIKE REPORT"]
+  requiere: [[BIRDSTRIKE, BIRD STRIKE, BIRD INGESTION, FOREIGN OBJECT DAMAGE],
+             [ENG, ENGINE, BOROSCOPE, BORESCOPE, INLET]]
+  # El rayo o el ave en el radomo o el fuselaje no son del motor.
+  excluir: [RADOME, AIRFRAME]
+
+- id: TOBERAS_COMBUSTIBLE
+  nombre: FUEL NOZZLE FULL SET REPLACEMENT
+  referencias: ["FUEL NOZZLE FULL SET REPLACEMENT"]
+  requiere: [[FUEL NOZZLE, FUEL NOZZLES]]
+
+- id: VIBRACION_MOTOR
+  nombre: ENGINE VIBRATION
+  referencias: ["ENGINE VIBRATION"]
+  requiere: [[VIBRATION], [ENG, ENGINE, E1, E2]]
+  # El chequeo por CNR de CFM es otra tarea.
+  excluir: [CNR, SYSTEM CHECK]
+  intervalos:
+    - variante: "2.0-2.9 VIBRATION UNITS: 7 DAYS"
+      limites: [{valor: 7, unidad: DAY}]
+    - variante: "3.0-3.4: 5 FC"
+      limites: [{valor: 5, unidad: FC}]
+
+- id: EEC_C1
+  nombre: ENGINE X EEC C1
+  referencias: ["ENGINE X EEC C1"]
+  requiere: [[EEC C1]]
+
+- id: EEC_C2
+  nombre: ENGINE X EEC C2
+  referencias: ["ENGINE X EEC C2"]
+  requiere: [[EEC C2]]
+
+- id: REVERSA_SENSOR
+  nombre: ENG X REVERSER SENSOR
+  referencias: ["ENG X REVERSER SENSOR"]
+  requiere: [[REVERSER], [SENSOR]]
+
+- id: REVERSA_INTERLOCK
+  nombre: ENG X REVERSER INTERLOCK
+  referencias: ["ENG X REVERSER INTERLOCK"]
+  requiere: [[REVERSER], [INTERLOCK]]
+
+- id: MENSAJE_LONG_TIME
+  nombre: LONG TIME MSG 78-11481
+  referencias: ["LONG TIME MSG 78-11481"]
+  requiere: [[LONG TIME, LONGTIME, 78 11481]]
+
+- id: MENSAJE_SHORT_TIME_73_30311
+  nombre: SHORT TIME MSG 73-30311
+  referencias: ["SHORT TIME MSG 73-30311"]
+  requiere: [[73 30311]]
+
+- id: MENSAJE_T12
+  nombre: ENG MSG 73-30902 T12 SIGNAL DISAGREE
+  referencias: ["ENG MSG 73-30902 T12 SIGNAL DISAGREE"]
+  requiere: [[73 30902, T12 SIGNAL]]
+
+- id: EGT
+  nombre: EXHAUST GAS TEMPERATURE
+  # Mismo TA, RIR y Parent Assembly en las dos filas.
+  referencias: ["EXHAUST GAS TEMPERATURE", "ENG MSG 77-20871"]
+  requiere: [[EGT SIGNAL, EXHAUST GAS TEMPERATURE, 77 20871, 77 20872, T495S4, T495S3]]
+  excluir: [CNR, SYSTEM CHECK]
+
+- id: NICK_ALABE
+  nombre: BLADE NICK
+  referencias: ["BLADE NICK"]
+  requiere: [[BLADE, BLADES], [NICK, NICKS]]
+
+- id: TOBERA_ESCAPE
+  nombre: PRIMARY EXHAUST NOZZLE WITH OVERHEATING EVIDENCE
+  referencias: ["PRIMARY EXHAUST NOZZLE WITH OVERHEATING EVIDENCE"]
+  requiere: [[EXHAUST NOZZLE], [OVERHEAT, OVERHEATING, OVERHEATED]]
+
+- id: PLATAFORMA_ALABE
+  nombre: OUTER PLATFORM LE AREA MISSING MATERIAL HOLE
+  referencias: ["OUTER PLATFORM LE AREA MISSING MATERIAL HOLE"]
+  requiere: [[OUTER PLATFORM]]
+
+- id: LAVADO_MOTOR
+  nombre: ENGINE WATER WASH
+  referencias: ["ENGINE WATER WASH"]
+  requiere: [[WATER WASH]]
+
+# Curado de sellante en ventanas y parabrisas: "inspect the tape/sealant repair for condition in
+# two (2) day intervals ... remove the tape prior to seven (7) days" (ECRA 5600-0028C). Todos
+# tienen RIR cada 2 días. Los auditores aceptan 7 días desde la apertura y también (22 DIPs,
+# 5 a 23-sep) Start + 3 días con 4 días: la ventana es opcional. A confirmar con Ingeniería.
+# Las dos filas (SEALANT y FOIL TAPE REMOVAL) son el mismo procedimiento: los DIPs citan la
+# AMM 56-11-00-300-801 de una y la ECRA 5600-0028C de la otra.
+- id: SELLANTE_VENTANAS
+  nombre: SEALANT (WINDOWS)
+  referencias:
+    - "SEALANT"
+    - "FLIGHT COMPARTMENT AND CONTROL CABIN WINDOWS FOIL TAPE REMOVAL TO CHECK IF CURED"
+  requiere: [[SEALANT, SEAL CURE, SPEED TAPE, FOIL TAPE, CURE, CURED],
+             [WINDOW, WINDOWS, WINDSHIELD, FLIGHT COMPARTMENT]]
+  excluir: [PITOT]
+  intervalos:
+    - variante: "7 DAYS"
+      limites: [{valor: 7, unidad: DAY}]
+      inicio: {valor: 3, unidad: DAY}
+      inicio_opcional: true
+      rir: "2 DAYS"
+
+- id: SELLANTE_PITOT
+  nombre: PITOT PROBE SEALANT
+  referencias: ["PITOT PROBE SEALANT"]
+  requiere: [[PITOT], [SEALANT, SEAL, FILLET]]
+  # El sellante después de reemplazar el pitot (MAX, AMM 27-31-94-400-801) pide 10 días: es
+  # otra tarea que la tabla no tiene.
+  excluir: [REPLACEMENT]
+
+- id: GRIETA_TAPON_ESCAPE
+  nombre: EXHAUST PLUG CRACK
+  referencias: ["EXHAUST PLUG CRACK"]
+  requiere: [[EXHAUST PLUG, TAIL CONE, EXHAUST CONE], [CRACK, CRACKS]]
+
+- id: SELLO_PUERTA_CABINA
+  nombre: COCKPIT DOOR SECURITY SEAL DAMAGED
+  referencias: ["COCKPIT DOOR SECURITY SEAL DAMAGED"]
+  requiere: [[COCKPIT DOOR, FLIGHT DECK DOOR], [SEAL]]
+
+- id: GIRT_BAR
+  nombre: PERFORM PERMANENT REPAIR ON DOOR GIRT BAR RETAINER
+  referencias: ["PERFORM PERMANENT REPAIR ON DOOR GIRT BAR RETAINER"]
+  requiere: [[GIRT BAR]]
+
+- id: TORNILLO_ALA
+  nombre: SCREW LOOSE UPPER SURFACE AT WING AT PANEL
+  referencias: ["SCREW LOOSE UPPER SURFACE AT WING AT PANEL"]
+  requiere: [[SCREW, SCREWS, FASTENER, FASTENERS], [LOOSE], [WING]]
+
+- id: TORQUE_MANIJA_PUERTA
+  nombre: DOOR HANDLE TORQUE TEST
+  referencias: ["DOOR HANDLE TORQUE TEST"]
+  requiere: [[HANDLE], [TORQUE]]
+
+- id: REPARACION_ALA
+  nombre: WING PERMANENT REPAIR PER OEM/APPROVED PROCEDURES
+  referencias: ["WING PERMANENT REPAIR PER OEM/APPROVED PROCEDURES"]
+  requiere: [[WING], [PERMANENT REPAIR]]
+
+- id: RAYO_DANO
+  nombre: LIGHTING STRIKE FOUND
+  referencias: ["LIGHTING STRIKE FOUND"]
+  requiere: [[LIGHTNING STRIKE], [STA, STR, SKIN, FUSELAGE, SECTION, DAMAGE, SPOT, FASTENER,
+                                  FASTENERS, STRUCTURE, EVIDENCE]]
+  excluir: [PHASE, PHASE I, PHASE II, THRESHOLD]

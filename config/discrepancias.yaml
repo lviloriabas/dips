@@ -6,10 +6,12 @@
 #   activa: true | false     false = la regla no se revisa.
 #   severidad:               qué pasa con el DIP cuando la regla falla:
 #     CRITICA, NO CRITICA, REVISAR -> POSIBLE DISCREPANCIA
+#     CONSULTAR MANUAL             -> REVISAR: la tabla da el TA o el RIR según el daño o el
+#                                     tipo ("DEPENDING ON...", "CONSULT REF."); ir al manual
 #     SIN FUENTE                   -> SIN FUENTE: no hay referencia en la tabla con qué auditarlo
 #     OBSERVACION                  -> se anota en HALLAZGOS, pero no cambia el resultado del DIP
 #
-# El resultado es OK, SIN FUENTE o POSIBLE DISCREPANCIA: los niveles (crítica / no crítica)
+# El resultado es OK, REVISAR, SIN FUENTE o POSIBLE DISCREPANCIA: los niveles (crítica / no crítica)
 # y los tipos de discrepancia todavía no coinciden con el proceso de los auditores, y no se
 # muestran. CRITICA, NO CRITICA y REVISAR se conservan para volver a separar niveles cuando
 # se definan; hoy solo ordenan los hallazgos.
@@ -29,6 +31,12 @@
 # Usage Remaining mayores que el intervalo, los S/N removidos distintos de la descripción y
 # las acciones correctivas sin cita del manual: también quedan como OBSERVACION. Las marcadas
 # "a confirmar" se definen con los auditores.
+#
+# Revisado el 25-sep-2026 con los motivos que anotan los auditores en ICAM ("DIP DISCREPANCY
+# FOUND: ..."), en las auditorías del 25-ago al 23-sep. Las auditorías más viejas dejaron pasar
+# discrepancias (DIPs cerrados sin attachments, S/N con errores de escritura): no se usan para
+# relajar una regla. Nuevas: sin attachments, Start del T/A (Incorrect DIP Start Values),
+# referencia no específica (barcode de trabajo) y S/N distinto de las notas del diferimiento.
 
 tipos:
 
@@ -43,16 +51,30 @@ tipos:
       tipo_intervalo_incorrecto:         {activa: true, severidad: CRITICA}     # días en vez de FH/FC, etc.
       variante_condicional:              {activa: true, severidad: OBSERVACION} # coincide con una condición de la referencia (p. ej. PSI)
       usage_remaining_mayor_a_intervalo: {activa: true, severidad: OBSERVACION} # T/A de scheduling distinto (Start posterior)
+      limite_faltante:                   {activa: true, severidad: NO CRITICA}  # la referencia pide dos límites (X o Y); el T/A en ICAM no los tiene
+      intervalo_segun_manual:            {activa: true, severidad: CONSULTAR MANUAL} # el TA depende del daño o del tipo ("DEPENDING ON...", "CONSULT SRM")
+      # DIPs SIN FUENTE: contra el plazo que dice la descripción ("for 45 days or 225 FC").
+      intervalo_mayor_a_descripcion:     {activa: true, severidad: CRITICA}     # mayor que el plazo de la descripción
+      tipo_intervalo_distinto_a_descripcion: {activa: true, severidad: CRITICA} # en otra unidad que la descripción
+      limite_declarado_faltante:         {activa: true, severidad: NO CRITICA}  # la descripción pide varios límites; el T/A en ICAM no los tiene todos
 
   Deferral Interval Not Documented:
     activo: true
     reglas:
-      datos_incompletos:                 {activa: true, severidad: REVISAR}     # sin intervalo o tipo de intervalo en el Excel
+      datos_incompletos:                 {activa: true, severidad: REVISAR}     # sin intervalo o tipo de intervalo (en SIN FUENTE: sin T/A ni RIR)
 
   Missing Data:
     activo: true
     reglas:
       intervalo_de_icam:                 {activa: true, severidad: OBSERVACION} # el Excel no trae intervalo; se usó el de ICAM
+
+  # Start del T/A en ICAM: en la apertura (en días, entre el hallazgo y el diferimiento; en FH
+  # y FC, el uso al encontrar la falla). Con ventana "AFTER A, BEFORE B" en el catálogo
+  # (amortiguador, FDR, frenos, filtro de combustible): A después de la apertura, con B - A.
+  Incorrect DIP Start Values:
+    activo: true
+    reglas:
+      inicio_ta_incorrecto:              {activa: true, severidad: NO CRITICA}  # Start distinto de la apertura (o de apertura + A)
 
   Incorrect Due Date:
     activo: true
@@ -67,6 +89,7 @@ tipos:
     activo: true
     reglas:
       dip_vencido:                       {activa: true, severidad: CRITICA}     # DIP activo con due date vencido
+      programado_despues_del_due:        {activa: true, severidad: REVISAR}     # paquete de trabajo (Scheduled Date) después del due date
 
   Incorrect Parent Assembly:
     activo: true
@@ -74,6 +97,7 @@ tipos:
       # Si la referencia admite AIRCRAFT y ENGINE (se transfiere al robar el motor), el
       # hallazgo queda siempre como OBSERVACION.
       parent_assy_incorrecto:            {activa: true, severidad: CRITICA}
+      parent_assy_distinto_a_pares:      {activa: true, severidad: REVISAR}     # SIN FUENTE: los demás DIPs con la misma EC/AMM están en otro
 
   Incorrect ATA:
     activo: true
@@ -90,6 +114,7 @@ tipos:
     activo: true
     reglas:
       sn_repetido:                       {activa: true, severidad: NO CRITICA}  # mismo S/N en otro DIP activo del avión
+      sn_inconsistente:                  {activa: true, severidad: NO CRITICA}  # S/N del DIP distinto del de las notas del diferimiento
       cierre_sn_distinto:                {activa: true, severidad: OBSERVACION} # cierre: S/N removido distinto del de la descripción
 
   Duplicated DIP:
@@ -97,6 +122,8 @@ tipos:
     reglas:
       # Si uno de los dos ya estaba cerrado a la hora de la auditoría, queda como OBSERVACION.
       duplicado:                         {activa: true, severidad: NO CRITICA}  # mismo avión, componente y abiertos a la vez
+      # El técnico lo marcó como duplicado o creado por error: si ya está cerrado, OBSERVACION.
+      duplicado_declarado:               {activa: true, severidad: NO CRITICA}  # "DUPLICATED", "ENTERED BY MISTAKE"
 
   Incorrect Fault Severity:
     activo: true
@@ -120,11 +147,21 @@ tipos:
       cierre_sin_referencia_tecnica:     {activa: true, severidad: OBSERVACION} # cierre: la acción correctiva no cita el manual
       cierre_referencia_incompleta:      {activa: true, severidad: OBSERVACION} # cierre: la cita sin revisión o sin fecha
 
+  # Un barcode de trabajo citado como fuente ("IAW BARCODE: TRF7N..., STEP 63") sin referencia
+  # del manual. La task card JIC del Service Visit (B737-05-1-0001-U-JIC STEP 3) sí se acepta.
+  Non-Specific Technical Reference:
+    activo: true
+    reglas:
+      referencia_tecnica_no_especifica:  {activa: true, severidad: NO CRITICA}
+
   # Solo si la tabla de referencias tiene el número de tarea.
   Incorrect Technical Reference:
     activo: true
     reglas:
       referencia_tecnica_equivocada:     {activa: true, severidad: NO CRITICA}  # tiene la de otra referencia de la tabla
+      # Posible discrepancia si la tabla pide una EC/ECRA y el DIP no la cita (cita la AMM:
+      # descontaminación hidráulica) o si el DIP solo cita una task card JIC. Si cita la ECRA
+      # que lo originó y la tabla da la AMM del procedimiento (lavado de motor), observación.
       referencia_tecnica_distinta:       {activa: true, severidad: REVISAR}     # tiene una tarea que la tabla no tiene
       referencia_tecnica_mismo_tema:     {activa: true, severidad: OBSERVACION} # otra tarea del mismo capítulo-sección-tema (el auditor la acepta)
 
@@ -134,9 +171,13 @@ tipos:
     reglas:
       rir_faltante:                      {activa: true, severidad: NO CRITICA}  # la referencia pide RIR y el DIP no tiene
       rir_intervalo_incorrecto:          {activa: true, severidad: NO CRITICA}  # intervalo distinto del de la referencia
+      rir_intervalo_menor:               {activa: true, severidad: OBSERVACION} # más seguido que la referencia (más conservador)
       rir_limite_faltante:               {activa: true, severidad: NO CRITICA}  # el T/A tiene un límite que el RIR no tiene
       rir_inicio_distinto:               {activa: true, severidad: REVISAR}     # el RIR no empieza donde empieza el T/A
       rir_parent_distinto:               {activa: true, severidad: NO CRITICA}  # RIR en otro Parent Assembly (avión / motor)
+      rir_segun_manual:                  {activa: true, severidad: CONSULTAR MANUAL} # el RIR depende del daño o de la medición ("7 DAYS OR 1 DAY, DEPENDING...")
+      rir_descripcion_faltante:          {activa: true, severidad: NO CRITICA}  # SIN FUENTE: la descripción pide inspección repetitiva y no hay RIR
+      rir_descripcion_distinto:          {activa: true, severidad: NO CRITICA}  # SIN FUENTE: RIR con otro intervalo (o sin un límite) que la descripción
 
   # --- Auditoría de cierre (DIP COMPLETE). A confirmar. ------------------------
 
@@ -148,10 +189,14 @@ tipos:
       completado_fuera_de_plazo:         {activa: true, severidad: CRITICA}     # cerrado después del due date
       cierre_deadline_extendido:         {activa: true, severidad: REVISAR}     # después del due original, con extensión
 
+  # Todo DIP debe tener attachments. Se cuentan en ICAM y, sin ICAM, en el Excel (Attach Docs,
+  # Attachment Status PENDING = ninguno).
   Missing Attachment:
     activo: true
     reglas:
-      cierre_sin_adjuntos:               {activa: true, severidad: OBSERVACION} # sin attachments en ICAM
+      sin_adjuntos:                      {activa: true, severidad: NO CRITICA}  # apertura: sin attachments
+      cierre_sin_adjuntos:               {activa: true, severidad: NO CRITICA}  # cierre: sin attachments
+      adjunto_otro_avion:                {activa: true, severidad: OBSERVACION} # el nombre del attachment tiene otra matrícula
 
   # --- Asociación del DIP a su referencia --------------------------------------
   # Si se desactivan, un DIP asociado por aproximación puede quedar OK sin que nadie lo revise.

@@ -11,7 +11,7 @@ salidas/
 
 # Datos con información del personal / registros de auditoría: no se versionan
 02 - HISTORY - DIPs AUDIT*.xlsx
-DIPs Audit (*).xlsx
+DIPs Audit (*)*.xlsx
 
 # Archivos temporales de Excel
 ~$*.xlsx
@@ -21,7 +21,7 @@ data/
 
 # Corridas de prueba: Excel, datos de ICAM y resultados de prueba (solo se sube la nota)
 pruebas/*
-!pruebas/LEEME.md
+!pruebas/README.md
 
 # Sesión de Edge del extractor de ICAM
 .icam_perfil/

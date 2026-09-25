@@ -59,6 +59,17 @@ class Variante:
     flotas: list[str] | None = None  # None = todas
     rir: str = ""
     referencia: FilaReferencia | None = None
+    # Ventana "AFTER A, BEFORE B": el T/A empieza A después de la apertura y dura B - A
+    # (vence igual a los B de la tabla). None = empieza en la apertura.
+    inicio: Limite | None = None
+    # True: también vale empezar en la apertura con B (sellante: 7 días, o +3 y 4 días).
+    inicio_opcional: bool = False
+
+    def intervalo_desde_inicio(self, lim: Limite) -> float | None:
+        """Intervalo que debe tener el T/A si empieza en `inicio` (B - A); None sin ventana."""
+        if self.inicio is None or self.inicio.unidad != lim.unidad:
+            return None
+        return lim.valor - self.inicio.valor
 
 
 @dataclass
@@ -79,6 +90,10 @@ class EntradaCatalogo:
     hasta_vencimiento: bool = False
     no_verificable: bool = False
     requiere_sn: bool = False
+    # TA o RIR que cambian según el daño, la medición o el tipo ("DEPENDING ON DAMAGE ZONE",
+    # "CONSULT SRM 53-00-01"): el texto de la tabla. Se revisan en el manual: REVISAR.
+    ta_segun_manual: str = ""
+    rir_segun_manual: str = ""
 
     @property
     def parent_assy(self) -> set[str]:
@@ -185,6 +200,13 @@ def interpretar_ta(texto: str) -> InterpretacionTA:
     return InterpretacionTA(limites=limites)
 
 
+def remite_al_manual(texto: str) -> bool:
+    """El TA o el RIR de la tabla cambia según el daño, la medición o el tipo, y hay que
+    ir al manual: '25 FC DEPENDING ON MEASUREMENTS', '7 DAYS OR 1 DAY, DEPENDING ON DAMAGE
+    ZONE AND SIZE (CONSULT REF.)', '10 FC, 350 FC OR BEFORE NEXT REVENUE FLIGHT. CONSULT SRM'."""
+    return bool(re.search(r"DEPEND|CONSULT|SEG[UÚ]N", (texto or "").upper()))
+
+
 def interpretar_rir(texto: str) -> str:
     """Devuelve el RIR solo si es un intervalo reconocible ('1 DAY', '100 FH')."""
     if re.search(r"\d+\s*(DAYS?|FH|FC|HOURS?|CYCLES?)", texto.upper()):
@@ -232,6 +254,10 @@ def cargar_catalogo(ruta_catalogo: Path, referencias: list[FilaReferencia],
 
         variantes: list[Variante] = []
         hasta_vencimiento = no_verificable = False
+        # Con 'intervalos' en el catálogo, el TA condicional ya está resuelto.
+        ta_manual = "" if d.get("intervalos") else "; ".join(
+            f.ta for f in filas if remite_al_manual(f.ta))
+        rir_manual = "; ".join(f.rir for f in filas if remite_al_manual(f.rir))
         if d.get("intervalos"):
             for v in d["intervalos"]:
                 variantes.append(Variante(
@@ -240,6 +266,9 @@ def cargar_catalogo(ruta_catalogo: Path, referencias: list[FilaReferencia],
                     flotas=v.get("flotas"),
                     rir=v.get("rir", ""),
                     referencia=filas[0],
+                    inicio=(Limite(float(v["inicio"]["valor"]), v["inicio"]["unidad"])
+                            if v.get("inicio") else None),
+                    inicio_opcional=bool(v.get("inicio_opcional", False)),
                 ))
         else:
             for fila in filas:
@@ -248,6 +277,8 @@ def cargar_catalogo(ruta_catalogo: Path, referencias: list[FilaReferencia],
                     hasta_vencimiento = True
                 elif interp.no_verificable:
                     no_verificable = True
+                    if remite_al_manual(fila.ta):
+                        continue  # queda en REVISAR: el TA sale del manual
                     advertencias.append(
                         f"[{d['id']}] TA no interpretable automáticamente: '{fila.ta}' "
                         f"(fila {fila.fila}). Defínalo con 'intervalos' en el catálogo.")
@@ -262,6 +293,7 @@ def cargar_catalogo(ruta_catalogo: Path, referencias: list[FilaReferencia],
             hasta_vencimiento=hasta_vencimiento,
             no_verificable=no_verificable and not variantes,
             requiere_sn=bool(d.get("requiere_sn", False)),
+            ta_segun_manual=ta_manual, rir_segun_manual=rir_manual,
         ))
 
     usadas = {id(f) for e in entradas for f in e.referencias}

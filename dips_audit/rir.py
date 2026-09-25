@@ -112,6 +112,17 @@ def _mismo(a: Limite, b: Limite, tol_dias: int = 1) -> bool:
     return a.unidad == b.unidad and abs(a.valor - b.valor) <= 0.01
 
 
+def _mismo_inicio(a: str, b: str) -> bool:
+    """Mismo Start, salvo redondeo: 'Aircraft 50890.3' y 'Aircraft 50890.29'."""
+    if a == b:
+        return True
+    na, nb = (re.findall(r"-?\d+(?:\.\d+)?", x) for x in (a, b))
+    fechas = (re.findall(r"\d{2}-[A-Z]{3}-\d{4}", a), re.findall(r"\d{2}-[A-Z]{3}-\d{4}", b))
+    if fechas[0] or fechas[1]:
+        return fechas[0] == fechas[1]
+    return len(na) == len(nb) and all(abs(float(x) - float(y)) <= 0.05 for x, y in zip(na, nb))
+
+
 def revisar(rirs: list[RIR], exigido: Limite | None, dip: dict) -> list[tuple[str, str]]:
     """(código, mensaje) de cada problema de RIR del DIP.
 
@@ -123,11 +134,14 @@ def revisar(rirs: list[RIR], exigido: Limite | None, dip: dict) -> list[tuple[st
         if not rirs:
             if dip.get("historico_rir") or dip.get("estado") in {"ACTV", "OPEN", "IN WORK"}:
                 hallazgos.append(("rir_faltante",
-                                  f"Sin RIR en Follow-on Tasks. La referencia pide RIR cada {exigido}."))
+                                  f"Sin RIR; la referencia pide RIR cada {exigido}."))
         for rir in rirs:
             if rir.limites and not any(_mismo(l, exigido) for l in rir.limites):
-                hallazgos.append(("rir_intervalo_incorrecto",
-                                  f"RIR {rir.nombre} ({rir.ids[0]}) cada "
+                # Más seguido que lo que pide la referencia (cada 1 día en vez de 2) es más
+                # conservador: se anota, pero no es discrepancia.
+                menor = all(l.unidad == exigido.unidad and l.valor < exigido.valor for l in rir.limites)
+                hallazgos.append(("rir_intervalo_menor" if menor else "rir_intervalo_incorrecto",
+                                  f"RIR {rir.ids[0]} cada "
                                   f"{' / '.join(map(str, rir.limites))}; la referencia pide {exigido}."))
     ta = [(unidad(i.get("parameter", "")), i.get("start", "")) for i in dip.get("icam_intervalos") or []]
     unidades_ta = {u for u, _ in ta if u}
@@ -137,17 +151,17 @@ def revisar(rirs: list[RIR], exigido: Limite | None, dip: dict) -> list[tuple[st
         faltan = unidades_ta - {l.unidad for l in rir.limites}
         if faltan and len(unidades_ta) > 1:
             hallazgos.append(("rir_limite_faltante",
-                              f"RIR {rir.nombre} ({rir.ids[0]}) sin límite de {', '.join(sorted(faltan))}; "
+                              f"RIR {rir.ids[0]} sin límite de {', '.join(sorted(faltan))}; "
                               f"el T/A tiene {', '.join(sorted(unidades_ta))}."))
         historicos = [e for e in rir.estados if e.upper() == "COMPLETE"]
         for l in rir.limites:
             inicio_ta = next((s for u, s in ta if u == l.unidad), "")
-            if not historicos and l.inicio and inicio_ta and l.inicio != inicio_ta:
+            if not historicos and l.inicio and inicio_ta and not _mismo_inicio(l.inicio, inicio_ta):
                 hallazgos.append(("rir_inicio_distinto",
-                                  f"RIR {rir.nombre} ({rir.ids[0]}) con Start {l.inicio}; el T/A "
+                                  f"RIR {rir.ids[0]} con Start {l.inicio}; el T/A "
                                   f"empieza en {inicio_ta}. Verificar."))
         if rir.parent and dip.get("parent_icam") and rir.parent != dip["parent_icam"]:
             hallazgos.append(("rir_parent_distinto",
-                              f"RIR {rir.nombre} ({rir.ids[0]}) asignado a {rir.parent}; el DIP está "
+                              f"RIR {rir.ids[0]} asignado a {rir.parent}; el DIP está "
                               f"en {dip['parent_icam']}."))
     return hallazgos
