@@ -272,6 +272,16 @@ def test_lector_de_pestanas_de_icam():
     assert f.deferral_reference == "35-DIP" and f.notas_diferimiento == "TASK 12-15-21-210-801"
 
 
+def test_notas_de_diferimiento_vacias_no_toman_la_fecha_del_evento_siguiente():
+    # T40S009J6NT: la descripción termina en "REPLACE BEFORE DUE DATE" y la fecha del evento
+    # siguiente del historial pasaba por el vencimiento del ítem.
+    from dips_audit.icam import leer_ficha
+    historial = ("24-SEP-2026 12:24 UTC\tJAN\tACTV\t\xa0\tDeferral Reason: Waiting for "
+                 "maintenance, Deferral Notes:\t\n24-SEP-2026 12:24 UTC\tJAN\tACTV\t\xa0\t"
+                 "The task has been deferred.\t\n")
+    assert leer_ficha({"History": historial}).notas_diferimiento == ""
+
+
 def test_lector_une_limites_por_uso_en_una_fila():
     from dips_audit.icam import leer_ficha
     texto = ("\xa0\tDriver1\tParameter2\tUnit\tScheduled From\tStart\tInterval\tDeadline\n"

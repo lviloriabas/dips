@@ -7,9 +7,16 @@ from pathlib import Path
 
 import pandas as pd
 from openpyxl import Workbook
-from openpyxl.chart import BarChart, PieChart, Reference
+from openpyxl.chart import BarChart, DoughnutChart, Reference
 from openpyxl.chart.label import DataLabelList
 from openpyxl.chart.series import DataPoint
+from openpyxl.chart.shapes import GraphicalProperties
+from openpyxl.chart.text import RichText, Text
+from openpyxl.chart.title import Title
+from openpyxl.drawing.line import LineProperties
+from openpyxl.drawing.spreadsheet_drawing import AnchorMarker, TwoCellAnchor
+from openpyxl.drawing.text import CharacterProperties, Paragraph, ParagraphProperties, RegularTextRun
+from openpyxl.drawing.text import Font as DrawingFont
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from openpyxl.utils import get_column_letter
 
@@ -22,9 +29,10 @@ COLORES_RESULTADO = {"POSIBLE DISCREPANCIA": "FCE3B0", "REVISAR": "FFF59D", "SIN
                      "OK": "C9E7C9", "FUERA DE ALCANCE": "E4E4E4"}
 COLORES_SEVERIDAD = {"POSIBLE DISCREPANCIA": "FCE3B0", "REVISAR": "FFF59D", "SIN FUENTE": "D6E4F0",
                      "OBSERVACIÓN": "EFEFEF"}
-# Mismos tonos que las celdas, pero saturados: en los gráficos los pasteles no se distinguen.
-COLORES_GRAFICO = {"POSIBLE DISCREPANCIA": "F39C12", "REVISAR": "F4D03F", "SIN FUENTE": "2E86DE",
-                   "OK": "27AE60", "FUERA DE ALCANCE": "95A5A6"}
+# Mismos tonos que las celdas, pero saturados (colores del tema de Office): en los gráficos los
+# pasteles no se distinguen.
+COLORES_GRAFICO = {"POSIBLE DISCREPANCIA": "ED7D31", "REVISAR": "FFC000", "SIN FUENTE": "4472C4",
+                   "OK": "70AD47", "FUERA DE ALCANCE": "A5A5A5"}
 _ENCABEZADO = PatternFill("solid", fgColor="1F3A5F")
 # Columnas agregadas por el programa: encabezado morado y celdas lila, para
 # distinguirlas de las columnas originales del Excel de entrada.
@@ -130,143 +138,277 @@ def hallazgos_para_mostrar(h: pd.DataFrame) -> pd.DataFrame:
 
 
 _RESULTADOS = ["POSIBLE DISCREPANCIA", "REVISAR", "SIN FUENTE", "OK"]
-_TITULO = Font(bold=True, size=16, color="1F3A5F")
-_SUBTITULO = Font(bold=True, size=11, color="1F3A5F")
-_BORDE = Border(bottom=Side(style="thin", color="C3C2B7"))
+_GRIS_TEXTO, _GRIS_SUAVE, _GRIS_LINEA, _GRIS_FONDO = "404040", "7F7F7F", "D9D9D9", "F2F2F2"
+_AZUL = "1F3A5F"
+
+# Cuadrícula del dashboard: seis indicadores de 2 columnas separados por una columna angosta.
+# Los gráficos se anclan a esas celdas (inicio y fin), así el espaciado es el mismo en Excel
+# desktop y en Excel web aunque cambie el ancho en píxeles.
+_COL0 = 2                       # B
+_COLS_INDICADOR, _N_INDICADORES = 2, 6
+_ULTIMA_COL = _COL0 + _N_INDICADORES * (_COLS_INDICADOR + 1) - 2          # R
+_MITAD = _COL0 + 3 * (_COLS_INDICADOR + 1) - 1                             # J (separador)
+_COL_DATOS = _ULTIMA_COL + 2                                               # T
+_FILA_GRAFICOS, _ALTO_GRAFICO = 9, 16                                      # filas de 20 px
 
 
-def _etiquetas(valor: bool = False, porcentaje: bool = False) -> DataLabelList:
-    """Solo el valor o el porcentaje (sin nombre de serie ni de categoría)."""
+def _fuente(tam: float, color: str = _GRIS_TEXTO, negrita: bool = False) -> CharacterProperties:
+    return CharacterProperties(sz=int(tam * 100), b=negrita, solidFill=color,
+                               latin=DrawingFont(typeface="Calibri"))
+
+
+def _texto(tam: float, color: str = _GRIS_TEXTO, negrita: bool = False) -> RichText:
+    cp = _fuente(tam, color, negrita)
+    return RichText(p=[Paragraph(pPr=ParagraphProperties(defRPr=cp), endParaRPr=cp)])
+
+
+def _titulo(texto: str) -> Title:
+    cp = _fuente(12, _GRIS_TEXTO, True)
+    parrafo = Paragraph(pPr=ParagraphProperties(defRPr=cp), r=[RegularTextRun(rPr=cp, t=texto)])
+    return Title(tx=Text(rich=RichText(p=[parrafo])), overlay=False)
+
+
+def _linea(color: str) -> GraphicalProperties:
+    return GraphicalProperties(ln=LineProperties(solidFill=color, w=9525))
+
+
+def _etiquetas(valor: bool = False, porcentaje: bool = False, color: str = "FFFFFF",
+               posicion: str | None = None) -> DataLabelList:
+    """Solo el valor o el porcentaje. Toman el formato de la celda: los ceros no se muestran."""
     e = DataLabelList()
     e.showVal, e.showPercent = valor, porcentaje
-    e.showSerName = e.showCatName = e.showLegendKey = False
+    e.showSerName = e.showCatName = e.showLegendKey = e.showLeaderLines = False
+    e.txPr = _texto(9, color, True)
+    if posicion:
+        e.dLblPos = posicion
     return e
 
 
-def _ejes_visibles(grafico) -> None:
-    """Excel reciente oculta los ejes de openpyxl si no se piden."""
-    grafico.x_axis.delete = False
-    grafico.y_axis.delete = False
-    grafico.x_axis.majorGridlines = None
+def _estilo(grafico, titulo: str) -> None:
+    """Estilo de gráfico de Office: fondo blanco, borde gris fino y esquinas rectas."""
+    grafico.title = _titulo(titulo)
+    grafico.roundedCorners = False
+    grafico.graphical_properties = GraphicalProperties(solidFill="FFFFFF", ln=LineProperties(
+        solidFill=_GRIS_LINEA, w=9525))
+    if grafico.legend is not None:
+        grafico.legend.txPr = _texto(9, _GRIS_TEXTO)
+        grafico.legend.overlay = False
 
 
-def _tabla_datos(ws, fila: int, col: int, encabezado: list[str], filas: list[list]) -> tuple[int, int]:
-    """Escribe una tabla chica (datos de un gráfico). Devuelve (primera fila, última fila)."""
+def _barras(titulo: str, categorias: int, apiladas: bool = False) -> BarChart:
+    """Barras horizontales; con pocas categorías, más separadas para que no queden gruesas."""
+    g = BarChart()
+    g.type = "bar"
+    if apiladas:
+        g.grouping, g.overlap = "stacked", 100
+    g.gapWidth = 60 if categorias > 4 else 150
+    _estilo(g, titulo)
+    # Eje de categorías: etiquetas grises, sin marcas. Eje de valores oculto: los valores van
+    # en las barras.
+    g.x_axis.delete = False
+    g.x_axis.majorTickMark = "none"
+    g.x_axis.txPr = _texto(9, _GRIS_TEXTO)
+    g.x_axis.spPr = _linea(_GRIS_LINEA)
+    g.x_axis.majorGridlines = None
+    g.x_axis.scaling.orientation = "maxMin"         # primera categoría arriba
+    g.y_axis.delete = True
+    g.y_axis.majorGridlines = None
+    return g
+
+
+def _anclar(ws, grafico, fila: int, col_ini: int, col_fin: int, filas: int) -> None:
+    """Ancla el gráfico de la celda (fila, col_ini) hasta el fin de (fila + filas - 1, col_fin)."""
+    grafico.anchor = TwoCellAnchor(_from=AnchorMarker(col=col_ini - 1, row=fila - 1),
+                                   to=AnchorMarker(col=col_fin, row=fila + filas - 1))
+    ws.add_chart(grafico)
+
+
+def _tabla_datos(ws, fila: int, encabezado: list[str], filas: list[list]) -> tuple[int, int]:
+    """Tabla de datos de un gráfico, a la derecha. Devuelve (fila del encabezado, última fila).
+    Los ceros se ven en blanco, en la tabla y en las etiquetas del gráfico."""
     for j, e in enumerate(encabezado):
-        c = ws.cell(fila, col + j, e)
-        c.font = Font(bold=True, color="52514E")
-        c.border = _BORDE
+        c = ws.cell(fila, _COL_DATOS + j, e)
+        c.font = Font(bold=True, color=_GRIS_TEXTO)
+        c.border = Border(bottom=Side(style="thin", color=_AZUL))
+        c.alignment = Alignment(horizontal="left" if j == 0 else "right")
     for i, f in enumerate(filas, start=1):
         for j, v in enumerate(f):
-            ws.cell(fila + i, col + j, v)
+            c = ws.cell(fila + i, _COL_DATOS + j, v)
+            c.font = Font(color=_GRIS_TEXTO)
+            c.border = Border(bottom=Side(style="thin", color=_GRIS_LINEA))
+            if j:
+                c.number_format = "0;-0;;@"
     return fila, fila + len(filas)
+
+
+def _indicador(ws, i: int, nombre: str, n: int, pct: float | None, color: str) -> None:
+    col = _COL0 + i * (_COLS_INDICADOR + 1)
+    fondo = PatternFill("solid", fgColor=_GRIS_FONDO)
+    for fila in (5, 6, 7):
+        for c in range(col, col + _COLS_INDICADOR):
+            celda = ws.cell(fila, c)
+            celda.fill = fondo
+            if fila == 5:
+                celda.border = Border(top=Side(style="thick", color=color))
+    ws.cell(5, col, nombre).font = Font(bold=True, size=9, color=_GRIS_SUAVE)
+    ws.cell(6, col, n).font = Font(bold=True, size=24, color=_GRIS_TEXTO)
+    if pct is not None:
+        ws.cell(7, col, pct).number_format = "0.0%"
+    ws.cell(7, col).font = Font(size=9, color=_GRIS_SUAVE)
+    for fila in (5, 6, 7):
+        ws.cell(fila, col).alignment = Alignment(horizontal="left", vertical="center", indent=1)
+        ws.merge_cells(start_row=fila, start_column=col, end_row=fila, end_column=col + _COLS_INDICADOR - 1)
+
+
+def _apiladas_por(ws, datos, columna: str, titulo: str, fila_tabla: int, fila: int,
+                  col_ini: int, col_fin: int, encabezado: str, ordenar: bool = True) -> int:
+    """Barras apiladas por resultado para cada valor de `columna` (de mayor a menor si `ordenar`).
+    Devuelve la próxima fila libre de la tabla de datos."""
+    tabla = datos.groupby([columna, "RESULTADO"]).size().unstack(fill_value=0)
+    if tabla.empty:
+        return fila_tabla
+    columnas = [r for r in _RESULTADOS + ["FUERA DE ALCANCE"] if r in tabla.columns]
+    if ordenar:
+        tabla = tabla.loc[tabla[columnas].sum(axis=1).sort_values(ascending=False).index]
+    f1, f2 = _tabla_datos(ws, fila_tabla, [encabezado] + columnas,
+                          [[str(t)] + [int(tabla.loc[t, c]) for c in columnas] for t in tabla.index])
+    g = _barras(titulo, len(tabla), apiladas=True)
+    g.add_data(Reference(ws, min_col=_COL_DATOS + 1, max_col=_COL_DATOS + len(columnas),
+                         min_row=f1, max_row=f2), titles_from_data=True)
+    g.set_categories(Reference(ws, min_col=_COL_DATOS, min_row=f1 + 1, max_row=f2))
+    for serie, c in zip(g.series, columnas):
+        serie.graphicalProperties.solidFill = COLORES_GRAFICO[c]
+        serie.graphicalProperties.line.solidFill = "FFFFFF"
+        serie.dLbls = _etiquetas(valor=True, color=_GRIS_TEXTO if c == "REVISAR" else "FFFFFF")
+    g.legend.position = "t"
+    _anclar(ws, g, fila, col_ini, col_fin, _ALTO_GRAFICO)
+    return f2 + 2
+
+
+def _top(ws, conteo, titulo: str, encabezado: str, fila_tabla: int, fila: int, col_ini: int,
+         col_fin: int, filas: int) -> int:
+    """Barras horizontales con las categorías más frecuentes. Devuelve la próxima fila libre."""
+    if conteo.empty:
+        return fila_tabla
+    f1, f2 = _tabla_datos(ws, fila_tabla, [encabezado, "DIPs"],
+                          [[str(k), int(v)] for k, v in conteo.items()])
+    g = _barras(titulo, len(conteo))
+    g.legend = None
+    g.add_data(Reference(ws, min_col=_COL_DATOS + 1, min_row=f1, max_row=f2), titles_from_data=True)
+    g.set_categories(Reference(ws, min_col=_COL_DATOS, min_row=f1 + 1, max_row=f2))
+    g.series[0].graphicalProperties.solidFill = COLORES_GRAFICO["POSIBLE DISCREPANCIA"]
+    g.series[0].dLbls = _etiquetas(valor=True, color=_GRIS_TEXTO, posicion="outEnd")
+    _anclar(ws, g, fila, col_ini, col_fin, filas)
+    return f2 + 2
 
 
 def _hoja_dashboard(ws, resultado: ResultadoAuditoria) -> None:
     """Primera hoja: indicadores y gráficos del resultado."""
     ws.title = "Dashboard"
     ws.sheet_view.showGridLines = False
+    ws.sheet_view.zoomScale = 100
+    ws.sheet_properties.tabColor = _AZUL
     filas = resultado.filas
     tipos = dict(zip(resultado.lote.datos["fila"], resultado.lote.datos["tipo"]))
     datos = filas.assign(TIPO=[(tipos.get(f) or "Sin tipo") for f in filas["Fila Excel"]])
     en_alcance = datos[datos["RESULTADO"] != "FUERA DE ALCANCE"]
     total = len(en_alcance)
 
-    ws["B2"] = "Auditoría preliminar de DIPs" + (f" · {AVISO_PRUEBA}" if resultado.lote.prueba else "")
-    ws["B2"].font = Font(bold=True, size=16, color="C00000") if resultado.lote.prueba else _TITULO
-    ws["B3"] = (f"{resultado.lote.ruta.name} · {datetime.now():%d-%b-%Y %H:%M} · "
-                "Resultado de apoyo: el auditor confirma cada DIP.")
-    ws["B3"].font = Font(color="52514E")
+    # Anchos y altos de la cuadrícula
+    ws.column_dimensions["A"].width = 2
+    for c in range(_COL0, _ULTIMA_COL + 1):
+        separador = (c - _COL0) % (_COLS_INDICADOR + 1) == _COLS_INDICADOR
+        ws.column_dimensions[get_column_letter(c)].width = 2 if separador else 11
+    ws.column_dimensions[get_column_letter(_ULTIMA_COL + 1)].width = 4
+    ws.column_dimensions[get_column_letter(_COL_DATOS)].width = 36
+    for c in range(_COL_DATOS + 1, _COL_DATOS + 6):
+        ws.column_dimensions[get_column_letter(c)].width = 22
+    for fila, alto in {1: 8, 2: 30, 3: 18, 4: 12, 5: 20, 6: 36, 7: 20, 8: 16}.items():
+        ws.row_dimensions[fila].height = alto
+
+    # Encabezado: título, archivo y fecha
+    prueba = resultado.lote.prueba
+    ws["B2"] = "Auditoría preliminar de DIPs"
+    ws["B2"].font = Font(bold=True, size=18, color="C00000" if prueba else _AZUL)
+    ws["B2"].alignment = Alignment(vertical="center")
+    ws["B3"] = resultado.lote.ruta.name
+    ws["B3"].font = Font(color=_GRIS_SUAVE)
+    # La fecha es un número: no se desborda a la celda vecina, va en el ancho del último indicador.
+    col_fecha = _ULTIMA_COL - _COLS_INDICADOR + 1
+    fecha = ws.cell(3, col_fecha, datetime.now().replace(second=0, microsecond=0))
+    fecha.number_format = "dd-mmm-yyyy hh:mm"
+    fecha.font = Font(color=_GRIS_SUAVE)
+    fecha.alignment = Alignment(horizontal="right")
+    ws.merge_cells(start_row=3, start_column=col_fecha, end_row=3, end_column=_ULTIMA_COL)
+    if prueba:
+        aviso = ws.cell(2, _ULTIMA_COL, AVISO_PRUEBA)
+        aviso.font = Font(bold=True, color="C00000")
+        aviso.alignment = Alignment(horizontal="right", vertical="center")
 
     # Indicadores
-    tarjetas = [("DIPs auditados", total, None, "1F3A5F")]
-    for r in _RESULTADOS:
+    _indicador(ws, 0, "DIPs AUDITADOS", total, None, _AZUL)
+    for i, r in enumerate(_RESULTADOS, start=1):
         n = int((en_alcance["RESULTADO"] == r).sum())
-        tarjetas.append((r, n, n / total if total else 0, COLORES_RESULTADO[r]))
-    fuera = int((datos["RESULTADO"] == "FUERA DE ALCANCE").sum())
-    for i, (nombre, n, pct, color) in enumerate(tarjetas):
-        col = 2 + i * 3
-        ws.merge_cells(start_row=5, start_column=col, end_row=5, end_column=col + 1)
-        ws.cell(5, col, nombre).font = Font(bold=True, color="52514E")
-        ws.cell(6, col, n).font = Font(bold=True, size=22)
-        if pct is not None:
-            ws.cell(7, col, pct).number_format = "0.0%"
-        for fila in (5, 6, 7):
-            ws.cell(fila, col).fill = PatternFill("solid", fgColor=color if fila == 5 and pct is not None
-                                                   else "F4F4F1")
-    ws.cell(8, 2, f"Fuera de alcance: {fuera} DIPs de otros tipos." if fuera else "").font = \
-        Font(italic=True, color="7B7973")
-    for c in range(2, 15):
-        ws.column_dimensions[get_column_letter(c)].width = 14
+        _indicador(ws, i, r, n, n / total if total else 0, COLORES_GRAFICO[r])
+    _indicador(ws, 5, "FUERA DE ALCANCE", int((datos["RESULTADO"] == "FUERA DE ALCANCE").sum()),
+               None, COLORES_GRAFICO["FUERA DE ALCANCE"])
 
-    # Datos de los gráficos (columnas P en adelante, a la derecha de los gráficos)
-    col = 16
-    ws.cell(4, col, "Datos de los gráficos").font = _SUBTITULO
-    f1, f2 = _tabla_datos(ws, 5, col, ["Resultado", "DIPs"],
-                          [[r, int((en_alcance["RESULTADO"] == r).sum())] for r in _RESULTADOS])
-    pie = PieChart()
-    pie.title = "Resultado de los DIPs auditados"
-    pie.add_data(Reference(ws, min_col=col + 1, min_row=f1, max_row=f2), titles_from_data=True)
-    pie.set_categories(Reference(ws, min_col=col, min_row=f1 + 1, max_row=f2))
-    for i, r in enumerate(_RESULTADOS):
+    izquierda, derecha = (_COL0, _MITAD - 1), (_MITAD + 1, _ULTIMA_COL)
+    fila1 = _FILA_GRAFICOS
+    fila2 = fila1 + _ALTO_GRAFICO + 1
+    fila3 = fila2 + _ALTO_GRAFICO + 1
+
+    # Resultado (anillo), sin los resultados en cero: su etiqueta de % no se puede ocultar.
+    conteo = {r: int((en_alcance["RESULTADO"] == r).sum()) for r in _RESULTADOS}
+    presentes = [r for r in _RESULTADOS if conteo[r]] or _RESULTADOS
+    f1, f2 = _tabla_datos(ws, 5, ["Resultado", "DIPs"], [[r, conteo[r]] for r in presentes])
+    anillo = DoughnutChart(holeSize=58)
+    anillo.add_data(Reference(ws, min_col=_COL_DATOS + 1, min_row=f1, max_row=f2), titles_from_data=True)
+    anillo.set_categories(Reference(ws, min_col=_COL_DATOS, min_row=f1 + 1, max_row=f2))
+    for i, r in enumerate(presentes):
         punto = DataPoint(idx=i)
         punto.graphicalProperties.solidFill = COLORES_GRAFICO[r]
-        pie.series[0].dPt.append(punto)
-    pie.dataLabels = _etiquetas(porcentaje=True)
-    pie.legend.position = "b"
-    pie.height, pie.width = 8, 12
-    ws.add_chart(pie, "B10")
+        punto.graphicalProperties.line.solidFill = "FFFFFF"
+        anillo.series[0].dPt.append(punto)
+    anillo.dataLabels = _etiquetas(porcentaje=True)
+    _estilo(anillo, "Resultado")
+    anillo.legend.position = "r"
+    _anclar(ws, anillo, fila1, *izquierda, _ALTO_GRAFICO)
+    siguiente = f2 + 2
 
-    # DIPs por tipo, apilados por resultado
-    por_tipo = datos.groupby(["TIPO", "RESULTADO"]).size().unstack(fill_value=0)
-    columnas = [r for r in _RESULTADOS + ["FUERA DE ALCANCE"] if r in por_tipo.columns]
-    g1, g2 = _tabla_datos(ws, f2 + 2, col, ["Tipo DIP"] + columnas,
-                          [[t] + [int(por_tipo.loc[t, c]) for c in columnas] for t in por_tipo.index])
-    barras = BarChart()
-    barras.type, barras.grouping, barras.overlap = "col", "stacked", 100
-    barras.title = "DIPs por tipo"
-    barras.add_data(Reference(ws, min_col=col + 1, max_col=col + len(columnas), min_row=g1, max_row=g2),
-                    titles_from_data=True)
-    barras.set_categories(Reference(ws, min_col=col, min_row=g1 + 1, max_row=g2))
-    for serie, c in zip(barras.series, columnas):
-        serie.graphicalProperties.solidFill = COLORES_GRAFICO[c]
-        serie.graphicalProperties.line.solidFill = "FFFFFF"
-    barras.y_axis.title = "DIPs"
-    barras.legend.position = "b"
-    _ejes_visibles(barras)
-    barras.height, barras.width = 8, 14
-    ws.add_chart(barras, "H10")
+    # Apertura y cierre, tipo de DIP y flota: barras apiladas por resultado
+    siguiente = _apiladas_por(ws, en_alcance, "AUDITORÍA", "Apertura y cierre", siguiente,
+                              fila1, *derecha, "Auditoría", ordenar=False)
+    siguiente = _apiladas_por(ws, datos, "TIPO", "DIPs por tipo", siguiente, fila2, *izquierda,
+                              "Tipo DIP")
+    flotas = en_alcance.assign(Flota=en_alcance["Flota"].replace("", "Sin flota"))
+    siguiente = _apiladas_por(ws, flotas, "Flota", "DIPs por flota", siguiente, fila2, *derecha,
+                              "Flota")
 
-    # Referencias con más posibles discrepancias
+    # Referencias y aviones con más posibles discrepancias
     discrepancias = en_alcance[en_alcance["RESULTADO"] == "POSIBLE DISCREPANCIA"]
     refs = discrepancias["REFERENCIA ASOCIADA"].replace("", "Sin referencia").value_counts().head(10)
-    for fila_graf, serie_datos, titulo, encabezado in [
-            (27, refs, "Referencias con más DIPs con posible discrepancia", "Referencia")]:
-        if serie_datos.empty:
-            continue
-        inicio = ws.max_row + 2
-        d1, d2 = _tabla_datos(ws, inicio, col, [encabezado, "DIPs"],
-                              [[str(k), int(v)] for k, v in serie_datos.items()][::-1])
-        grafico = BarChart()
-        grafico.type = "bar"
-        grafico.title = titulo
-        grafico.legend = None
-        grafico.add_data(Reference(ws, min_col=col + 1, min_row=d1, max_row=d2), titles_from_data=True)
-        grafico.set_categories(Reference(ws, min_col=col, min_row=d1 + 1, max_row=d2))
-        grafico.series[0].graphicalProperties.solidFill = COLORES_GRAFICO["POSIBLE DISCREPANCIA"]
-        grafico.dataLabels = _etiquetas(valor=True)
-        _ejes_visibles(grafico)
-        grafico.height, grafico.width = 8, 26
-        ws.add_chart(grafico, f"B{fila_graf}")
-    ws.column_dimensions[get_column_letter(col)].width = 38
+    aviones = discrepancias["Aircraft"].replace("", "Sin avión").value_counts().head(10)
+    alto = max(_ALTO_GRAFICO, 2 * max(len(refs), len(aviones)) + 5)
+    siguiente = _top(ws, refs, "Referencias con posible discrepancia", "Referencia", siguiente,
+                     fila3, *izquierda, alto)
+    _top(ws, aviones, "Aviones con posible discrepancia", "Aircraft", siguiente, fila3, *derecha,
+         alto)
+
+    # Impresión: el dashboard en una página, sin las tablas de datos
+    ws.page_setup.orientation = "portrait"
+    ws.page_setup.fitToWidth, ws.page_setup.fitToHeight = 1, 1
+    ws.sheet_properties.pageSetUpPr.fitToPage = True
+    ws.print_area = f"A1:{get_column_letter(_ULTIMA_COL + 1)}{fila3 + alto}"
+
+
 
 
 def _hoja_resumen(ws, resultado: ResultadoAuditoria) -> None:
     ws.column_dimensions["A"].width = 38
     ws.column_dimensions["B"].width = 90
-    ws.append(["Auditoría preliminar de DIPs (generada automáticamente)"])
+    ws.append(["Auditoría preliminar de DIPs"])
     ws["A1"].font = Font(bold=True, size=14)
-    ws.append(["Resultado de apoyo: toda discrepancia debe ser confirmada por un auditor."])
     if resultado.lote.prueba:
         ws.append([AVISO_PRUEBA])
         ws.cell(ws.max_row, 1).font = Font(bold=True, color="C00000")
@@ -282,20 +424,12 @@ def _hoja_resumen(ws, resultado: ResultadoAuditoria) -> None:
         ws.append(list(fila))
         ws.cell(ws.max_row, 1).font = Font(bold=True)
     ws.append([])
-    ws.append(["Resultado", "Cantidad"])
+    ws.append(["Resultado", "DIPs"])
     for c in ws[ws.max_row]:
         c.font = Font(bold=True)
     conteo = resultado.filas["RESULTADO"].value_counts()
     for valor, color in COLORES_RESULTADO.items():
         ws.append([valor, int(conteo.get(valor, 0))])
-        ws.cell(ws.max_row, 1).fill = PatternFill("solid", fgColor=color)
-    ws.append([])
-    ws.append(["Resultado", "DIPs"])
-    for c in ws[ws.max_row]:
-        c.font = Font(bold=True)
-    conteo = resultado.filas["RESULTADO"].value_counts()
-    for estado, color in COLORES_RESULTADO.items():
-        ws.append([estado, int(conteo.get(estado, 0))])
         ws.cell(ws.max_row, 1).fill = PatternFill("solid", fgColor=color)
     if resultado.advertencias:
         ws.append([])

@@ -14,13 +14,17 @@ if "%~1"=="" (
     echo Arrastre el Excel de entrada sobre este archivo, o ejecute:
     echo     auditar.bat "entrada.xlsx" [--icam]
     echo     auditar.bat T40S0099V9C      ^(un solo DIP, desde ICAM^)
-    pause
+    "%RAIZ%.venv\Scripts\python.exe" "%RAIZ%dips_audit\pausa.py" && pause
     exit /b 1
 )
 if not exist "%~1" goto barcode
 "%RAIZ%.venv\Scripts\python.exe" -m dips_audit auditar %*
+set CODIGO=%ERRORLEVEL%
 goto fin
 :barcode
 "%RAIZ%.venv\Scripts\python.exe" -m dips_audit barcode %*
+set CODIGO=%ERRORLEVEL%
 :fin
-pause
+rem Espera una tecla solo si la ventana se abrio al arrastrar o con doble clic (desde el Explorador).
+"%RAIZ%.venv\Scripts\python.exe" "%RAIZ%dips_audit\pausa.py" && pause
+exit /b %CODIGO%

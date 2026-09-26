@@ -9,6 +9,7 @@ from datetime import date, datetime, time, timedelta
 from rapidfuzz.distance import Levenshtein
 
 from .discrepancias import Discrepancias
+from .inventario import cruzar
 from .referencias import EntradaCatalogo, Limite, Variante
 from .texto import extraer_fechas, extraer_psi, extraer_sn, normalizar, posiciones
 
@@ -307,6 +308,51 @@ def regla_intervalo(dip: dict, entrada: EntradaCatalogo, ctx: Contexto, r: Resul
                   f"T/A con {_fmt(valor)} {unidad}; la referencia indica {texto_ref}.")
 
 
+def regla_inventario(dip: dict, due: date, ctx: Contexto, r: ResultadoReglas) -> bool:
+    """Generators de oxígeno: el due date es el Exp. Date (fin de mes) del PDF de inventario
+    adjunto. Los generators del DIP son los que tienen su barcode en DIP Barcode y los de los
+    S/N de la descripción; manda el que vence primero. False si no hay con qué auditarlo (se
+    usa la fecha de la descripción)."""
+    inventario = dip.get("inventario")
+    if inventario is None:
+        r.manuales.append("Verificar el due date contra el Exp. Date del PDF de inventario de "
+                          "generators (attachment).")
+        return False
+    if not inventario["generadores"]:
+        if inventario["errores"]:
+            r.manuales.append("No se pudo leer el PDF adjunto ("
+                              + "; ".join(f"{n}: {e}" for n, e in inventario["errores"].items())
+                              + "): verificar el Exp. Date de cada S/N.")
+        elif inventario["archivos"]:
+            r.manuales.append(f"PDF adjunto sin el inventario en campos de formulario "
+                              f"({', '.join(inventario['archivos'])}): verificar el Exp. Date "
+                              f"de cada S/N.")
+        else:
+            r.agregar(ctx, "sin_inventario_generadores", "Missing Attachment",
+                      "Sin el PDF de inventario de generators en los attachments.")
+        return False
+    cruce = cruzar(inventario["generadores"], dip["barcode"],
+                   f"{dip['nombre']} {dip['descripcion']}")
+    for sn in cruce.sn_fuera:
+        r.agregar(ctx, "sn_fuera_de_inventario", "Incorrect S/N",
+                  f"S/N {sn} no está en el inventario (PDF).")
+    g = cruce.primero
+    if g is None:
+        r.manuales.append("Ningún generator del inventario (PDF) tiene el S/N del DIP ni su "
+                          "barcode en DIP Barcode: verificar el Exp. Date.")
+        return False
+    fuente = f"inventario: {g.posicion} S/N {g.sn}, Exp. Date {g.vence_texto}"
+    if due > g.vence:
+        r.agregar(ctx, "due_date_posterior_a_vencimiento_item", "Incorrect Due Date",
+                  f"Due date {_fecha(due)}, después del vencimiento del ítem "
+                  f"({_fecha(g.vence)}; {fuente}).")
+    elif (g.vence - due).days > ctx.tol_dias:
+        r.agregar(ctx, "due_date_anterior_a_vencimiento_item", "Incorrect Due Date",
+                  f"Due date {_fecha(due)}, antes del vencimiento del ítem "
+                  f"({_fecha(g.vence)}; {fuente}).")
+    return True
+
+
 def regla_fechas(dip: dict, entrada: EntradaCatalogo | None, ctx: Contexto,
                  r: ResultadoReglas) -> None:
     due, found = _como_fecha(dip["due_date"]), _como_fecha(dip["found_date"])
@@ -342,8 +388,10 @@ def regla_fechas(dip: dict, entrada: EntradaCatalogo | None, ctx: Contexto,
                       f"Due date {_fecha(due)}; corresponde {_fecha(esperado)} ({desde} "
                       f"+ {_fmt(valor)} DAY).")
 
-    # Ítems con vencimiento: el due date no puede superar la fecha del ítem.
-    if entrada is not None and entrada.hasta_vencimiento and due:
+    # Ítems con vencimiento: el due date no puede superar la fecha del ítem. En los generators
+    # de oxígeno la fecha es la del PDF de inventario; sin el PDF, la de la descripción.
+    if (entrada is not None and entrada.hasta_vencimiento and due
+            and not (entrada.inventario and regla_inventario(dip, due, ctx, r))):
         texto = dip["nombre"] + " " + dip["descripcion"]
         fechas = sorted(f for f in extraer_fechas(texto) if not found or f >= found)
         if fechas:
@@ -734,6 +782,10 @@ def _lado(texto: str) -> frozenset[str]:
     return frozenset(p for p in posiciones(normalizar(texto)) if not p.isdigit())
 
 
+# Número de mensaje de mantenimiento del motor o del AHM: 75-10452, 73-30311, 79-21101.
+_MENSAJE = re.compile(r"(?<![\d-])\d{2}-\d{5}(?![\d-])")
+
+
 def buscar_duplicados(dips: list[dict], entradas: list[EntradaCatalogo | None],
                       tol_dias: int = 1) -> dict[int, tuple[str, str]]:
     """Índice del DIP -> (barcode, nombre) del DIP que parece duplicar.
@@ -773,9 +825,21 @@ def buscar_duplicados(dips: list[dict], entradas: list[EntradaCatalogo | None],
                 sb = set(extraer_sn(db["nombre"] + " " + db["descripcion"]))
                 if sa and sb and not (sa & sb):
                     continue
+                # Mensajes de mantenimiento distintos del mismo motor: SHORT TIME 75-20451 y
+                # 75-10451 son dos fallas.
+                ma = set(_MENSAJE.findall(da["nombre"] + " " + da["descripcion"]))
+                mb = set(_MENSAJE.findall(db["nombre"] + " " + db["descripcion"]))
+                if ma and mb and not (ma & mb):
+                    continue
                 if not _coexisten(da, db):
                     continue
                 entrada = entradas[a]
+                # Referencia con varias etapas (1er re-torque a los 60 días, 2do a los 12
+                # meses): con otro intervalo es la otra etapa, no un duplicado.
+                if entrada is not None and len(entrada.variantes) > 1 and \
+                        None not in (da["intervalo"], db["intervalo"]) and \
+                        (da["intervalo"], da["unidad"]) != (db["intervalo"], db["unidad"]):
+                    continue
                 ua, ub = _como_fecha(da["due_date"]), _como_fecha(db["due_date"])
                 if entrada is not None and entrada.hasta_vencimiento and ua and ub and abs((ua - ub).days) > tol_dias:
                     continue  # distinto vencimiento = distinto componente

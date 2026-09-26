@@ -5,3 +5,4 @@ pyyaml>=6.0
 rich>=13.7
 pytest>=8.0
 playwright>=1.51
+pypdf>=5.0

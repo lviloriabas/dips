@@ -39,6 +39,7 @@ _SINONIMOS: list[tuple[str, str]] = [
     (r"\bSTRUTS\b", "STRUT"),
     (r"\bUNIVERSIAL\b|\bUNIVERVAL\b|\bUNIVERSAL\b", "UNIVERSAL"),
     (r"\bCOMMPRESED\b|\bCOMPRESED\b", "COMPRESSED"),
+    (r"\bWIGHT\b", "WEIGHT"),
     # Siglas pegadas a su número: ELT2 -> ELT 2, FAK1 -> FAK 1, MLG3 -> MLG 3.
     (r"\b(ELT|FAK|EMK|UPK|MLG|NLG|ENG|POB)(\d)\b", r"\1 \2"),
 ]

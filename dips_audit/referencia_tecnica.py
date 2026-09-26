@@ -189,6 +189,14 @@ def _tema(codigo: str) -> str | None:
     return codigo[4:12] if codigo.startswith("AMM ") else None
 
 
+def _codigos_de_la_fila(fila: FilaReferencia) -> list[str]:
+    """Números de tarea de la fila. "[AIRCRAFT SPECIFIC] ECRA OF EACH REPAIR, E.G. ECRA
+    5300-3447C": la referencia es de cada avión y los números son ejemplos, no la referencia."""
+    if re.match(r"\s*\[?\s*AIRCRAFT SPECIFIC", fila.referencias, re.I):
+        return []
+    return extraer_codigos(fila.referencias)
+
+
 @dataclass
 class IndiceReferencias:
     """Qué entradas del catálogo y qué filas de la tabla tienen cada número."""
@@ -200,12 +208,12 @@ class IndiceReferencias:
     def desde_catalogo(cls, catalogo: Catalogo) -> IndiceReferencias:
         indice = cls()
         for e in catalogo.entradas:
-            codigos = {c for r in e.referencias for c in extraer_codigos(r.referencias)}
+            codigos = {c for r in e.referencias for c in _codigos_de_la_fila(r)}
             indice.por_entrada[e.id] = codigos
             for c in codigos:
                 indice.entradas.setdefault(c, set()).add(e.id)
         for fila in catalogo.referencias:  # todas las filas, también Structures y Powerplant
-            for c in extraer_codigos(fila.referencias):
+            for c in _codigos_de_la_fila(fila):
                 indice.filas.setdefault(c, []).append(fila)
         return indice
 

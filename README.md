@@ -2,7 +2,7 @@
 
 Audita los DIPs de un Excel (por defecto, de todos los tipos) con los datos de **ICAM** (solo lectura) y `DIPs References.xlsx`. Resultado por DIP: **POSIBLE DISCREPANCIA**, **REVISAR**, **SIN FUENTE** u **OK**, con el motivo. Reglas fijas, sin IA. Detalle en [docs/tecnico.md](docs/tecnico.md).
 
-La tabla de referencias del programa (`config/catalogo_others.yaml`) tiene los ítems Others y las filas Powerplant y Structures de `DIPs References.xlsx`. Los DIPs que no están en la tabla salen **SIN FUENTE** y se revisan contra el plazo, el RIR y el vencimiento que dice su propia descripción. Para auditar solo algunos tipos use `--tipos-dip` (o `tipos_auditados` en `config/config.yaml`); los demás quedan **FUERA DE ALCANCE** (otro tipo de DIP) y no se revisan.
+Cada fila de `DIPs References.xlsx` (Others, Powerplant y Structures) tiene en `config/catalogo_others.yaml` las palabras con que se reconoce en los DIPs. Una fila nueva sin entrada en ese archivo se usa igual: se reconoce por su referencia técnica o por las palabras de su DESCRIPTION (con la entrada se reconocen muchos más DIPs). Los DIPs que no están en la tabla salen **SIN FUENTE** y se revisan contra el plazo, el RIR y el vencimiento que dice su propia descripción. Para auditar solo algunos tipos use `--tipos-dip` (o `tipos_auditados` en `config/config.yaml`); los demás quedan **FUERA DE ALCANCE** (otro tipo de DIP) y no se revisan.
 
 ## Instalación
 
@@ -24,7 +24,7 @@ setup.bat
 
 Por defecto se audita **solo con el Excel** (menos reglas). Para leer en ICAM todos los DIPs del archivo, de cualquier tipo, ejecute el `.bat` en la consola con `--icam` (ver [Comandos](#comandos)); el programa no hace preguntas.
 
-Con `--icam` se abre una ventana de Edge en ICAM: si pide sesión, iníciela ahí. El programa sigue apenas la sesión se inicia y se detiene apenas la página de inicio de sesión muestra un error. Deje la ventana abierta para las próximas corridas.
+Con `--icam` se abre una ventana de Edge en ICAM: si pide sesión, iníciela ahí. El programa sigue apenas la sesión se inicia y se detiene apenas la página de inicio de sesión muestra un error. Al terminar la lectura, el programa cierra la ventana (`cerrar_al_terminar` en `config/config.yaml`).
 
 ## Comandos
 
@@ -42,6 +42,7 @@ comparar.bat "DIPs Audit (23SEP2026).xlsx" -i -e RIR
 | Opción | Uso |
 | --- | --- |
 | `-i`, `--icam` | Leer en ICAM todos los DIPs del archivo (sin esta opción, solo el Excel: menos reglas) |
+| `--no-cache` | Leer en ICAM todos los DIPs, aunque se hayan leído hace menos de 1 hora (por defecto se usa lo guardado en `data/icam.json`) |
 | `--datos-icam RUTA` | Usar datos de ICAM ya extraídos (`data/icam.json` o CSV), sin leer ICAM |
 | `--pendientes` | Auditar solo los DIPs ACTV sin `DIP Open Audit User` y COMPLETE sin `DIP Closed Audit User`. Antes crea `... FILTERED.xlsx` junto al original, como `filtrar.bat` (sin esta opción, se auditan todos) |
 | `-j`, `--hoja NOMBRE` | Hoja a leer (por defecto, la que tiene `Fault Barcode`) |

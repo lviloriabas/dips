@@ -151,6 +151,11 @@ class Auditor:
                 r.agregar(ctx, "asociacion_por_descripcion", "Reference Match",
                           f"Referencia '{asoc.entrada.nombre}' identificada por la descripción. "
                           f"Verificar.")
+            if asoc.entrada is not None and asoc.entrada.automatica:
+                r.agregar(ctx, "asociacion_por_tabla", "Reference Match",
+                          f"Fila {asoc.entrada.referencias[0].fila} de la tabla sin entrada en "
+                          f"el catálogo: identificada por sus palabras o su referencia técnica. "
+                          f"Verificar.")
             if asoc.entrada is None:
                 if asoc.metodo == "AMBIGUA":
                     motivo = f"varias referencias posibles ({', '.join(asoc.candidatos[:3])})"
@@ -322,10 +327,12 @@ class Auditor:
         """Por el Fault Name. Si no alcanza, en este orden:
 
         1. La referencia técnica cargada en ICAM, si corresponde a una sola referencia.
-        2. La descripción, con las mismas palabras clave ("AFT PASSENGER CABIN LESS THAN 130
-           DAYS" -> la descripción dice FIRST AID KIT), salvo que cite una tarea que no es la
-           de esa referencia: entonces el DIP sigue otra fuente (una muestra de combustible
-           por la SUBTASK 28-10-00-280-056 no es FUEL MICROBIAL GROWTH, 4 DAYS).
+        2. El Fault Name junto con la descripción, con las mismas palabras clave ("AFT
+           PASSENGER CABIN LESS THAN 130 DAYS" -> la descripción dice FIRST AID KIT; "BIRD
+           STRIKE" en el nombre y "BOROSCOPE INSPECTION ENG 2" en la descripción), salvo que
+           la descripción cite una tarea que no es la de esa referencia: entonces el DIP
+           sigue otra fuente (una muestra de combustible por la SUBTASK 28-10-00-280-056 no
+           es FUEL MICROBIAL GROWTH, 4 DAYS).
         3. La tarea citada en la descripción ("IAW EC/RA 2500-0538C" -> LIFEVEST DOOR LATCH).
 
         Las task cards JIC de la descripción no cuentan: son la tarea donde se encontró la
@@ -338,7 +345,7 @@ class Auditor:
         entrada = asociar_por_codigos(codigos, self.catalogo, self.indice_referencias)
         descripcion = sin_task_cards(dip.get("descripcion"))
         citados = [c for c in extraer_codigos(descripcion) if not c.startswith("SRM")]
-        d = asociar(descripcion, self.catalogo, aproximada=False)
+        d = asociar(f"{dip['nombre'] or ''} {descripcion}", self.catalogo, aproximada=False)
         por_descripcion = None
         if d.entrada:
             esperados = self.indice_referencias.por_entrada.get(d.entrada.id, set())

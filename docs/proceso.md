@@ -1,34 +1,81 @@
 # Auditoría preliminar de DIPs
 
-El programa lee el Excel de entrada y, con `--icam`, los datos de cada DIP en ICAM, aplica las reglas y entrega un Excel con el resultado de cada DIP. El auditor confirma.
+El programa hace la primera pasada de la auditoría de DIPs: lee el Excel de entrada y, con `--icam`, los datos de cada DIP en ICAM, aplica las reglas de apertura y cierre y entrega un Excel con el resultado de cada DIP y sus motivos. El auditor confirma.
+
+**En una frase:** Excel de entrada + ICAM + tabla de referencias -> reglas fijas -> un resultado por DIP con evidencia.
+
+- **No usa IA.** Cada hallazgo sale de una regla escrita y dice qué dato lo produjo.
+- **No escribe en ICAM.** Solo busca el barcode y lee las pestañas.
+- **No modifica el Excel de entrada.** El resultado es un Excel nuevo en `salidas/`.
+
+El detalle está en [tecnico.md](tecnico.md).
 
 ## Proceso
 
 ```mermaid
 flowchart LR
     A[Excel de entrada] --> P{{Programa}}
-    I[(ICAM<br/>solo lectura)] -- por barcode --> P
-    T[DIPs References.xlsx] --> P
+    I[(ICAM)] -- por barcode --> P
+    T[DIPs References.xlsx<br/>+ catalogo_others.yaml] --> P
     P --> S[Excel de salida]
-    S --> D[DISCREPANCIA]
-    S --> R[POSIBLE DISCREPANCIA]
+    S --> D[POSIBLE DISCREPANCIA]
+    S --> R[REVISAR]
+    S --> F[SIN FUENTE]
     S --> O[OK]
     D --> U([Auditor confirma])
     R --> U
+    F --> U
     O --> U
-    style D fill:#F4B6B6,color:#000
-    style R fill:#FCE3B0,color:#000
+    style D fill:#FCE3B0,color:#000
+    style R fill:#E8D5F0,color:#000
+    style F fill:#D6E4F0,color:#000
     style O fill:#C9E7C9,color:#000
 ```
 
-## Uso
+`DIPs References.xlsx` dice qué exige cada ítem (TA, Parent Assy, AMM/ECRA, RIR). El **catálogo** (`config/catalogo_others.yaml`) dice cómo reconocer ese ítem en el Fault Name: qué palabras debe tener y cuáles no ("CREW OXY 850 PSI" -> `CREW OXYGEN BOTTLE PRESSURE`). También resuelve los TA que en la tabla dependen de la flota o de la presión. Un DIP que no coincide con ninguna entrada sale SIN FUENTE.
+
+| Resultado            | Qué significa                                                                           | Qué hace el auditor                               |
+| -------------------- | ---------------------------------------------------------------------------------------- | -------------------------------------------------- |
+| POSIBLE DISCREPANCIA | Falló al menos una regla                                                                | Lee`HALLAZGOS` y decide                          |
+| REVISAR              | La tabla da el TA o el RIR según el daño o el tipo ("DEPENDING ON...", "CONSULT REF.") | Lo verifica en el manual que indica el hallazgo    |
+| SIN FUENTE           | El DIP no está en la tabla de referencias                                               | Lo verifica contra la fuente que cita el DIP       |
+| OK                   | No falló ninguna regla (puede tener observaciones)                                      | Hace las verificaciones de`VERIFICACIÓN MANUAL` |
+| FUERA DE ALCANCE     | Tipo de DIP excluido con`--tipos-dip`                                                  | No se revisa                                       |
+
+## Formas de usarlo
+
+| Entrada                           | Cómo                                                                               | Salida                                                                                                            |
+| --------------------------------- | ----------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| Excel de entrada                  | Arrastrar el Excel sobre`auditar.bat` (en consola, con `--icam` para leer ICAM) | `salidas/..._AUDITORIA_...xlsx`                                                                                 |
+| Solo los pendientes               | `auditar.bat "DIPs Audit (...).xlsx" --pendientes`                                | Primero`... FILTERED.xlsx` (ACTV sin auditoría de apertura, COMPLETE sin la de cierre), después la auditoría |
+| Un DIP, sin Excel                 | `auditar.bat T40S0099V9C`                                                         | En consola; lee el DIP en ICAM y no genera archivos                                                               |
+| Comparar con la auditoría manual | Arrastrar el Excel sobre`comparar.bat`                                            | `salidas/..._COMPARACION_...xlsx`                                                                               |
 
 ```mermaid
 flowchart TD
     A["1. Ejecutar auditar.bat con el Excel de entrada<br/>(con --icam para leer todos los DIPs en ICAM)"] --> B
-    B["2. Con --icam, si se pide, iniciar sesión en ICAM<br/>en la ventana de Edge (dejarla abierta)"] --> C
+    B["2. Con --icam, si se pide, iniciar sesión en ICAM<br/>en la ventana de Edge (se cierra al terminar)"] --> C
     C["3. Abrir el Excel de salida en la carpeta salidas<br/>Hoja Dashboard: resumen y gráficos"] --> D
-    D["4. Hoja Auditoría: filtrar RESULTADO<br/>y revisar DISCREPANCIA y POSIBLE DISCREPANCIA"]
+    D["4. Hoja Auditoría: filtrar RESULTADO<br/>y revisar POSIBLE DISCREPANCIA, REVISAR y SIN FUENTE"]
+```
+
+Sin `--icam` se audita solo con el Excel: menos reglas (no hay Start del T/A, RIR vigentes, notas del diferimiento ni acción correctiva) y más verificaciones manuales.
+
+## Recorrido de un DIP
+
+```mermaid
+flowchart TD
+    E[Fila del Excel de entrada] --> N[1. Datos en formato común<br/>fechas, unidades, flota, Parent Assy]
+    I[(ICAM)] --> N
+    N --> AS{"2. ¿Qué ítem es?<br/>Fault Name -> ref. técnica -> descripción"}
+    AS -- Reconocido --> RT[3. Reglas contra la tabla<br/>intervalo, Parent Assy, S/N, ref. técnica, RIR]
+    AS -- No reconocido --> SF[3. Reglas contra la descripción<br/>plazo, RIR y vencimiento que declara]
+    RT --> G[4. Reglas generales<br/>vencido, Start del T/A, due date, attachments,<br/>S/N, ATA, duplicados]
+    SF --> G
+    G --> C{¿DIP COMPLETE?}
+    C -- Sí --> CI[5. Reglas de cierre<br/>cierre tarde, acción correctiva, attachments]
+    C -- No --> R
+    CI --> R[6. Resultado = el hallazgo más grave<br/>+ comentario sugerido]
 ```
 
 ## Lectura de ICAM
@@ -58,11 +105,12 @@ sequenceDiagram
     end
 ```
 
-| Control | Cómo |
-| --- | --- |
-| Solo lectura | Las únicas consultas son la búsqueda y la lectura de las pestañas. No se abre ningún formulario de edición ni corre código de ICAM |
-| Sin errores | Cada respuesta se valida (DIP, barcode y contenido). 3 reintentos por consulta. Un DIP incompleto no se guarda. Si la sesión vence, se detiene y lo leído queda guardado |
-| Rapidez | Sin dibujar páginas ni descargar imágenes. 3 DIPs a la vez, pestañas en paralelo. Un DIP ya leído no se vuelve a leer |
+| Control        | Cómo                                                                                                                                                                                                                                                                             |
+| -------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Solo lectura   | Las únicas consultas son la búsqueda, la lectura de las pestañas y la descarga de los PDF adjuntos de los DIPs de oxígeno (inventario de generators). No se abre ningún formulario de edición ni corre código de ICAM                                                    |
+| Sin errores    | Cada respuesta se valida (DIP, barcode y contenido). 3 reintentos por consulta. Un DIP incompleto no se guarda. Si la sesión vence, se detiene y lo leído queda guardado                                                                                                        |
+| Datos actuales | Con`--icam` (y al auditar por barcode) se leen en ICAM los DIPs del archivo. Un DIP leído hace menos de 1 hora se toma de `data/icam.json`, sin volver a leerlo; `--no-cache` los lee todos. Para reusar una lectura sin importar la hora: `--datos-icam data/icam.json` |
+| Rapidez        | Sin dibujar páginas ni descargar imágenes. 3 DIPs a la vez, pestañas en paralelo: unos 5 minutos para 380 DIPs                                                                                                                                                                 |
 
 ## Datos que se usan
 
@@ -75,54 +123,64 @@ flowchart LR
         I1[Description] --- I2[Technical References] --- I3[Deferral Notes] --- I4[Attachments] --- I5[Scheduling] --- I6[S/N removido e instalado]
     end
     subgraph T[DIPs References.xlsx]
-        T1[TA por flota o condición] --- T2[Parent Assy] --- T3[AMM / ECRA]
+        T1[TA por flota o condición] --- T2[Parent Assy] --- T3[AMM / ECRA] --- T4[RIR]
     end
 ```
+
+El catálogo tiene 70 entradas: Others, Powerplant y Structures.
 
 ## Reglas
 
 ```mermaid
 flowchart TD
     N[Fault Name, referencia técnica<br/>o descripción] --> REF{¿Referencia en la tabla?}
-    REF -- No --> PD1[SIN FUENTE]
-    REF -- Sí --> V[Intervalo y tipo · Parent Assy · Due date<br/>Vencidos · Duplicados · Deferral Reference]
-    V --> RT{¿Referencia técnica<br/>manual + REV + fecha?}
-    RT -- Falta --> D1[DISCREPANCIA]
-    RT -- De otra referencia --> D1
-    RT -- Tarea que la tabla no tiene --> PD2[POSIBLE DISCREPANCIA]
-    RT -- Completa y correcta --> F{¿Falló otra regla?}
-    F -- Sí --> D1
-    F -- No --> OK[OK]
-    style D1 fill:#F4B6B6,color:#000
-    style PD1 fill:#D6E4F0,color:#000
-    style PD2 fill:#FCE3B0,color:#000
+    REF -- No --> SD[Reglas de la descripción<br/>y reglas generales]
+    SD -- Falla alguna --> PD
+    SD -- Ninguna falla --> SF[SIN FUENTE]
+    REF -- Sí --> M{¿TA o RIR<br/>según el manual?}
+    M -- Sí --> RV[REVISAR]
+    M -- No --> V[Intervalo · Start · Parent Assy · Due date · Vencido<br/>Referencia técnica · RIR · Attachments · S/N · Duplicados]
+    V -- Falla alguna --> PD[POSIBLE DISCREPANCIA]
+    V -- Ninguna falla --> OK[OK]
+    style PD fill:#FCE3B0,color:#000
+    style RV fill:#E8D5F0,color:#000
+    style SF fill:#D6E4F0,color:#000
     style OK fill:#C9E7C9,color:#000
 ```
 
-| Regla | Si falla |
-| --- | --- |
-| Intervalo mayor que el TA | DISCREPANCIA CRÍTICA |
-| Tipo de intervalo distinto (días, FH, FC) | DISCREPANCIA CRÍTICA |
-| Parent Assy distinto (AIRCRAFT / ENGINE) | DISCREPANCIA CRÍTICA |
-| Due date después del vencimiento del ítem | DISCREPANCIA CRÍTICA |
-| DIP activo vencido o cerrado fuera de plazo | DISCREPANCIA CRÍTICA |
-| Referencia técnica sin manual, REV o fecha | DISCREPANCIA NO CRÍTICA |
-| Referencia técnica de otra referencia | DISCREPANCIA NO CRÍTICA |
-| Intervalo 0 | DISCREPANCIA NO CRÍTICA |
-| Usage Remaining mayor que el intervalo | OBSERVACIÓN |
-| DIP duplicado, S/N repetido, Deferral Reference distinto del ATA | DISCREPANCIA NO CRÍTICA |
-| RIR faltante o con intervalo distinto del de la tabla | DISCREPANCIA NO CRÍTICA |
-| RIR sin un límite del T/A o en otro Parent Assembly | DISCREPANCIA NO CRÍTICA |
-| RIR con Start distinto del T/A | POSIBLE DISCREPANCIA |
-| Sin attachments (apertura o cierre) | DISCREPANCIA NO CRÍTICA |
-| Start del T/A distinto de la apertura (o de la apertura + A en ventanas "AFTER A, BEFORE B") | DISCREPANCIA NO CRÍTICA |
-| S/N distinto del de las notas del diferimiento | DISCREPANCIA NO CRÍTICA |
-| Barcode de trabajo citado como referencia (no específica) | DISCREPANCIA NO CRÍTICA |
-| Sin intervalo, due date dudoso | POSIBLE DISCREPANCIA |
-| TA o RIR según el daño o el tipo ("DEPENDING ON...", "CONSULT REF.") | REVISAR (ir al manual) |
-| Sin referencia en la tabla | SIN FUENTE |
+Si en un DIP con REVISAR además falla otra regla, queda en POSIBLE DISCREPANCIA: manda el hallazgo más grave. Una OBSERVACIÓN se anota en `HALLAZGOS` pero no cambia el resultado.
 
-Qué tipos de discrepancia y reglas se revisan, y la severidad de cada regla, se configuran en `config/discrepancias.yaml`.
+| Regla                                                                                              | Resultado              |
+| -------------------------------------------------------------------------------------------------- | ---------------------- |
+| Intervalo mayor que el TA, o en otra unidad (días, FH, FC)                                        | POSIBLE DISCREPANCIA   |
+| Intervalo menor que el TA                                                                          | OBSERVACIÓN           |
+| Intervalo 0                                                                                        | POSIBLE DISCREPANCIA   |
+| La tabla pide dos límites ("45 DAYS OR 225 FC") y el T/A en ICAM tiene uno                        | POSIBLE DISCREPANCIA   |
+| Parent Assy distinto (AIRCRAFT / ENGINE)                                                           | POSIBLE DISCREPANCIA   |
+| Start del T/A distinto de la apertura (o de la apertura + A en ventanas "AFTER A, BEFORE B")       | POSIBLE DISCREPANCIA   |
+| Due date después del Start + intervalo, o del vencimiento del ítem                               | POSIBLE DISCREPANCIA   |
+| Generators de oxígeno: due date después del Exp. Date del PDF de inventario, o S/N que no está en el PDF | POSIBLE DISCREPANCIA   |
+| DIP activo vencido, o paquete programado después del due date                                     | POSIBLE DISCREPANCIA   |
+| Usage Remaining mayor que el intervalo                                                             | OBSERVACIÓN           |
+| Sin referencia técnica (ni cargada, ni captura adjunta, ni citada)                                | POSIBLE DISCREPANCIA   |
+| Referencia técnica sin REV o sin fecha                                                            | OBSERVACIÓN           |
+| Referencia técnica de otra referencia de la tabla, o tarea que la tabla no tiene                  | POSIBLE DISCREPANCIA   |
+| Otra tarea del mismo capítulo-sección-tema                                                       | OBSERVACIÓN           |
+| Barcode de trabajo citado como referencia (no específica)                                         | POSIBLE DISCREPANCIA   |
+| Sin attachments (apertura o cierre)                                                                | POSIBLE DISCREPANCIA   |
+| S/N distinto del de las notas del diferimiento, o repetido en otro DIP activo                      | POSIBLE DISCREPANCIA   |
+| DIP duplicado, o declarado duplicado / creado por error y todavía abierto                         | POSIBLE DISCREPANCIA   |
+| Deferral Reference distinto del ATA                                                                | POSIBLE DISCREPANCIA   |
+| RIR faltante, con otro intervalo, sin un límite del T/A, en otro Parent Assembly o con otro Start | POSIBLE DISCREPANCIA   |
+| Sin intervalo o sin tipo de intervalo                                                              | POSIBLE DISCREPANCIA   |
+| Cierre después del due date, o después del original con deadline extendido                       | POSIBLE DISCREPANCIA   |
+| Cierre sin acción correctiva                                                                      | POSIBLE DISCREPANCIA   |
+| Acción correctiva sin cita del manual                                                             | OBSERVACIÓN           |
+| TA o RIR según el daño o el tipo ("DEPENDING ON...", "CONSULT REF.")                             | REVISAR (ir al manual) |
+| Sin referencia en la tabla                                                                         | SIN FUENTE             |
+| DIP SIN FUENTE con T/A mayor que el plazo de su descripción, o sin el RIR que pide                | POSIBLE DISCREPANCIA   |
+
+Qué tipos de discrepancia y reglas se revisan, y cuáles son solo observación, se configura en `config/discrepancias.yaml`. Ese archivo guarda además una severidad interna por regla (CRITICA, NO CRITICA, REVISAR) que hoy solo ordena los hallazgos: los niveles de discrepancia todavía no están definidos con los auditores.
 
 ## RIR en ICAM
 
@@ -139,14 +197,23 @@ flowchart LR
     P --> C
 ```
 
-| Se revisa | Criterio del auditor |
-| --- | --- |
-| Intervalo | "RIRs (2 DAY INTERVAL)", "T/A y RIRs correctos (100 FH y 50 FH)" |
-| Límites | "RIRs aperturados solo con limitantes de ciclos. Agregar limitante de 30 Meses" |
-| Start | "RIRs de 200FH con START values diferentes al T/A ocasiona que corran mal" |
-| Parent Assembly | "RIRS aperturados correctamente al motor ESN …" |
+| Se revisa       | Criterio del auditor                                                            |
+| --------------- | ------------------------------------------------------------------------------- |
+| Intervalo       | "RIRs (2 DAY INTERVAL)", "T/A y RIRs correctos (100 FH y 50 FH)"                |
+| Límites        | "RIRs aperturados solo con limitantes de ciclos. Agregar limitante de 30 Meses" |
+| Start           | "RIRs de 200FH con START values diferentes al T/A ocasiona que corran mal"      |
+| Parent Assembly | "RIRS aperturados correctamente al motor ESN …"                                |
 
 Las Follow-on Tasks REQ (servicio de taller) no son RIR.
+
+## Excel de salida
+
+| Hoja       | Contenido                                                                                                                                                                                                                                        |
+| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Dashboard  | Indicadores y gráficos: resultado, apertura y cierre, DIPs por tipo y por flota, referencias y aviones con posible discrepancia                                                                                                                |
+| Resumen    | Archivo, fecha y conteos                                                                                                                                                                                                                         |
+| Auditoría | Las columnas del Excel de entrada y, al final, las del programa:`RESULTADO`, `HALLAZGOS`, `COMENTARIO SUGERIDO`, `VERIFICACIÓN MANUAL`, `REFERENCIA ASOCIADA`, `REFERENCIA TÉCNICA DEL DIP`, `RIR EN ICAM`, `ADJUNTOS EN ICAM` |
+| Hallazgos  | Un hallazgo por fila, con su tipo de discrepancia y si es de apertura o de cierre                                                                                                                                                                |
 
 ## Referencia técnica en los DIPs Others leídos de ICAM
 

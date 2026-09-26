@@ -114,10 +114,22 @@ def asociar_por_codigos(codigos: list[str], catalogo: Catalogo,
 def asociar(nombre: str, catalogo: Catalogo, aproximada: bool = True) -> Asociacion:
     """Asocia un Fault Name a una entrada del catálogo por reglas de palabras clave
     (confianza ALTA). Sin coincidencia única, el DIP queda sin referencia. `aproximada`:
-    tolerar errores de escritura (no en textos largos, como la descripción)."""
+    tolerar errores de escritura (no en textos largos, como la descripción).
+
+    Las filas de la tabla sin entrada en el catálogo (automáticas) se prueban solo si
+    ninguna entrada del catálogo coincide: sus palabras salen tal cual de la DESCRIPTION."""
+    a = _asociar_en(nombre, [e for e in catalogo.entradas if not e.automatica], aproximada)
+    if a.entrada is not None or a.metodo == "AMBIGUA":
+        return a
+    b = _asociar_en(nombre, [e for e in catalogo.entradas if e.automatica and e.requiere],
+                    aproximada)
+    return b if b.entrada is not None else a
+
+
+def _asociar_en(nombre: str, entradas: list[EntradaCatalogo], aproximada: bool) -> Asociacion:
     n = normalizar(nombre)
     coincidencias: list[tuple[EntradaCatalogo, int]] = []
-    for e in catalogo.entradas:
+    for e in entradas:
         ok, puntaje = e.coincide(n)
         if ok:
             coincidencias.append((e, puntaje))
@@ -128,7 +140,7 @@ def asociar(nombre: str, catalogo: Catalogo, aproximada: bool = True) -> Asociac
     if not coincidencias:
         # Mismas palabras clave, tolerando errores de escritura. Se acepta solo si una única
         # entrada (o entradas equivalentes) coincide: es tan exigente como la exacta.
-        aproximadas = [(e, r) for e in catalogo.entradas
+        aproximadas = [(e, r) for e in entradas
                        if (r := coincide_aproximado(e, n)) is not None]
         if aproximadas:
             mejor = max(p for _, (p, _) in aproximadas)

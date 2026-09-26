@@ -301,6 +301,8 @@ def leer_ficha(secciones: dict, barcode: str = "", titulo: str = "") -> FichaICA
     f.diferido = diferidos[-1] if diferidos else ""
     certificados = fechas_historial("Fault has been certified")
     f.certificado = certificados[0] if certificados else ""
-    notas = re.findall(r"Deferral Notes:\s*(.+?)(?:\t|\n\n|$)", historial, re.S)
+    # Sin notas, "Deferral Notes:" termina en la celda: no se toma la línea siguiente (la
+    # fecha del próximo evento del historial pasaría por vencimiento del ítem).
+    notas = re.findall(r"Deferral Notes:[  ]*(.*?)(?:\t|\n\n|$)", historial, re.S)
     f.notas_diferimiento = " | ".join(dict.fromkeys(_limpio(n) for n in notas if _limpio(n)))
     return f

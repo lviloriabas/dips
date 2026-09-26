@@ -33,6 +33,9 @@ positivos:
   - {nombre: "RADIO STATION LICENCE EXPIRES", intervalo: "30 DAY", esperado: LICENCIA_RADIO}
   - {nombre: "BLEED CONTROLLER CARD FAULT SMT", intervalo: "2902 HOUR", esperado: BLEED_CTRL_CARD}
   - {nombre: "TOC FLAPS CONFIG WARNING SMT", intervalo: "30 HOUR", esperado: FLAPS_TAKEOFF_CONFIG}
+  # Filas 86 y 49, agregadas a la tabla en septiembre (antes eran casos sin referencia).
+  - {nombre: "DIP - 7 DAYS 46 NFS OAS AIRPLANE KEY", intervalo: "6 DAY", esperado: NFS_46_OAS}
+  - {nombre: "AHM - 320 451 00 AIR/GND SENSOR scheduled maintenance task shows: SMT", intervalo: "150 HOUR", esperado: AHM_AIR_GROUND}
 
 negativos:
   - {nombre: "DEFIBRILLATOR DUE DATE", intervalo: "38 DAY"}
@@ -43,10 +46,8 @@ negativos:
   - {nombre: "DIP- 25 PASSENGER LIFE VEST", intervalo: "145 DAY"}
   - {nombre: "AFT LAV SMOKE DETECTOR BATTERY", intervalo: "30 DAY"}
   - {nombre: "DIP- REPLACE FLEXIBLE HOSE", intervalo: "10 DAY"}
-  - {nombre: "DIP - 7 DAYS 46 NFS OAS AIRPLANE KEY", intervalo: "6 DAY"}
   - {nombre: "DIP- to check spoiler cables tension .", intervalo: "7 DAY"}
   - {nombre: "DIP-BOROSCOPE DUE TO FOD IN ENGINE #1", intervalo: "10 CYCLES"}
-  - {nombre: "AHM - 320 451 00 AIR/GND SENSOR scheduled maintenance task shows: SMT", intervalo: "150 HOUR"}
   - {nombre: "OXYGEN MASK CREW STOWAGE BOX", intervalo: "10 DAY"}
   - {nombre: "foward cargo cilling shroud with damage.", intervalo: "120 DAY"}
   - {nombre: "DIP- check for hydraulic leakage at the NLG Swivel", intervalo: "15 CYCLES"}

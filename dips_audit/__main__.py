@@ -23,7 +23,8 @@ from datetime import datetime
 from pathlib import Path
 
 import pandas as pd
-from rich.console import Console
+from rich import box
+from rich.console import Console, Group
 from rich.panel import Panel
 from rich.table import Table
 
@@ -65,8 +66,7 @@ def _tabla_estados(filas: pd.DataFrame) -> Table:
     total = len(filas)
     conteo = filas["RESULTADO"].value_counts().to_dict()
     auditados = total - conteo.get("FUERA DE ALCANCE", 0)
-    t = Table(title=f"Resultado por DIP ({auditados} auditados de {total})",
-              caption="% sobre los auditados; fuera de alcance (otro tipo de DIP), sobre el total.")
+    t = Table(title=f"Resultado por DIP ({auditados} auditados de {total})")
     t.add_column("Resultado")
     t.add_column("DIPs", justify="right")
     t.add_column("%", justify="right")
@@ -85,8 +85,7 @@ def _tabla_hallazgos(resultado) -> Table | None:
     if h.empty:
         return None
     auditados = int((resultado.filas["RESULTADO"] != "FUERA DE ALCANCE").sum())
-    t = Table(title="Posibles discrepancias por tipo",
-              caption="Un DIP puede tener varios tipos. % sobre los DIPs auditados.")
+    t = Table(title="Posibles discrepancias por tipo")
     t.add_column("Tipo de discrepancia")
     t.add_column("Apertura", justify="right")
     t.add_column("Cierre", justify="right")
@@ -117,8 +116,7 @@ def _resumen(resultado, tiempos: dict[str, float]) -> Panel:
     revisar = int((en_alcance["RESULTADO"] == "REVISAR").sum())
     ok = int((en_alcance["RESULTADO"] == "OK").sum())
     h = resultado.hallazgos
-    observaciones = int((h["Severidad"] == "OBSERVACION").sum())
-    discrepancias = len(h) - observaciones - int(h["Severidad"].isin(["SIN FUENTE", "CONSULTAR MANUAL"]).sum())
+    discrepancias = int((~h["Severidad"].isin(["OBSERVACION", "SIN FUENTE", "CONSULTAR MANUAL"])).sum())
     manuales = int((en_alcance["VERIFICACIÓN MANUAL"] != "").sum())
     tipos = dict(zip(resultado.lote.datos["fila"], resultado.lote.datos["tipo"]))
     fuera = filas.loc[filas["RESULTADO"] == "FUERA DE ALCANCE", "Fila Excel"].map(tipos)
@@ -133,22 +131,41 @@ def _resumen(resultado, tiempos: dict[str, float]) -> Panel:
         f"({_pct(posibles, auditados)})   [{ESTILOS['REVISAR']}]REVISAR:[/] {revisar} "
         f"({_pct(revisar, auditados)})   [{ESTILOS['SIN FUENTE']}]SIN FUENTE:[/] {sin_fuente} "
         f"({_pct(sin_fuente, auditados)})   [{ESTILOS['OK']}]OK:[/] {ok} ({_pct(ok, auditados)})",
-        f"[bold]Hallazgos:[/] {discrepancias} posibles discrepancias"
-        + (f" ({discrepancias / posibles:.1f} por DIP marcado)" if posibles else "")
-        + f", {observaciones} observaciones",
+        f"[bold]Hallazgos:[/] {discrepancias} posibles discrepancias",
         f"[bold]DIPs con verificación manual pendiente:[/] {manuales} ({_pct(manuales, auditados)})",
         "",
-        "[bold]Tiempos:[/] " + "   ".join(f"{k} {_duracion(v)}" for k, v in tiempos.items()
-                                         if k != "Total"),
-        f"[bold]Tiempo total:[/] {_duracion(tiempos['Total'])}"
-        + (f"   ({tiempos['Auditoría'] / auditados:.2f} s por DIP auditado)" if auditados else ""),
     ]
-    return Panel.fit("\n".join(lineas), title="Resumen de la corrida", border_style="green")
+    return Panel.fit(Group("\n".join(lineas), _tabla_tiempos(tiempos, auditados)),
+                     title="Resumen de la corrida", border_style="green")
+
+
+def _tabla_tiempos(tiempos: dict[str, float], auditados: int) -> Table:
+    """Tiempo de cada etapa y su % del total."""
+    total = tiempos["Total"]
+    t = Table(title="Tiempos", title_justify="left", title_style="bold", box=box.SIMPLE_HEAD,
+              padding=(0, 1), pad_edge=False)
+    t.add_column("Etapa")
+    t.add_column("Tiempo", justify="right")
+    t.add_column("%", justify="right")
+    for etapa, segundos in tiempos.items():
+        if etapa != "Total":
+            t.add_row(etapa, _duracion(segundos), f"{segundos / total:.0%}" if total else "-")
+    t.add_row("[bold]Total[/]", f"[bold]{_duracion(total)}[/]", "", end_section=True)
+    if auditados:
+        t.add_row("[dim]Auditoría por DIP[/]", f"[dim]{tiempos['Auditoría'] / auditados:.2f} s[/]", "")
+    return t
+
+
+def _vigencia(config, args) -> float | None:
+    """Minutos en que un DIP ya leído en ICAM se usa sin volver a leerlo (None con --no-cache)."""
+    return None if getattr(args, "no_cache", False) else float(
+        config["icam"].get("vigencia_minutos", 60))
 
 
 def _extraer_icam(config, archivo: Path, hoja: str | None,
-                  barcodes: list[str] | None = None) -> Path:
-    """Lee en ICAM todos los DIPs del Excel de entrada (o `barcodes`), de cualquier tipo."""
+                  barcodes: list[str] | None = None, vigencia: float | None = None) -> Path:
+    """Lee en ICAM todos los DIPs del Excel de entrada (o `barcodes`), de cualquier tipo. Un
+    DIP leído hace menos de `vigencia` minutos no se vuelve a leer: se usa lo guardado."""
     from .cargador import cargar_export
     from .extractor_icam import extraer
 
@@ -156,11 +173,15 @@ def _extraer_icam(config, archivo: Path, hoja: str | None,
     if not barcodes:
         barcodes = cargar_export(archivo, hoja).datos["barcode"].tolist()
     consola.print(f"Lectura de ICAM (solo lectura): {len(barcodes)} DIPs, "
-                  f"se guardan en {icam['archivo']}.")
-    estado = extraer(barcodes, icam, icam["archivo"], consola.print)
+                  f"se guardan en {icam['archivo']}."
+                  + (f" Los leídos hace menos de {vigencia:g} min se toman de ahí (--no-cache "
+                     "para leerlos todos)." if vigencia else ""))
+    estado = extraer(barcodes, icam, icam["archivo"], consola.print, vigencia_minutos=vigencia)
     errores = {b: e for b, e in estado.items() if e.startswith("error")}
     leidos = sum(e == "leido" for e in estado.values())
-    consola.print(f"[bold green]ICAM:[/] {leidos} leídos, {len(errores)} con error.")
+    guardados = sum(e == "guardado" for e in estado.values())
+    consola.print(f"[bold green]ICAM:[/] {leidos} leídos, {guardados} de lo guardado, "
+                  f"{len(errores)} con error.")
     for b, e in list(errores.items())[:10]:
         consola.print(f"[yellow]{b}:[/] {e}")
     return icam["archivo"]
@@ -168,7 +189,7 @@ def _extraer_icam(config, archivo: Path, hoja: str | None,
 
 def cmd_extraer_icam(args, config) -> int:
     archivo = _extraer_icam(config, Path(args.archivo) if args.archivo else None, args.hoja,
-                            args.barcode)
+                            args.barcode, _vigencia(config, args))
     if args.barcode and len(args.barcode) == 1:
         # Diagnóstico: muestra lo que se interpretó del DIP.
         import json
@@ -242,8 +263,9 @@ def cmd_barcode(args, config) -> int:
     else:
         archivo = config["icam"]["archivo"]
         with consola.status(f"Leyendo en ICAM (solo lectura) {', '.join(barcodes)}..."):
-            estado = extraer(barcodes, config["icam"], archivo)
-        errores = {b: e for b, e in estado.items() if e != "leido"}
+            estado = extraer(barcodes, config["icam"], archivo,
+                             vigencia_minutos=_vigencia(config, args))
+        errores = {b: e for b, e in estado.items() if e.startswith("error")}
         for b, e in errores.items():
             consola.print(f"[bold red]{b}:[/] no se pudo leer en ICAM ({e}).")
         barcodes = [b for b in barcodes if b not in errores]
@@ -266,7 +288,7 @@ def cmd_abrir_icam(args, config) -> int:
     ya_abierto = edge_activo(int(config["icam"].get("puerto", 9222)))
     abrir_edge(config["icam"])
     consola.print("Edge de ICAM " + ("ya estaba abierto." if ya_abierto else "abierto.")
-                  + " Inicie sesión en ICAM en esa ventana y déjela abierta.")
+                  + " Inicie sesión en ICAM en esa ventana.")
     return 0
 
 
@@ -336,7 +358,8 @@ def cmd_comparar(args, config) -> int:
 
     inicio = time.perf_counter()
     if args.icam and not args.datos_icam:
-        args.datos_icam = str(_extraer_icam(config, Path(args.archivo), args.hoja))
+        args.datos_icam = str(_extraer_icam(config, Path(args.archivo), args.hoja,
+                                               vigencia=_vigencia(config, args)))
     _filtrar_tipos_dip(args, config)
     auditor = Auditor(config)
     _filtrar_categorias(args, auditor)
@@ -381,7 +404,8 @@ def cmd_auditar(args, config) -> int:
     if args.pendientes:
         _pendientes(args)
     if args.icam and not args.datos_icam:
-        args.datos_icam = str(_extraer_icam(config, Path(args.archivo), args.hoja))
+        args.datos_icam = str(_extraer_icam(config, Path(args.archivo), args.hoja,
+                                               vigencia=_vigencia(config, args)))
         tiempos["Lectura de ICAM"] = time.perf_counter() - inicio
     marca = time.perf_counter()
     _filtrar_tipos_dip(args, config)
@@ -565,6 +589,8 @@ def main(argv: list[str] | None = None) -> int:
     a.add_argument("-i", "--icam", action="store_true",
                    help="Leer antes en ICAM (solo lectura) todos los DIPs del archivo y usar esos "
                         "datos (sin esta opción, se audita solo con el Excel de entrada)")
+    a.add_argument("--no-cache", action="store_true",
+                   help="Leer en ICAM todos los DIPs, aunque se hayan leído hace menos de 1 hora")
     a.add_argument("--datos-icam", metavar="RUTA", help="CSV o Excel con datos extraídos de ICAM por barcode "
                                   "(columnas barcode y technical_references; description opcional)")
     a.add_argument("--pendientes", action="store_true",
@@ -583,6 +609,8 @@ def main(argv: list[str] | None = None) -> int:
     c.add_argument("-i", "--icam", action="store_true",
                    help="Leer antes en ICAM (solo lectura) todos los DIPs del archivo y usar esos "
                         "datos (sin esta opción, se compara solo con el Excel de entrada)")
+    c.add_argument("--no-cache", action="store_true",
+                   help="Leer en ICAM todos los DIPs, aunque se hayan leído hace menos de 1 hora")
     c.add_argument("--datos-icam", metavar="RUTA", help="Datos de ICAM ya extraídos (p. ej. data/icam.json)")
     _argumentos_categorias(c)
 
@@ -605,6 +633,8 @@ def main(argv: list[str] | None = None) -> int:
     x.add_argument("-p", "--prueba", action="store_true", help="Datos de prueba: usa pruebas/icam.json y pruebas/salidas y marca los resultados como PRUEBA (automático si el Excel está en pruebas/)")
     x.add_argument("-b", "--barcode", action="append", help="Leer solo este barcode (se puede repetir); "
                                                       "con uno solo, muestra lo interpretado")
+    x.add_argument("--no-cache", action="store_true",
+                   help="Leer en ICAM todos los DIPs, aunque se hayan leído hace menos de 1 hora")
 
     b = sub.add_parser("barcode", help="Audita DIPs por barcode solo con ICAM, sin Excel de "
                                        "entrada; el resultado se muestra en consola")
@@ -615,6 +645,8 @@ def main(argv: list[str] | None = None) -> int:
     b.add_argument("--datos-icam", metavar="RUTA",
                    help="Usar datos de ICAM ya leídos (p. ej. data/icam.json), sin leer ICAM")
     b.add_argument("-i", "--icam", action="store_true", help=argparse.SUPPRESS)  # siempre lee ICAM
+    b.add_argument("--no-cache", action="store_true",
+                   help="Leer en ICAM todos los DIPs, aunque se hayan leído hace menos de 1 hora")
     b.add_argument("-c", "--categorias", nargs="+", metavar="TIPO",
                    help="Revisar solo estos tipos de discrepancia (basta una parte del nombre)")
     b.add_argument("-e", "--excluir-categorias", nargs="+", metavar="TIPO",

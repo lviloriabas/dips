@@ -57,6 +57,36 @@ CASOS = [
     ("RADOME INTERNAL INSPECTION DUE TO BIRDSTRIKE", "RADOMO"),
     ("AHM - 361 451 41/42 BLEED CTRL CARD L & R scheduled maintenance task shows: SMT", "BLEED_CTRL_CARD"),
     ("AHM - 361 452 41 BLEED FAMV RVDT L scheduled maintenance task shows: SMT", "BLEED_FAMV"),
+    # Filas 49-58 y 83-93 de la tabla (Fault Names reales del 25-sep-2026).
+    ("DIP - MLG #1, TIRE CHECK PRESSURE 175 PSI", "LLANTA_PRESION"),
+    ("DIP - NLG #01 CHECK TIRE PRESSURE IN 24 HRS", "LLANTA_PRESION"),
+    ("DIP - P-STATIC BONDING JUMPER (LH FWD) NOSE WHEEL DOOR BROKEN", "P_STATIC_JUMPER"),
+    ("DIP - OXYGEN GENERATORS DUE DATE 31 JAN 2028", "GENERADOR_OXIGENO"),
+    ("DIP - ASU AFT LH OXYGEN GENERATOR DUE DATE 31 JAN 2029", "GENERADOR_OXIGENO"),
+    ("DIP- PASSENGER OXYGEN DUE DATE", "GENERADOR_OXIGENO"),
+    ("200 - A group of Oxygen Generators (5 EA) PN:E72280-00 With DUE DATE 11/2029",
+     "GENERADOR_OXIGENO"),
+    ("AVIONIC - FLAP/SLAT PROXIMITY SENSORS OUT OF RANGE LH SIDE", "PROXIMIDAD_FLAP_SLAT"),
+    ("DIP- LE Flap and Slat Proximity Sensor (RH)", "PROXIMIDAD_FLAP_SLAT"),
+    ("DIP INSTALLATION OF NEW VERSION OF 46 NFS", "NFS_46_OAS"),
+    ("DIP - EEC CREDENTIAL SYSTEM CHECK", "NFS_46_OAS"),
+    ("DIP - RE-TORQUE CENTER TANK ACCESS DOOR PANELS 531AB & 531BB WITHIN 60 DAYS",
+     "RETORQUE_PUERTA_TANQUE"),
+    ("DIP 2 - MAIN AND CENTER TANK ACCESS DOOR RE-TORQUE", "RETORQUE_PUERTA_TANQUE"),
+    ("MODERATE CONTAMINATION WAS FOUND IN THE TANKS L/H AND R/H, A NEW FUEL SAMPLE IS REQUIRED.",
+     "MICROBIAL_MUESTRA_NUEVA"),
+    ("SAMPLE TEST RESULT", "MICROBIAL_MUESTRA_NUEVA"),
+    ("TANK 1 MICROBIAL SAMPLE", "CRECIMIENTO_MICROBIANO"),
+    ("AHM - 320 451 00 AIR/GND SENSOR scheduled maintenance task shows: SMT", "AHM_AIR_GROUND"),
+    ("ENGINE #2 SHORT TIME MESSAGE: 75-10452, THE VBV POSITION SIGNALS DISAGREE", "SHORT_TIME"),
+    ("SHORT TIME MSG 73-30311", "MENSAJE_SHORT_TIME_73_30311"),
+    ("CNR - ENG#1 EGT SYSTEM CHECK", "CNR_EGT"),
+    ("CNR ENG 1 OIL SYS CK", "CNR_ACEITE"),
+    ("DIP 53 OPENING - LIGHTINING STRIKE NEW THRESHOLD INSP", "UMBRAL_REPARACION"),
+    ("55-DIP - DTI EVALUATION IAW MGM 5.5.11", "UMBRAL_REPARACION"),
+    ("DIP - ENGINE 2 ACOUSTIC BARREL DENT AT 3 CLOCK", "DENT_PANEL_ACUSTICO"),
+    ("DIP - Primary Prevention Check Valve.", "BACKFLOW"),
+    ("MAREP - PORTABLE WATER WIGHT DUE DATE", "EXTINTOR_AGUA"),
 ]
 
 
@@ -73,11 +103,9 @@ def test_asociacion_por_reglas(catalogo, nombre, esperado):
     "DIP- 25 PASSENGER LIFE VEST",           # vencimiento de chaleco, no seguro de puerta
     "DEFIBRILLATOR DUE DATE",
     "DIP- wing tank # 2 access door 632AB",
-    # La tabla solo tiene la llanta con la tela a la vista: no un chequeo de presión ni la
-    # compuerta del tren de nariz.
-    "DIP - MLG #1, TIRE CHECK PRESSURE 175 PSI",
-    "DIP - P-STATIC BONDING JUMPER (LH FWD) NOSE WHEEL DOOR BROKEN",
-    "DIP - OXYGEN GENERATORS DUE DATE 31 JAN 2028",  # no está en la tabla: SIN FUENTE
+    "CNR - ENGINE #1 VIBRATION SYSTEM CHECK",     # la tabla solo tiene los CNR de EGT y aceite
+    "MAREP// WAS OPEN DIP FOR REPLACE PRESSURE LINE OF ACOUSTIC FILTER 3 DAYS",
+    "DIP - SPOILER CONTROL CABLES",
 ])
 def test_sin_asociacion_cuando_no_corresponde(catalogo, nombre):
     a = asociar(nombre, catalogo)
@@ -94,12 +122,27 @@ def test_asociacion_por_la_descripcion(auditor):
     assert a.metodo == "DESCRIPCION" and a.entrada.id == "FAK"
 
 
+def test_asociacion_por_el_nombre_y_la_descripcion_juntos(auditor):
+    """T40S009GJV2: el nombre dice la ventana y la descripción el sellante."""
+    dip = hacer_dip(nombre="STRUCTURE - OPEN DIP FOR FLIGHT COMPARTMENT AND CONTROL CABIN "
+                           "WINDOWS R/H #1",
+                    descripcion="If you must send the airplane before the sealant fully cures, "
+                                "do the step that follows")
+    a = auditor._asociar(dip)
+    assert a.metodo == "DESCRIPCION" and a.entrada.id == "SELLANTE_VENTANAS"
+
+
 def test_descripcion_que_cita_otra_tarea_queda_sin_fuente(auditor):
     """T40S009FH6U: la muestra nueva de combustible sigue la SUBTASK 28-10-00-280-056 (10
-    días), no la referencia FUEL MICROBIAL GROWTH (AMM 28-10-00-200-802, 4 días)."""
+    días, fila 90), no la referencia FUEL MICROBIAL GROWTH (AMM 28-10-00-200-802, 4 días)."""
     dip = hacer_dip(nombre="DIP-MODERATE CONTAMINATION WAS FOUND IN THE TANK #1, A NEW FUEL "
                            "SAMPLE IS REQUIRED.",
                     descripcion="SUBTASK 28-10-00-280-056 (3) If the initial test results are "
+                                "positive for moderate or heavy levels of microbial contamination")
+    assert auditor._asociar(dip).entrada.id == "MICROBIAL_MUESTRA_NUEVA"
+    # La descripción dice "microbial" pero cita una tarea que no está en la tabla.
+    dip = hacer_dip(nombre="DIP - FUEL TANK #1",
+                    descripcion="SUBTASK 28-10-00-280-099 (3) If the initial test results are "
                                 "positive for moderate or heavy levels of microbial contamination")
     assert auditor._asociar(dip).entrada is None
 

@@ -233,16 +233,17 @@ def test_rir_start_con_redondeo_y_rir_mas_seguido():
     ("DIP - TWO SPOT OF LIGHTNING STRIKE LOCATED ON EXTERNAL FUSELAGE SKIN SECTION 46", "RAYO_DANO"),
     ("IN REF TO BARCODE 2274947 (LIGHTNING STRIKE) PERFORM PHASE II", "RAYO"),
     ("055 611 00 (Lightning Strike)", "RAYO"),
+    # Filas 84 y 87 de la tabla.
+    ("DIP 53 OPENING - LIGHTINING STRIKE NEW THRESHOLD INSP", "UMBRAL_REPARACION"),
+    ("CNR - ENG 1 EGT SYSTEM CHECK", "CNR_EGT"),
 ])
 def test_asociacion_powerplant_y_structures(catalogo, nombre, esperado):
     assert asociar(nombre, catalogo).entrada.id == esperado
 
 
 @pytest.mark.parametrize("nombre", [
-    "DIP 53 OPENING - LIGHTINING STRIKE NEW THRESHOLD INSP",   # umbral de una reparación SRM
     "DIP - AOA SEALANT, CAP SIDE",                               # sellante del AOA, no de ventanas
-    "CNR - ENG#2 VIBRATION SYSTEM CHECK",                        # CNR de CFM, otra tarea
-    "CNR - ENG 1 EGT SYSTEM CHECK",
+    "CNR - ENG#2 VIBRATION SYSTEM CHECK",                        # CNR de CFM sin fila en la tabla
     "IN REF TO LOG T40S009AE87 LH PITOT REPLACEMENT, PERFORM SEALANT INSTALATION WITHIN 10 DAYS",
 ])
 def test_no_se_asocian_a_powerplant_ni_structures(catalogo, nombre):

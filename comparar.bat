@@ -11,8 +11,11 @@ set "RAIZ=%~dp0"
 if "%~1"=="" (
     echo Arrastre el Excel "DIPs Audit (...)" sobre este archivo, o ejecute:
     echo     comparar.bat "DIPs Audit (23SEP2026).xlsx" [--icam]
-    pause
+    "%RAIZ%.venv\Scripts\python.exe" "%RAIZ%dips_audit\pausa.py" && pause
     exit /b 1
 )
 "%RAIZ%.venv\Scripts\python.exe" -m dips_audit comparar %*
-pause
+set CODIGO=%ERRORLEVEL%
+rem Espera una tecla solo si la ventana se abrio al arrastrar o con doble clic (desde el Explorador).
+"%RAIZ%.venv\Scripts\python.exe" "%RAIZ%dips_audit\pausa.py" && pause
+exit /b %CODIGO%

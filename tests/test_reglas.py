@@ -245,7 +245,8 @@ def test_due_date_de_items_con_vencimiento_no_se_cuenta_por_intervalo(catalogo, 
 # --- Parent assy, ATA, S/N ---------------------------------------------------
 
 def test_parent_assy_incorrecto(catalogo, ctx):
-    r = auditar(catalogo, ctx, "BLEED_FAMV", nombre="AHM - BLEED FAMV", intervalo=30.0,
+    # BLEED PRSOV CTRL: ENGINE en la tabla (fila 46); el DIP está en el avión.
+    r = auditar(catalogo, ctx, "BLEED_PRSOV", nombre="AHM - BLEED PRSOV CTRL", intervalo=2902.0,
                 unidad="FH", tipo_intervalo_original="HOUR", ata=36, deferral_ref="36-DIP",
                 due_date=None, usage_remaining=None)
     assert "parent_assy_incorrecto" in codigos(r, "CRITICA")
@@ -295,6 +296,28 @@ def test_no_duplicado_si_distinto_vencimiento(catalogo):
     a = hacer_dip(barcode="A", nombre="DIP-UPK", due_date=datetime(2026, 11, 30))
     b = hacer_dip(barcode="B", nombre="DIP-UPK", due_date=datetime(2026, 10, 31))
     assert buscar_duplicados([a, b], [upk, upk]) == {}
+
+
+def test_no_duplicado_si_es_otra_etapa_de_la_referencia(catalogo):
+    """T40S009FEV9 / FEVN: 1er re-torque a los 60 días y 2do a los 12 meses, misma puerta."""
+    puerta = catalogo.por_id("RETORQUE_PUERTA_TANQUE")
+    a = hacer_dip(barcode="A", nombre="DIP - RE-TORQUE CENTER TANK ACCESS DOOR PANELS 531AB",
+                  intervalo=60.0, unidad="DAY")
+    b = hacer_dip(barcode="B", nombre="DIP - RE-TORQUE CENTER TANK ACCESS DOOR PANELS 531AB",
+                  intervalo=365.0, unidad="DAY")
+    assert buscar_duplicados([a, b], [puerta, puerta]) == {}
+
+
+def test_no_duplicado_si_son_otros_mensajes(catalogo):
+    """T40S009J2CX / J2CZ: SHORT TIME 75-20451 y 75-10451 del mismo motor."""
+    st = catalogo.por_id("SHORT_TIME")
+    a = hacer_dip(barcode="A", nombre="DIP-ENGINE 1 BITE TEST RECENT FAULTS",
+                  descripcion="SHORTIME MSG NUMBER 75-20451", intervalo=100.0, unidad="FH")
+    b = hacer_dip(barcode="B", nombre="DIP-ENGINE 1 BITE TEST RECENT FAULTS",
+                  descripcion="SHORTIME MSG NUMBER 75-10451", intervalo=100.0, unidad="FH")
+    assert buscar_duplicados([a, b], [st, st]) == {}
+    b["descripcion"] = "SHORTIME MSG NUMBER 75-20451"
+    assert buscar_duplicados([a, b], [st, st]) == {1: ("A", a["nombre"])}
 
 
 def test_no_duplicado_si_uno_ya_se_cerro_otro_dia(catalogo):

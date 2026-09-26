@@ -87,3 +87,19 @@ def test_cli_barcode_inexistente_o_invalido(tmp_path, capsys):
     assert "T40S000XXXX: no está en" in capsys.readouterr().out
     assert main(["barcode", "entrada.xlsx"]) == 1
     assert "entrada.xlsx no es un barcode" in capsys.readouterr().out
+
+
+def test_no_cache_en_todos_los_comandos_que_leen_icam(monkeypatch, tmp_path):
+    """Por defecto se usa lo leído hace menos de 60 min; --no-cache lee todo en ICAM."""
+    import dips_audit.extractor_icam as ext
+    from dips_audit.__main__ import _vigencia, main as principal
+
+    pedidos = []
+    monkeypatch.setattr(ext, "extraer", lambda b, c, a, *x, vigencia_minutos=None:
+                        pedidos.append(vigencia_minutos) or {})
+    assert _vigencia({"icam": {}}, type("A", (), {"no_cache": False})()) == 60
+    assert _vigencia({"icam": {}}, type("A", (), {"no_cache": True})()) is None
+    principal(["extraer-icam", "--barcode", "T40S000FDR1"])
+    principal(["extraer-icam", "--barcode", "T40S000FDR1", "--no-cache"])
+    principal(["barcode", "T40S000FDR1", "--no-cache"])
+    assert pedidos == [60, None, None]

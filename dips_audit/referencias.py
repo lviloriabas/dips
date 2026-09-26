@@ -94,6 +94,13 @@ class EntradaCatalogo:
     # "CONSULT SRM 53-00-01"): el texto de la tabla. Se revisan en el manual: REVISAR.
     ta_segun_manual: str = ""
     rir_segun_manual: str = ""
+    # Fila de la tabla sin entrada en el catálogo: se reconoce por las palabras de su
+    # DESCRIPTION y por su referencia técnica, solo si ninguna entrada del catálogo coincide.
+    automatica: bool = False
+    # Como el asterisco en PARENT ASSY de la tabla: otro Parent Assembly queda en observación.
+    parent_flexible: bool = False
+    # El vencimiento del ítem es el del PDF de inventario adjunto (generators de oxígeno).
+    inventario: bool = False
 
     @property
     def parent_assy(self) -> set[str]:
@@ -101,7 +108,7 @@ class EntradaCatalogo:
 
     @property
     def parent_assy_flexible(self) -> bool:
-        return any(r.parent_assy.endswith("*") for r in self.referencias)
+        return self.parent_flexible or any(r.parent_assy.endswith("*") for r in self.referencias)
 
     @property
     def referencias_tecnicas(self) -> str:
@@ -203,8 +210,9 @@ def interpretar_ta(texto: str) -> InterpretacionTA:
 def remite_al_manual(texto: str) -> bool:
     """El TA o el RIR de la tabla cambia según el daño, la medición o el tipo, y hay que
     ir al manual: '25 FC DEPENDING ON MEASUREMENTS', '7 DAYS OR 1 DAY, DEPENDING ON DAMAGE
-    ZONE AND SIZE (CONSULT REF.)', '10 FC, 350 FC OR BEFORE NEXT REVENUE FLIGHT. CONSULT SRM'."""
-    return bool(re.search(r"DEPEND|CONSULT|SEG[UÚ]N", (texto or "").upper()))
+    ZONE AND SIZE (CONSULT REF.)', '10 FC, 350 FC OR BEFORE NEXT REVENUE FLIGHT. CONSULT SRM',
+    'MMEL 32-51-02' (el plazo del ítem del MMEL)."""
+    return bool(re.search(r"DEPEND|CONSULT|SEG[UÚ]N|\bMMEL\b", (texto or "").upper()))
 
 
 def interpretar_rir(texto: str) -> str:
@@ -271,21 +279,8 @@ def cargar_catalogo(ruta_catalogo: Path, referencias: list[FilaReferencia],
                     inicio_opcional=bool(v.get("inicio_opcional", False)),
                 ))
         else:
-            for fila in filas:
-                interp = interpretar_ta(fila.ta)
-                if interp.hasta_vencimiento:
-                    hasta_vencimiento = True
-                elif interp.no_verificable:
-                    no_verificable = True
-                    if remite_al_manual(fila.ta):
-                        continue  # queda en REVISAR: el TA sale del manual
-                    advertencias.append(
-                        f"[{d['id']}] TA no interpretable automáticamente: '{fila.ta}' "
-                        f"(fila {fila.fila}). Defínalo con 'intervalos' en el catálogo.")
-                else:
-                    variantes.append(Variante(
-                        nombre=fila.descripcion, limites=interp.limites,
-                        rir=interpretar_rir(fila.rir), referencia=fila))
+            variantes, hasta_vencimiento, no_verificable = _variantes_de_la_tabla(
+                d["id"], filas, advertencias)
 
         entradas.append(EntradaCatalogo(
             id=d["id"], nombre=d.get("nombre", d["id"]), referencias=filas,
@@ -294,13 +289,79 @@ def cargar_catalogo(ruta_catalogo: Path, referencias: list[FilaReferencia],
             no_verificable=no_verificable and not variantes,
             requiere_sn=bool(d.get("requiere_sn", False)),
             ta_segun_manual=ta_manual, rir_segun_manual=rir_manual,
+            parent_flexible=bool(d.get("parent_assy_flexible", False)),
+            inventario=bool(d.get("inventario", False)),
         ))
 
+    # Filas de la tabla (de cualquier tipo) que el catálogo no tiene: entrada automática.
     usadas = {id(f) for e in entradas for f in e.referencias}
     for r in referencias:
-        if r.tipo == tipo and id(r) not in usadas:
+        if id(r) not in usadas:
+            entrada = _entrada_automatica(r, advertencias)
+            entradas.append(entrada)
             advertencias.append(
-                f"Referencia {tipo} sin entrada en el catálogo (fila {r.fila}): {r.descripcion}")
+                f"Fila {r.fila} sin entrada en el catálogo ({r.tipo}): {r.descripcion}. Se "
+                f"reconoce por su referencia técnica o si el DIP tiene estas palabras: "
+                f"{', '.join(g[0] for g in entrada.requiere) or '-'}.")
         if r.tipo == tipo and r.ata is None:
             advertencias.append(f"Referencia sin ATA (fila {r.fila}): {r.descripcion}")
     return Catalogo(entradas=entradas, referencias=referencias, advertencias=advertencias)
+
+
+def _variantes_de_la_tabla(id_: str, filas: list[FilaReferencia], advertencias: list[str]
+                           ) -> tuple[list[Variante], bool, bool]:
+    """(variantes, hasta_vencimiento, no_verificable) según el TA de las filas."""
+    variantes: list[Variante] = []
+    hasta_vencimiento = no_verificable = False
+    for fila in filas:
+        interp = interpretar_ta(fila.ta)
+        if interp.hasta_vencimiento:
+            hasta_vencimiento = True
+        elif interp.no_verificable:
+            no_verificable = True
+            if remite_al_manual(fila.ta):
+                continue  # queda en REVISAR: el TA sale del manual
+            advertencias.append(
+                f"[{id_}] TA no interpretable automáticamente: '{fila.ta}' "
+                f"(fila {fila.fila}). Defínalo con 'intervalos' en el catálogo.")
+        else:
+            variantes.append(Variante(
+                nombre=fila.descripcion, limites=interp.limites,
+                rir=interpretar_rir(fila.rir), referencia=fila))
+    return variantes, hasta_vencimiento, no_verificable
+
+
+# Palabras de la DESCRIPTION que no identifican el ítem.
+_PALABRAS_GENERICAS = {
+    "A", "THE", "OF", "WITH", "TO", "IN", "ON", "AND", "FOR", "OR", "AT", "BY", "PER", "IS",
+    "LESS", "THAN", "DAY", "DAYS", "DUE", "DATE", "NEW", "CHECK", "CLOSE",
+}
+
+
+def palabras_de_la_descripcion(descripcion: str) -> list[str]:
+    """Palabras que identifican el ítem en la DESCRIPTION de la tabla: las anteriores a la
+    aclaración (" - " o paréntesis), sin números ni palabras genéricas.
+    'TIRE PRESSURE RECHECK IN 24 HOURS (LOW PRESSURE)' -> TIRE, PRESSURE, RECHECK, HOURS."""
+    cabeza = re.split(r"\s-\s|\(|\[", descripcion)[0]
+    palabras = [p for p in normalizar(cabeza).split()
+                if len(p) > 1 and not p.isdigit() and p not in _PALABRAS_GENERICAS]
+    return list(dict.fromkeys(palabras))
+
+
+def _entrada_automatica(fila: FilaReferencia, advertencias: list[str]) -> EntradaCatalogo:
+    """Entrada para una fila que el catálogo no tiene. Así, agregar la fila a DIPs
+    References.xlsx ya sirve: el DIP se reconoce si tiene todas las palabras de la
+    DESCRIPTION o la referencia técnica de la fila, hasta que se escriba su entrada en el
+    catálogo (con sinónimos y exclusiones)."""
+    id_ = f"FILA_{fila.fila}"
+    variantes, hasta_vencimiento, no_verificable = _variantes_de_la_tabla(
+        id_, [fila], advertencias)
+    return EntradaCatalogo(
+        id=id_, nombre=fila.descripcion, referencias=[fila],
+        requiere=[[p] for p in palabras_de_la_descripcion(fila.descripcion)], excluir=[],
+        variantes=variantes, hasta_vencimiento=hasta_vencimiento,
+        no_verificable=no_verificable and not variantes,
+        ta_segun_manual=fila.ta if remite_al_manual(fila.ta) else "",
+        rir_segun_manual=fila.rir if remite_al_manual(fila.rir) else "",
+        automatica=True,
+    )

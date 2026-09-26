@@ -73,6 +73,13 @@ def test_auditoria_de_punta_a_punta(auditor_others, export, tmp_path):
     assert openpyxl.load_workbook(export).sheetnames == ["Export"]
 
 
+def test_dashboard_sin_dips_en_alcance(config, export, tmp_path):
+    auditor = Auditor({**config, "tipos_auditados": ["Avionics"]}, fecha_auditoria=date(2026, 8, 20))
+    salida = exportar_excel(auditor.auditar_archivo(export), tmp_path / "salida.xlsx")
+    dashboard = openpyxl.load_workbook(salida)["Dashboard"]
+    assert dashboard["B6"].value == 0 and dashboard["Q6"].value == len(FILAS)
+
+
 def test_cli_auditar(export, tmp_path, capsys):
     salida = tmp_path / "cli.xlsx"
     codigo = main(["auditar", str(export), "--salida", str(salida), "--fecha", "2026-08-20"])

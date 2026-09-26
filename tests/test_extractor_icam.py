@@ -41,6 +41,13 @@ TEXTOS = {
     "History": "18-AUG-2026 09:05 UTC\tX\tACTV\t-\tDeferral Notes: TASK 12-15-21-210-801",
 }
 ESCANEO = "/maintenix/servlet/ScanBarcode"
+ADJUNTO = "/maintenix/servlet/ViewAttachment"
+# Inventario de generators adjunto (formulario PDF) y su fila en la tabla Attachments de ICAM.
+CAMPOS_PDF = {"SNRow4": "BEFA-F016-171", "Exp DateRow4": "01-2029", "DIP BarcodeRow4": "{barcode}"}
+TABLA_ADJUNTOS = ("<table id='idTableAttachments'><tr><td>Name</td><td>Attachment</td></tr>"
+                  "<tr><td class='checkbox'></td><td class='longString'>INVENTORY {barcode}.pdf</td>"
+                  "<td class='shortString'><a href='" + ADJUNTO + "?aAttachment={barcode}'>"
+                  "<img></a></td></tr></table>")
 # Fila que solo aparece en "Show Historical Tasks": un RIR ya cerrado.
 HISTORICO = ("\nRIR - PARK BRAKE HOLD CHECK\t{barcode}0\tADHOC (Ad-Hoc Task)\t-\tCOMPLETE\t"
              "18-AUG-2026 23:59 UTC")
@@ -125,6 +132,8 @@ class _ICAMSimulado(http.server.BaseHTTPRequestHandler):
             else:
                 contenido = _html_pestana(TEXTOS[pestana].format(
                     barcode=barcode, historico=HISTORICO.format(barcode=barcode) if historico else ""))
+                if pestana == "TaskInformation":
+                    contenido += TABLA_ADJUNTOS.format(barcode=barcode)
                 if pestana == "FaultInformation":
                     contenido += (f"<a href='{url.path}?aTask={barcode}&aTab=idTabFaultInformation"
                                   "&aShowHistorical=true'>Show Historical Tasks</a>")
@@ -134,6 +143,15 @@ class _ICAMSimulado(http.server.BaseHTTPRequestHandler):
                 "<body onload=\"fetch('/guardar-onload', {method: 'POST'})\">"
                 f"{CABECERA}<img src='/logo.png'><div id='idBarcode'>{barcode}</div>{enlaces}"
                 f"<div id='idTab{pestana}'>{contenido}</div></body></html>"))
+        elif url.path == ADJUNTO:
+            from tests.test_inventario import pdf_con_campos
+
+            barcode = parse_qs(url.query)["aAttachment"][0]
+            cuerpo = pdf_con_campos({k: v.format(barcode=barcode) for k, v in CAMPOS_PDF.items()})
+            self.send_response(200)
+            self.send_header("Content-Type", "application/octet-stream")
+            self.end_headers()
+            self.wfile.write(cuerpo)
         elif url.path == "/logo.png":
             _ICAMSimulado.envios.append("imagen")
             self._responder(404)
@@ -214,6 +232,10 @@ def test_lee_por_barcode_rapido_y_solo_lectura(icam, tmp_path):
         (1.0, "CDY", "18-AUG-2026 23:59 UTC")]
     assert rir.parent_assembly == "Boeing 737-8V3 - HP-1837CMP"
     assert "rir_errores" not in registro
+    # DIP de oxígeno: los campos del PDF adjunto (inventario de generators).
+    assert registro["pdf"] == {"INVENTORY T40S009T003.pdf": {"campos": {
+        "SNRow4": "BEFA-F016-171", "Exp DateRow4": "01-2029", "DIP BarcodeRow4": "T40S009T003"}}}
+    assert "pdf_errores" not in registro
 
     # Segunda corrida: aunque ya estén leídos, se vuelven a leer todos.
     _ICAMSimulado.envios.clear()
@@ -253,3 +275,19 @@ def test_error_al_iniciar_sesion_se_detecta_de_inmediato(icam, tmp_path):
     assert time.monotonic() - inicio < 20
     assert not (tmp_path / "icam.json").exists()
 
+
+
+def test_vigencia_usa_lo_guardado_si_se_leyo_hace_menos_de_una_hora(tmp_path):
+    """Por barcode: lo leído hace menos de 60 min se usa sin abrir ICAM; lo más viejo se relee."""
+    from datetime import datetime, timedelta, timezone
+
+    from dips_audit.extractor_icam import _vigente, guardar_registros
+    ahora = datetime.now(timezone.utc)
+    reciente = {"barcode": "T40S009T000", "captured_at_utc": (ahora - timedelta(minutes=59)).isoformat()}
+    viejo = {"barcode": "T40S009T001", "captured_at_utc": (ahora - timedelta(minutes=61)).isoformat()}
+    assert _vigente(reciente, 60) and not _vigente(viejo, 60)
+    assert not _vigente({"barcode": "X"}, 60) and not _vigente(None, 60)
+    guardar_registros(tmp_path / "icam.json", {r["barcode"]: r for r in (reciente, viejo)})
+    # Sin ICAM (config vacía): si hubiera que leer, fallaría.
+    assert extraer(["T40S009T000"], {}, tmp_path / "icam.json", vigencia_minutos=60) == {
+        "T40S009T000": "guardado"}

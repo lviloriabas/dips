@@ -9,15 +9,17 @@ Nunca completa la página de inicio de sesión.
 Por cada barcode hace, con la sesión de Edge, las mismas consultas que el navegador:
   1. POST /maintenix/servlet/ScanBarcode (Barcode Search) -> página del DIP.
   2. GET de cada pestaña (Fault Information, Task Information, Scheduling, History).
+  3. En los DIPs de oxígeno, GET de cada PDF de Attachments (el inventario de generators):
+     se guardan los campos del formulario (`pdf.<nombre>.campos`), no el archivo.
 El HTML se muestra en una página aislada (sin red y sin los scripts de ICAM) y se copia el
 texto visible de cada pestaña (`#idTab<Pestaña>`). Todos los DIPs se guardan juntos en un solo
 JSON (`data/icam.json`, `{"records": [...]}`), un registro por barcode con el formato de la
 extracción manual (`sections.<pestaña>.text`); `icam.py` lo interpreta.
 
-Solo lectura: las únicas consultas a ICAM son la búsqueda y los GET de las pestañas. No se
-abre ningún formulario de edición ni se ejecuta código de ICAM.
+Solo lectura: las únicas consultas a ICAM son la búsqueda, los GET de las pestañas y los de
+los PDF adjuntos. No se abre ningún formulario de edición ni se ejecuta código de ICAM.
 Rapidez: no se dibujan páginas ni se descargan imágenes; varios DIPs a la vez y las
-pestañas de cada DIP en paralelo; un DIP ya leído no se vuelve a leer.
+pestañas de cada DIP en paralelo; un DIP leído hace menos de 1 hora no se vuelve a leer.
 Sin errores: cada respuesta se valida (página del DIP, barcode correcto, contenido de la
 pestaña); cada consulta se reintenta; un DIP incompleto no se guarda; si la sesión vence,
 la lectura se detiene y lo leído queda guardado.
@@ -34,11 +36,13 @@ import subprocess
 import time
 import urllib.request
 from collections.abc import Callable
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from urllib.parse import urljoin, urlparse
 
 from .icam import PESTANAS, leer_tareas_siguientes
+from .inventario import leer_campos_pdf
+from .texto import normalizar
 
 _RUTA_DIP = "/maintenix/web/task/TaskDetails.jsp"
 # Texto que confirma que cada pestaña trae su contenido (y no una página de error).
@@ -75,11 +79,20 @@ _LEER = """(pestana) => {
         texto: nodo ? nodo.innerText : '',
         pestanas: Object.fromEntries(Array.from(document.querySelectorAll('a[id^="idTab"][id$="_link"]'))
             .map(a => [a.id.slice(5, -5), a.getAttribute('href')])),
+        // Attachments (Task Information): nombre y enlace de descarga (ViewAttachment).
+        adjuntos: Array.from(document.querySelectorAll('#idTableAttachments tr')).map(tr => ({
+            nombre: (tr.querySelector('td.longString')?.textContent || '').trim(),
+            href: tr.querySelector('a[href*="ViewAttachment"]')?.getAttribute('href') || null,
+        })).filter(a => a.nombre && a.href),
         historico: (Array.from(document.querySelectorAll('a'))
             .find(a => /historical tasks/i.test(a.textContent)) || {getAttribute: () => null})
             .getAttribute('href'),
     };
 }"""
+
+
+# DIPs cuyos PDF adjuntos se leen: los de oxígeno (el inventario de generators).
+_PDF_DE = re.compile(r"\bOXYGEN\b")
 
 
 class ErrorExtraccion(Exception):
@@ -217,18 +230,18 @@ class ExtractorICAM:
         return self
 
     async def __aexit__(self, *exc) -> None:
-        cerrar = self._proceso is not None and self.config.get("cerrar_al_terminar")
+        cerrar = self.config.get("cerrar_al_terminar", True)
         if self._navegador:
-            if cerrar:  # Edge abierto solo para esta corrida (pruebas)
-                sesion = await self._navegador.new_browser_cdp_session()
+            if cerrar:  # terminada la lectura, cierra el Edge de ICAM
                 try:
+                    sesion = await self._navegador.new_browser_cdp_session()
                     await sesion.send("Browser.close")
                 except Exception:
                     pass
-            await self._navegador.close()  # se desconecta; la ventana y la sesión quedan abiertas
+            await self._navegador.close()  # sin cerrar_al_terminar, la ventana queda abierta
         if self._pw:
             await self._pw.stop()
-        if cerrar:
+        if cerrar and self._proceso is not None:
             try:
                 self._proceso.wait(timeout=15)
             except subprocess.TimeoutExpired:
@@ -390,6 +403,17 @@ class ExtractorICAM:
                 "sections": {"Scheduling": {"text": textos[0]["texto"]},
                              "TaskInformation": {"text": textos[1]["texto"]}}}
 
+    async def _leer_pdf(self, url: str) -> dict:
+        """Campos del formulario de un PDF adjunto."""
+        r = await self._contexto.request.get(url, timeout=self.espera_ms)
+        if not self._en_icam(r.url) or "login" in r.url.lower():
+            raise ErrorSesion("La sesión de ICAM venció. Inicie sesión en el Edge de ICAM y "
+                              "vuelva a ejecutar.")
+        cuerpo = await r.body()
+        if not r.ok or not cuerpo.startswith(b"%PDF"):
+            raise ErrorExtraccion(f"respuesta {r.status}, no es un PDF")
+        return {"campos": await asyncio.to_thread(leer_campos_pdf, cuerpo)}
+
     async def leer(self, barcode: str) -> dict:
         """Búsqueda, pestañas en paralelo y RIR. Cada consulta se reintenta sola."""
         url_dip, primera = await self._reintentar(lambda: self._buscar(barcode), "búsqueda")
@@ -402,11 +426,29 @@ class ExtractorICAM:
         secciones.update({n: {"text": d["texto"]} for n, d in zip(otras, datos)})
         registro = {"barcode": barcode, "captured_at_utc": datetime.now(timezone.utc).isoformat(),
                     "page_title": primera["titulo"], "page_url": url_dip, "sections": secciones}
+        por_pestana = dict(zip(otras, datos))
+
+        # DIPs de oxígeno: PDF adjuntos (inventario de generators). "pdf" presente = revisado.
+        if _PDF_DE.search(normalizar(primera["titulo"] + " " + primera["texto"])):
+            pdfs, errores_pdf = {}, {}
+            for a in por_pestana["TaskInformation"].get("adjuntos") or []:
+                if not a["nombre"].lower().endswith(".pdf"):
+                    continue
+                try:
+                    pdfs[a["nombre"]] = await self._reintentar(
+                        lambda a=a: self._leer_pdf(urljoin(url_dip, a["href"])), a["nombre"])
+                except ErrorSesion:
+                    raise
+                except Exception as e:
+                    errores_pdf[a["nombre"]] = str(e)
+            registro["pdf"] = pdfs
+            if errores_pdf:
+                registro["pdf_errores"] = errores_pdf
 
         # RIR: Follow-on Tasks cerradas (Show Historical Tasks) y la página de cada RIR vigente.
         # Un problema aquí no invalida el DIP: queda anotado en "rir_errores".
         errores: dict[str, str] = {}
-        falla = dict(zip(otras, datos))["FaultInformation"]
+        falla = por_pestana["FaultInformation"]
         historico = falla.get("historico")
         if historico and not historico.lower().startswith("javascript"):
             try:
@@ -486,19 +528,37 @@ async def _extraer(pendientes: list[str], config: dict, registros: dict[str, dic
         await asyncio.gather(*(trabajador() for _ in range(paralelo)))
 
 
-def extraer(barcodes: list[str], config: dict, archivo: Path,
-            al_avanzar: Callable[[str], None] | None = None) -> dict[str, str]:
-    """Lee en ICAM todos los barcodes, aunque ya estén en `archivo`, para auditar siempre
-    con los datos actuales (p. ej. la acción correctiva y los adjuntos del cierre). Cada DIP
-    leído se agrega (o reemplaza) en `archivo`, junto a los demás.
+def _vigente(registro: dict | None, minutos: float) -> bool:
+    """El registro se leyó en ICAM hace menos de `minutos`."""
+    try:
+        leido = datetime.fromisoformat(registro["captured_at_utc"])
+    except (TypeError, KeyError, ValueError):
+        return False
+    if leido.tzinfo is None:
+        leido = leido.replace(tzinfo=timezone.utc)
+    return datetime.now(timezone.utc) - leido < timedelta(minutes=minutos)
 
-    Devuelve {barcode: "leido" | "error: ..."}. Sin sesión, o si la sesión vence, lanza
-    ErrorSesion (lo ya leído queda guardado).
+
+def extraer(barcodes: list[str], config: dict, archivo: Path,
+            al_avanzar: Callable[[str], None] | None = None,
+            vigencia_minutos: float | None = None) -> dict[str, str]:
+    """Lee en ICAM todos los barcodes, aunque ya estén en `archivo`, para auditar con los
+    datos actuales (p. ej. la acción correctiva y los adjuntos del cierre). Cada DIP
+    leído se agrega (o reemplaza) en `archivo`, junto a los demás. Con `vigencia_minutos`,
+    un DIP leído hace menos de esos minutos no se vuelve a leer: se usa lo guardado.
+
+    Devuelve {barcode: "leido" | "guardado" | "error: ..."}. Sin sesión, o si la sesión
+    vence, lanza ErrorSesion (lo ya leído queda guardado).
     """
     avisar = al_avanzar or (lambda _: None)
     registros = cargar_registros(archivo)
     estado: dict[str, str] = {}
     pendientes = list(dict.fromkeys(barcodes))
+    if vigencia_minutos:
+        for b in pendientes:
+            if _vigente(registros.get(b), vigencia_minutos):
+                estado[b] = "guardado"
+        pendientes = [b for b in pendientes if b not in estado]
     ultimo = [time.monotonic()]
     cambios = [False]
 

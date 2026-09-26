@@ -326,6 +326,9 @@ def normalizar_lote(original: pd.DataFrame) -> tuple[pd.DataFrame, list[str]]:
             "sn_removidos": None,
             "cambios_deadline": None,
             "marcas_auditoria": None,
+            # Inventario de generators (PDF adjunto): {"archivos", "generadores", "errores"};
+            # None = no se leyeron los PDF en ICAM.
+            "inventario": None,
         })
     # dtype=object conserva los None: si no, pandas los vuelve NaT/NaN, que son
     # verdaderos en un if y pasan los controles "is None" de las reglas.
@@ -380,7 +383,20 @@ def _dato_icam(r: dict, ficha=None) -> dict:
         "cambios_deadline": ficha.cambios_deadline,
         "marcas_auditoria": ficha.marcas_auditoria,
         "fin_real": ficha.fin_real,
+        "inventario": _inventario(r),
     }
+
+
+def _inventario(r: dict) -> dict | None:
+    """Generators de los PDF adjuntos que leyó el extractor; None si no se leyeron."""
+    from .inventario import leer_inventario
+
+    pdfs = r.get("pdf")
+    if pdfs is None:
+        return None
+    generadores = [g for datos in pdfs.values() for g in leer_inventario(datos.get("campos") or {})]
+    return {"archivos": list(pdfs) + list(r.get("pdf_errores") or {}),
+            "generadores": generadores, "errores": dict(r.get("pdf_errores") or {})}
 
 
 def _registros_icam(ruta: Path) -> dict[str, dict]:
@@ -526,7 +542,7 @@ def completar_con_icam(lote: Lote, ruta: Path, registros: dict[str, dict] | None
         datos.at[i, "icam_intervalos"] = r["intervalos"]
         datos.at[i, "parent_icam"] = r.get("parent_icam", "")
         for clave in ("accion_correctiva", "sn_removidos", "cambios_deadline", "marcas_auditoria",
-                      "uso_encontrado"):
+                      "uso_encontrado", "inventario"):
             if clave in r:
                 datos.at[i, clave] = r[clave]
         # Fecha de cierre: si el Excel no la trae, la de ICAM (Actual End Date, en UTC).

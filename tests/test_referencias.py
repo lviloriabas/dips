@@ -53,3 +53,45 @@ def test_catalogo_id_repetido_falla(tmp_path, catalogo):
                     encoding="utf-8")
     with pytest.raises(ErrorCatalogo, match="repetido"):
         cargar_catalogo(ruta, catalogo.referencias)
+
+
+def test_fila_sin_entrada_en_el_catalogo_se_usa_igual(tmp_path, catalogo):
+    """Una fila agregada a la tabla sin sus palabras clave en el catálogo se reconoce por
+    las palabras de su DESCRIPTION y por su referencia técnica, con su TA."""
+    from dips_audit.asociacion import asociar, asociar_por_codigos
+    from dips_audit.referencia_tecnica import IndiceReferencias
+    from dips_audit.referencias import FilaReferencia, palabras_de_la_descripcion
+
+    fila = FilaReferencia(fila=200, tipo="OTHERS", area="FUEL", ata=28, flota="ALL",
+                          descripcion="FUEL QUANTITY PROBE RECHECK (AFTER REPLACEMENT)",
+                          parent_assy="AIRCRAFT", referencias="AMM TASK 28-41-11-000-801",
+                          ta="15 DAYS", rir="")
+    ruta = tmp_path / "cat.yaml"
+    ruta.write_text("- id: FDR\n  referencias: ['FDR REPORT']\n  requiere: [[FDR]]\n",
+                    encoding="utf-8")
+    cat = cargar_catalogo(ruta, [f for f in catalogo.referencias
+                                 if f.descripcion == "FDR REPORT"] + [fila])
+    auto = cat.por_id("FILA_200")
+    assert auto.automatica and [l for v in auto.variantes for l in v.limites] == [Limite(15, "DAY")]
+    assert palabras_de_la_descripcion(fila.descripcion) == ["FUEL", "QUANTITY", "PROBE", "RECHECK"]
+    assert any("Fila 200 sin entrada en el catálogo" in a for a in cat.advertencias)
+
+    assert asociar("DIP - FUEL QUANTITY PROBE #2 RECHECK", cat).entrada is auto
+    assert asociar("DIP - FUEL QUANTITY PROBE", cat).entrada is None   # falta RECHECK
+    # Una entrada del catálogo gana a la automática.
+    assert asociar("FDR REPORT FUEL QUANTITY PROBE RECHECK", cat).entrada.id == "FDR"
+    indice = IndiceReferencias.desde_catalogo(cat)
+    assert asociar_por_codigos(["AMM 28-41-11-000-801"], cat, indice) is auto
+
+
+def test_referencia_aircraft_specific_no_fija_numeros_de_tarea(catalogo):
+    """Fila 84: "[AIRCRAFT SPECIFIC] ECRA OF EACH REPAIR, E.G. ... ECRA 5300-3447C": las ECRA
+    son ejemplos, cada DIP cita la de su reparación."""
+    from dips_audit.referencia_tecnica import IndiceReferencias
+    indice = IndiceReferencias.desde_catalogo(catalogo)
+    assert indice.por_entrada["UMBRAL_REPARACION"] == set()
+    assert "EC 5300-3447" not in indice.entradas
+
+
+def test_ta_segun_mmel_es_revisar(catalogo):
+    assert catalogo.por_id("AHM_TAILSKID").ta_segun_manual == "MMEL 32-71-01"

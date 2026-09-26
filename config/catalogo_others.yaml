@@ -16,6 +16,8 @@
 #               de la tabla. Así lo exigen los auditores ("Incorrect DIP Start Values"):
 #               amortiguador NG 5 FC + 15 FC, FDR 7 días + 23 días.
 #   requiere_sn: el Fault Name debería mencionar el S/N del componente.
+#   inventario: el vencimiento del ítem es el Exp. Date del PDF de inventario adjunto (por
+#               S/N o DIP Barcode), no la fecha que escribe la descripción.
 #
 # Las frases se escriben en MAYÚSCULAS y sin acentos. Antes de comparar, el
 # texto se normaliza (ver dips_audit/texto.py: sinónimos y errores comunes como
@@ -107,7 +109,7 @@
 - id: EXTINTOR_AGUA
   nombre: PORTABLE WATER FE LESS THAN 130 DAYS WEIGHT CHECK
   referencias: ["PORTABLE WATER FE LESS THAN 130 DAYS WEIGHT CHECK"]
-  requiere: [[WATER], [EXTINGUISHER, FE]]
+  requiere: [[WATER], [EXTINGUISHER, FE, WEIGHT]]
   requiere_sn: true
 
 - id: SQUIB_MOTOR_APU
@@ -165,7 +167,7 @@
 - id: BACKFLOW
   nombre: PRIMARY BACKFLOW PREVENTION CHECK VALVE
   referencias: ["PRIMARY BACKFLOW PREVENTION CHECK VALVE"]
-  requiere: [[BACKFLOW]]
+  requiere: [[BACKFLOW, PREVENTION CHECK VALVE]]
 
 - id: DPI
   nombre: DIFFERENTIAL PRESSURE INDICATOR
@@ -331,9 +333,126 @@
   referencias: ["TAKEOFF CONFIG FLAPS"]
   requiere: [[TAKEOFF CONFIG]]
 
+- id: AHM_AIR_GROUND
+  nombre: AIR / GROUND SENSOR
+  referencias: ["AIR / GROUND SENSOR"]
+  requiere: [[AIR GROUND, AIR GND]]
+
+- id: AHM_PSEU_ARINC
+  nombre: PSEU AIRINC BUS
+  referencias: ["PSEU AIRINC BUS"]
+  requiere: [[PSEU], [ARINC, AIRINC]]
+
+# TA "MMEL 32-51-02" y "MMEL 32-71-01": el plazo del ítem del MMEL (REVISAR).
+- id: AHM_GEAR_XFER
+  nombre: GEAR XFER HYD QTY SIGNAL
+  referencias: ["GEAR XFER HYD QTY SIGNAL"]
+  requiere: [[XFER, TRANSFER], [HYD QTY, HYD QUANTITY, HYDRAULIC QUANTITY]]
+
+- id: AHM_MLG_UP_SENSOR
+  nombre: MLG UP SENSOR
+  referencias: ["MLG UP SENSOR"]
+  requiere: [[MLG, MAIN GEAR, MAIN LANDING GEAR], [UP SENSOR, UPLOCK SENSOR]]
+
+- id: AHM_TAILSKID
+  nombre: TAILSKID CONTROL
+  referencias: ["TAILSKID CONTROL"]
+  requiere: [[TAILSKID, TAIL SKID]]
+
+- id: AHM_ENG_RUN_RLY
+  nombre: DOOR R ENG RUN RLY
+  referencias: ["DOOR R ENG RUN RLY"]
+  requiere: [[ENG RUN RLY, ENG RUN RELAY, ENGINE RUN RLY, ENGINE RUN RELAY]]
+
+# Generadores de oxígeno químico de PSU, ASU y LAV (FCD 3500-0018C-JIC). Casi nunca dicen
+# "CHEMICAL": "DIP- PASSENGER OXYGEN DUE DATE", "OXYGEN GENERATORS ASU AND LSU DUE DATE".
+# El vencimiento de cada generator está en el PDF de inventario adjunto (Oxygen Generators
+# Inventory): S/N, Exp. Date (mes/año) y DIP Barcode.
+- id: GENERADOR_OXIGENO
+  nombre: CHEMICAL OXYGEN GENERATOR (PSU / ASU / LAV) LIFE LIMIT
+  referencias: ["CHEMICAL OXYGEN GENERATOR (PSU / ASU / LAV) LIFE LIMIT - CLOSE TO DUE DATE"]
+  requiere: [[OXYGEN], [GENERATOR, GENERATORS, GEN, PASSENGER, PAX, PSU, ASU, LSU, LAV]]
+  excluir: [PORTABLE, POB, HYDRO, CREW, MASK, MASKS, FLIGHT COMPARTMENT, COCKPIT]
+  inventario: true
+
+- id: PROXIMIDAD_FLAP_SLAT
+  nombre: LE FLAP AND SLAT PROXIMITY SENSOR OUT OF RANGE
+  referencias: ["LE FLAP AND SLAT PROXIMITY SENSOR OUT OF RANGE"]
+  requiere: [[PROXIMITY SENSOR, PROXIMITY SENSORS, PROX SENSOR], [FLAP, FLAPS, SLAT, SLATS]]
+  intervalos:
+    - variante: "500 FH (SENSOR OUT OF RANGE, EA)"
+      limites: [{valor: 500, unidad: FH}]
+    - variante: "10 DAYS (NO SEALANT AVAILABLE, AMM 27-88-11-400-801)"
+      limites: [{valor: 10, unidad: DAY}]
+
+- id: NFS_46_OAS
+  nombre: 46 NFS OAS AIRPLANE KEY SOFTWARE - INSTALLATION OF NEW VERSION
+  referencias: ["46 NFS OAS AIRPLANE KEY SOFTWARE - INSTALLATION OF NEW VERSION (EEC CREDENTIAL SYSTEM CHECK)"]
+  requiere: [[NFS, OAS, AIRPLANE KEY, CREDENTIAL, CREDENTIALS]]
+
+# Puertas de acceso de tanques con empaque COR-BAN 27L: 1er re-torque a los 60 días y 2do
+# a los 12 meses. La puerta del tanque central por la AMM 47-21-04 es el mismo re-torque.
+- id: RETORQUE_PUERTA_TANQUE
+  nombre: FUEL TANK ACCESS DOOR MOUNTING BOLTS RE-TORQUE
+  referencias: ["FUEL TANK ACCESS DOOR MOUNTING BOLTS RE-TORQUE (COR-BAN 27L GASKET)"]
+  requiere: [[ACCESS DOOR, ACCESS DOORS, ACCESS PANEL, ACCESS PANELS, DOOR PANELS],
+             [TORQUE, RETORQUE]]
+  excluir: [HANDLE]
+  intervalos:
+    - variante: "60 DAYS (1ST RE-TORQUE)"
+      limites: [{valor: 60, unidad: DAY}]
+    - variante: "APPROX. 12 MONTHS (2ND RE-TORQUE, IF COR-BAN 27L WAS APPLIED)"
+      limites: [{valor: 12, unidad: MONTH}]
+
+# Muestra nueva o nuevo resultado tras un positivo de MICROBIAL GROWTH. "SAMPLE" solo no
+# alcanza: el DIP de 4 días del Microbmonitor también dice "MICROBIAL SAMPLE".
+- id: MICROBIAL_MUESTRA_NUEVA
+  nombre: FUEL MICROBIAL CONTAMINATION - NEW FUEL SAMPLE / RETEST RESULTS
+  referencias: ["FUEL MICROBIAL CONTAMINATION - NEW FUEL SAMPLE / RETEST RESULTS"]
+  requiere: [[NEW FUEL SAMPLE, NEW SAMPLE, RETEST, RE TEST, SAMPLE TEST RESULT]]
+  intervalos:
+    - variante: "10 DAYS (NEW SAMPLE AFTER RECEIPT OF RESULTS)"
+      limites: [{valor: 10, unidad: DAY}]
+    - variante: "4 DAYS (RETEST RESULTS)"
+      limites: [{valor: 4, unidad: DAY}]
+
+# La tabla dice NG; los DIPs MAX citan la misma AMM 12-15-51-780-801 (se aceptan todas las flotas).
+- id: LLANTA_PRESION
+  nombre: TIRE PRESSURE RECHECK IN 24 HOURS
+  referencias: ["TIRE PRESSURE RECHECK IN 24 HOURS (LOW PRESSURE / RE-INFLATE RANGE)"]
+  requiere: [[TIRE, TIRES], [PRESSURE, PSI, REINFLATE, RE INFLATE, REINFLATION]]
+  excluir: [PLY, PLIES, CANVAS, CORD, CORDS, THREAD, STRUT, BRAKE]
+  intervalos:
+    - variante: "1 DAY (24 HOURS)"
+      limites: [{valor: 1, unidad: DAY}]
+
+- id: P_STATIC_JUMPER
+  nombre: P-STATIC BONDING JUMPER BROKEN
+  referencias: ["P-STATIC BONDING JUMPER BROKEN (NOSE WHEEL WELL DOOR)"]
+  requiere: [[BONDING JUMPER, BONDING JUMPERS, P STATIC, STATIC BONDING]]
+
 # --- Powerplant y Structures ----------------------------------------------------------------
-# Filas de la tabla con TYPE POWERPLANT o STRUCTURES. Falta SHORT TIME (ECRA 7300-0142C): la
-# tabla dice AIRCRAFT y los DIPs de mensajes short time están en ENGINE (a confirmar).
+# Filas de la tabla con TYPE POWERPLANT o STRUCTURES.
+
+# Mensaje SHORT TIME genérico (ECRA 7300-0142C). La tabla dice AIRCRAFT y los DIPs están en
+# ENGINE: se anota como observación hasta confirmar el Parent Assembly.
+- id: SHORT_TIME
+  nombre: SHORT TIME
+  referencias: ["SHORT TIME"]
+  requiere: [[SHORT TIME, SHORT TERM, SHORTIME]]
+  # Los mensajes con fila propia en la tabla.
+  excluir: [LONG TIME, 73 30311, 73 30902, 77 20871, 78 11481, T12 SIGNAL]
+  parent_assy_flexible: true
+
+- id: CNR_EGT
+  nombre: CNR - ENGINE EGT SYSTEM CHECK
+  referencias: ["CNR - ENGINE EGT SYSTEM CHECK"]
+  requiere: [[CNR], [EGT, EXHAUST GAS TEMPERATURE]]
+
+- id: CNR_ACEITE
+  nombre: CNR - ENGINE OIL SYSTEM CHECK
+  referencias: ["CNR - ENGINE OIL SYSTEM CHECK"]
+  requiere: [[CNR], [OIL]]
 
 - id: VCD_SEAL
   nombre: VCD SEAL
@@ -492,3 +611,17 @@
   requiere: [[LIGHTNING STRIKE], [STA, STR, SKIN, FUSELAGE, SECTION, DAMAGE, SPOT, FASTENER,
                                   FASTENERS, STRUCTURE, EVIDENCE]]
   excluir: [PHASE, PHASE I, PHASE II, THRESHOLD]
+
+# Umbral de inspección de una reparación para incluirla en el AMP (MGM 5.5.11): DIP de 90
+# días para Ingeniería. La ECRA es de cada reparación ("DIP 53 OPENING - LIGHTINING STRIKE NEW
+# THRESHOLD INSP", "55-DIP - DTI EVALUATION IAW MGM 5.5.11").
+- id: UMBRAL_REPARACION
+  nombre: STRUCTURAL REPAIR - EVALUATION / NEW INSPECTION THRESHOLD FOR AMP INCLUSION
+  referencias: ["STRUCTURAL REPAIR - EVALUATION / NEW INSPECTION THRESHOLD FOR AMP INCLUSION (MGM 5.5.11)"]
+  requiere: [[THRESHOLD, DTI EVALUATION, 5 5 11]]
+
+- id: DENT_PANEL_ACUSTICO
+  nombre: ENGINE INLET COWL INNER BARREL ACOUSTIC PANEL DENT
+  referencias: ["ENGINE INLET COWL INNER BARREL ACOUSTIC PANEL DENT"]
+  requiere: [[DENT, DENTS], [ACOUSTIC, INNER BARREL, INLET COWL]]
+  excluir: [FILTER]

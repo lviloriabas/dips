@@ -84,6 +84,7 @@ tipos:
       due_date_anterior_a_intervalo:         {activa: true, severidad: OBSERVACION} # due < inicio + intervalo
       due_date_posterior_a_vencimiento_item: {activa: true, severidad: CRITICA}     # due después del vencimiento del ítem
       due_date_anterior_a_vencimiento_item:  {activa: true, severidad: OBSERVACION} # due antes del vencimiento del ítem
+      # En generators de oxígeno, el vencimiento del ítem es el Exp. Date del PDF de inventario adjunto.
 
   Overdue DIP:
     activo: true
@@ -116,6 +117,7 @@ tipos:
       sn_repetido:                       {activa: true, severidad: NO CRITICA}  # mismo S/N en otro DIP activo del avión
       sn_inconsistente:                  {activa: true, severidad: NO CRITICA}  # S/N del DIP distinto del de las notas del diferimiento
       cierre_sn_distinto:                {activa: true, severidad: OBSERVACION} # cierre: S/N removido distinto del de la descripción
+      sn_fuera_de_inventario:            {activa: true, severidad: NO CRITICA}  # generators: S/N del DIP que no está en el PDF de inventario
 
   Duplicated DIP:
     activo: true
@@ -197,6 +199,7 @@ tipos:
       sin_adjuntos:                      {activa: true, severidad: NO CRITICA}  # apertura: sin attachments
       cierre_sin_adjuntos:               {activa: true, severidad: NO CRITICA}  # cierre: sin attachments
       adjunto_otro_avion:                {activa: true, severidad: OBSERVACION} # el nombre del attachment tiene otra matrícula
+      sin_inventario_generadores:        {activa: true, severidad: OBSERVACION} # generators: sin el PDF de inventario (con ICAM)
 
   # --- Asociación del DIP a su referencia --------------------------------------
   # Si se desactivan, un DIP asociado por aproximación puede quedar OK sin que nadie lo revise.
@@ -207,6 +210,7 @@ tipos:
       asociacion_aproximada:             {activa: true, severidad: OBSERVACION} # Fault Name con errores de escritura
       asociacion_por_referencia_tecnica: {activa: true, severidad: OBSERVACION} # el nombre no alcanza; se usó la ref. técnica
       asociacion_por_descripcion:        {activa: true, severidad: OBSERVACION} # el nombre no alcanza; se usó la descripción
+      asociacion_por_tabla:              {activa: true, severidad: OBSERVACION} # fila de la tabla sin entrada en el catálogo
 
   # SIN FUENTE: ni el Fault Name, ni la referencia técnica, ni la descripción corresponden a
   # una referencia de la tabla. Con REVISAR volvería a ser POSIBLE DISCREPANCIA.
