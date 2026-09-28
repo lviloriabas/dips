@@ -8,7 +8,7 @@ import pytest
 from dips_audit.__main__ import main
 from dips_audit.auditor import Auditor
 from dips_audit.reporte import exportar_excel
-from tests.conftest import crear_export
+from tests.conftest import ENCABEZADO_ENTRADA, crear_export
 
 AVION = "Boeing 737-8V3 - HP-1837CMP"
 FILAS = [
@@ -34,7 +34,9 @@ FILAS = [
 
 @pytest.fixture
 def export(tmp_path):
-    return crear_export(tmp_path / "export_icam.xlsx", FILAS)
+    # Como el export real, con un correlativo "Index" en la primera columna.
+    return crear_export(tmp_path / "export_icam.xlsx", [[n, *f] for n, f in enumerate(FILAS, 1)],
+                        encabezado=["Index", *ENCABEZADO_ENTRADA])
 
 
 def test_auditoria_de_punta_a_punta(auditor_others, export, tmp_path):
@@ -60,8 +62,8 @@ def test_auditoria_de_punta_a_punta(auditor_others, export, tmp_path):
     assert dashboard["B6"].value == 5             # DIPs auditados (sin el Powerplant)
     ws = wb["Auditoría"]
     encabezado = [c.value for c in ws[1]]
-    # Columnas originales primero, con su nombre y orden; las del programa al final.
-    originales = [c.value for c in openpyxl.load_workbook(export)["Export"][1]]
+    # Columnas originales primero (menos Index), con su nombre y orden; las del programa al final.
+    originales = [c.value for c in openpyxl.load_workbook(export)["Export"][1]][1:]
     assert encabezado[:len(originales)] == originales
     agregadas = encabezado[len(originales):]
     assert agregadas[:2] == ["RESULTADO", "COMENTARIO SUGERIDO"] and agregadas[-1] == "Fila Excel"
@@ -69,11 +71,10 @@ def test_auditoria_de_punta_a_punta(auditor_others, export, tmp_path):
     assert "TIPO DE DISCREPANCIA" not in encabezado and "ESTADO IA" not in encabezado
     assert [c.value for c in wb["Hallazgos"][1]].count("Tipo de discrepancia") == 0
     assert ws.max_row == len(FILAS) + 1
-    # Fijas hasta la columna del barcode, en las dos hojas de DIPs.
+    # En las dos hojas de DIPs el barcode es la primera columna y la única fija.
     for hoja in (ws, wb["Hallazgos"]):
-        primera_libre = hoja[hoja.freeze_panes].column
-        assert hoja.cell(1, primera_libre - 1).value == "Fault Barcode"
-        assert hoja[hoja.freeze_panes].row == 2
+        assert hoja["A1"].value == "Fault Barcode" and hoja.freeze_panes == "B2"
+    assert [c.value for c in wb["Hallazgos"][1]][-1] == "Fila Excel"
     # El archivo original no se modifica.
     assert openpyxl.load_workbook(export).sheetnames == ["Export"]
 

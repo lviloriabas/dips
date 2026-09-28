@@ -96,8 +96,8 @@ def _escribir_tabla(ws, df: pd.DataFrame, columnas_ia: set[str] | None = None,
             if color:
                 celda.fill = PatternFill("solid", fgColor=color)
                 celda.font = Font(bold=True)
-    # Fijas la fila de encabezados y las columnas hasta el barcode, para no perder de vista
-    # el DIP al desplazarse a la derecha.
+    # Fijas la fila de encabezados y las columnas hasta el barcode (la primera en las hojas
+    # de DIPs), para no perder de vista el DIP al desplazarse a la derecha.
     fijas = list(df.columns).index("Fault Barcode") + 1 if "Fault Barcode" in df.columns else 1
     ws.freeze_panes = ws.cell(2, fijas + 1).coordinate
     ws.auto_filter.ref = ws.dimensions
@@ -115,9 +115,9 @@ def exportar_excel(resultado: ResultadoAuditoria, ruta: Path) -> Path:
     _hoja_dashboard(wb.active, resultado)
     _hoja_resumen(wb.create_sheet("Resumen"), resultado)
 
-    # Hoja principal: las columnas originales, en su orden y con su nombre, y al
-    # final las columnas que agrega el programa (con su propio color).
-    original = resultado.lote.original.copy()
+    # Hoja principal: las columnas originales, en su orden y con su nombre (menos Index, un
+    # correlativo del export), y al final las columnas que agrega el programa (con su color).
+    original = resultado.lote.original.drop(columns=["Index"], errors="ignore")
     ia = resultado.filas.set_index("Fila Excel")[COLUMNAS_IA]
     combinado = pd.concat([original, ia], axis=1, join="inner")
     combinado["Fila Excel"] = combinado.index
@@ -137,7 +137,9 @@ def hallazgos_para_mostrar(h: pd.DataFrame) -> pd.DataFrame:
     """Hallazgos con su resultado (posible discrepancia u observación), sin tipo de discrepancia."""
     h = h.drop(columns=["Tipo de discrepancia"], errors="ignore")
     h = h.assign(Severidad=h["Severidad"].map(MOSTRAR_SEVERIDAD).fillna(h["Severidad"]))
-    return h.rename(columns={"Severidad": "Resultado"})
+    h = h.rename(columns={"Severidad": "Resultado"})
+    # Fila Excel al final, como en la hoja Auditoría: el barcode queda en la primera columna.
+    return h[[c for c in h.columns if c != "Fila Excel"] + ["Fila Excel"]]
 
 
 _RESULTADOS = ["POSIBLE DISCREPANCIA", "REVISAR", "SIN FUENTE", "OK"]
