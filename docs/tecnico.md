@@ -72,7 +72,7 @@ En palabras:
 4. **Asociación.** Para cada DIP, `Auditor._asociar` decide qué entrada del catálogo es: por el Fault Name, y si no alcanza, por la referencia técnica o la descripción. Devuelve una `Asociacion` con la entrada (o ninguna) y el método usado.
 5. **Reglas de lote.** Duplicados, S/N repetidos y Parent Assembly distinto de sus pares se buscan entre todos los DIPs del archivo, porque comparan un DIP con otros.
 6. **Reglas por DIP.** `reglas.auditar_dip` y los métodos del `Auditor` (`_referencia_tecnica`, `_rir`) y `reglas_descripcion.revisar_descripcion` agregan `Hallazgo`s a un `ResultadoReglas`. Cada `agregar` consulta `discrepancias.yaml`: si la regla está inactiva no se agrega, y si está activa toma de ahí su severidad y su tipo de discrepancia.
-7. **Resultado.** `reglas.estado_final` toma el hallazgo más grave y lo traduce al resultado que ve el auditor. `_comentario` arma el `COMENTARIO SUGERIDO` ("T/A aperturado correctamente // ...").
+7. **Resultado.** `reglas.estado_final` toma el hallazgo más grave y lo traduce al resultado que ve el auditor. `_comentario` arma el `COMENTARIO SUGERIDO` ("T/A aperturado correctamente // ..."). Un DIP cerrado sin attachments tiene dos hallazgos (apertura y cierre), pero el comentario lo dice una sola vez.
 8. **Salida.** Todo termina en un `ResultadoAuditoria` con dos tablas: `filas` (un DIP por fila) y `hallazgos` (un hallazgo por fila). `reporte.py` las escribe en Excel; la consola y `comparacion.py` leen las mismas tablas.
 
 `auditar.bat T40S...` (un DIP sin Excel) usa el mismo camino: `cargador.lote_desde_icam` arma un `Lote` de una fila con lo leído en ICAM.

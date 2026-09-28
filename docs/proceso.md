@@ -139,7 +139,7 @@ flowchart TD
     SD -- Ninguna falla --> SF[SIN FUENTE]
     REF -- Sí --> M{¿TA o RIR<br/>según el manual?}
     M -- Sí --> RV[REVISAR]
-    M -- No --> V[Intervalo · Start · Parent Assy · Due date · Vencido<br/>Referencia técnica · RIR · Attachments · S/N · Duplicados]
+    M -- No --> V[Intervalo, Start, Parent Assy, Due date, Vencido<br/>Referencia técnica, RIR, Attachments, S/N, Duplicados]
     V -- Falla alguna --> PD[POSIBLE DISCREPANCIA]
     V -- Ninguna falla --> OK[OK]
     style PD fill:#FCE3B0,color:#000

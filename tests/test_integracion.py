@@ -69,6 +69,11 @@ def test_auditoria_de_punta_a_punta(auditor_others, export, tmp_path):
     assert "TIPO DE DISCREPANCIA" not in encabezado and "ESTADO IA" not in encabezado
     assert [c.value for c in wb["Hallazgos"][1]].count("Tipo de discrepancia") == 0
     assert ws.max_row == len(FILAS) + 1
+    # Fijas hasta la columna del barcode, en las dos hojas de DIPs.
+    for hoja in (ws, wb["Hallazgos"]):
+        primera_libre = hoja[hoja.freeze_panes].column
+        assert hoja.cell(1, primera_libre - 1).value == "Fault Barcode"
+        assert hoja[hoja.freeze_panes].row == 2
     # El archivo original no se modifica.
     assert openpyxl.load_workbook(export).sheetnames == ["Export"]
 

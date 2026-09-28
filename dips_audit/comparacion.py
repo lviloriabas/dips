@@ -382,7 +382,7 @@ def exportar(c: Comparacion, carpeta: Path) -> Path:
     ws.sheet_view.showGridLines = False
     ws["A1"] = "Programa vs. auditoría manual"
     ws["A1"].font = Font(bold=True, size=16, color="1F3A5F")
-    ws["A2"] = f"{c.lote.ruta.name} · generado el {datetime.now():%d-%b-%Y %H:%M}"
+    ws["A2"] = f"{c.lote.ruta.name}, generado el {datetime.now():%d-%b-%Y %H:%M}"
     ws["A2"].font = Font(italic=True, color="666666")
     fila = 4
     if c.lote.prueba:

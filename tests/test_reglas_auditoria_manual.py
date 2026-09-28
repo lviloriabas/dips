@@ -37,6 +37,15 @@ def test_sin_attachments_segun_el_excel(catalogo, ctx):
                                                  adjuntos_excel=2))
 
 
+def test_cerrado_sin_attachments_se_comenta_una_vez(auditor, catalogo, ctx):
+    """Cerrado sin attachments tiene el hallazgo de apertura y el de cierre; el comentario
+    sugerido lo dice una sola vez."""
+    r = auditar(catalogo, ctx, "OXIGENO_TRIPULACION", adjuntos=[], estado="COMPLETE",
+                complete_date=datetime(2026, 8, 20, 10, 0))
+    assert {"sin_adjuntos", "cierre_sin_adjuntos"} <= codigos(r)
+    assert auditor._comentario(r).count("attachments") == 1
+
+
 def test_excel_trae_la_cantidad_de_attachments(tmp_path):
     encabezado = ["Fault Barcode", "Area", "Fault Name", "Dip Interval", "Interval Type",
                   "Fault Status", "Aircraft", "Attachment Status", "Attach Docs"]

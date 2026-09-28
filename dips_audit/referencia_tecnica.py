@@ -156,7 +156,7 @@ class ReferenciaEncontrada:
 
     def __str__(self) -> str:
         partes = [self.manual, f"REV {self.revision}" if self.revision else None, self.fecha]
-        return " · ".join(p for p in partes if p)
+        return ", ".join(p for p in partes if p)
 
 
 def buscar_referencia(*textos: object) -> ReferenciaEncontrada:

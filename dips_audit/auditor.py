@@ -387,10 +387,16 @@ class Auditor:
         partes = []
         if r.intervalo_ok:
             partes.append("T/A aperturado correctamente")
-        for h in r.hallazgos:
-            # "Revisar en el manual" es para el auditor, no un comentario de discrepancia.
-            if h.severidad not in {"OBSERVACION", "CONSULTAR MANUAL"}:
-                partes.append(h.mensaje)
+        # "Revisar en el manual" es para el auditor, no un comentario de discrepancia.
+        hallazgos = [h for h in r.hallazgos
+                     if h.severidad not in {"OBSERVACION", "CONSULTAR MANUAL"}]
+        codigos = {h.codigo for h in hallazgos}
+        for h in hallazgos:
+            # Cerrado sin attachments también es "sin attachments" de la apertura: el
+            # comentario lo dice una vez (HALLAZGOS conserva los dos, uno por auditoría).
+            if h.codigo == "cierre_sin_adjuntos" and "sin_adjuntos" in codigos:
+                continue
+            partes.append(h.mensaje)
         return " // ".join(partes)
 
     @staticmethod

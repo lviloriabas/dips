@@ -170,15 +170,15 @@ def test_cli_auditar_con_archivo_de_icam(tmp_path, capsys):
 
 @pytest.mark.parametrize("texto, esperado, falta", [
     ("IAW AMM TASK 12-15-21-200-801 (ADDED BY EC1215-0032C REV 2) REV 28, 15-MAY-2026",
-     "AMM 12-15-21-200-801 · REV 28 · 15-MAY-2026", []),
+     "AMM 12-15-21-200-801, REV 28, 15-MAY-2026", []),
     ("IAW 73-21-00-740-803-F00 STEP (A). C-2  Rev.90 / 15 Jun 2026",
-     "AMM 73-21-00-740-803 · REV 90 · 15 JUN 2026", []),
+     "AMM 73-21-00-740-803, REV 90, 15 JUN 2026", []),
     ("IAW FIM TASK 21-51-00-810-801 REVISION 12 DATED 01/08/2026",
-     "FIM 21-51-00-810-801 · REV 12 · 01/08/2026", []),
-    ("15-MAY-2026 REV 28 AMM 32-44-00-790-801", "AMM 32-44-00-790-801 · REV 28 · 15-MAY-2026", []),
+     "FIM 21-51-00-810-801, REV 12, 01/08/2026", []),
+    ("15-MAY-2026 REV 28 AMM 32-44-00-790-801", "AMM 32-44-00-790-801, REV 28, 15-MAY-2026", []),
     ("per AMM TASK 27-31-00-820-801 within 6 months", "AMM 27-31-00-820-801",
      ["REV", "fecha de la REV"]),
-    ("AMM TASK 27-31-00-820-801 REV 90", "AMM 27-31-00-820-801 · REV 90", ["fecha de la REV"]),
+    ("AMM TASK 27-31-00-820-801 REV 90", "AMM 27-31-00-820-801, REV 90", ["fecha de la REV"]),
 ])
 def test_buscar_referencia(texto, esperado, falta):
     r = buscar_referencia(texto)

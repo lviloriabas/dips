@@ -135,7 +135,13 @@ def _resumen(resultado, tiempos: dict[str, float]) -> Panel:
                   que_hacer if n else "")
 
     manuales = int(en_alcance["VERIFICACIÓN MANUAL"].map(_con_revision_manual).sum())
-    etapas = " · ".join(f"{e.lower()} {_duracion(s)}" for e, s in tiempos.items() if e != "Total")
+    t_tiempos = Table(box=box.SIMPLE_HEAD, padding=(0, 1), pad_edge=False, show_footer=True,
+                      style="dim", header_style="dim bold", footer_style="dim bold")
+    t_tiempos.add_column("Etapa", footer="Total")
+    t_tiempos.add_column("Tiempo", justify="right", footer=_duracion(tiempos["Total"]))
+    for etapa, segundos in tiempos.items():
+        if etapa != "Total":
+            t_tiempos.add_row(etapa, _duracion(segundos))
     lineas = [
         f"[bold]{auditados} DIPs auditados[/]: {auditados - cierre} abiertos y {cierre} cerrados.",
         t,
@@ -144,8 +150,7 @@ def _resumen(resultado, tiempos: dict[str, float]) -> Panel:
          "[bold]Revisión manual:[/] ningún DIP tiene puntos puntuales para mirar."),
         "[dim]Como siempre, revisar en todos los attachments la captura de la referencia técnica "
         "y el EC/RA.[/]",
-        "",
-        f"[dim]Tiempo: {_duracion(tiempos['Total'])} ({etapas})[/]",
+        t_tiempos,
     ]
     return Panel.fit(Group(*lineas), title="Resumen", border_style="green")
 

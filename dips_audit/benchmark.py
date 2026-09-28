@@ -385,7 +385,7 @@ def a_markdown(r: dict, base: dict | None, nombre_json: str = "", completo: bool
     mostró antes), sin las reglas y sin el detalle por DIP."""
     partes = [
         f"# {TITULO}" if completo else "# Resultado del benchmark",
-        f"{_fecha_legible(r['fecha'])} · programa v{r['version_programa']} · "
+        f"{_fecha_legible(r['fecha'])}, programa v{r['version_programa']}, "
         f"duración {duracion(r['tiempos']['total_s'])}",
     ]
     partes += _resumen(r, base)
@@ -549,8 +549,8 @@ def _desacuerdos(dips: list[dict]) -> list[str]:
         for d in grupo:
             referencia = d["referencia"] or "sin referencia"
             lineas = [
-                f"**{d['barcode']}** · {d['fault_name']}",
-                f"- Intervalo: {d['intervalo'] or 'sin dato'} · Referencia: {referencia} "
+                f"**{d['barcode']}**: {d['fault_name']}",
+                f"- Intervalo: {d['intervalo'] or 'sin dato'}. Referencia: {referencia} "
                 f"({METODOS[d['metodo']][0].lower()})",
                 f"- Auditor: **{d['auditor']}**"
                 + (f". {d['comentario_auditor']}" if d["comentario_auditor"] else ""),

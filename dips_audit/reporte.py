@@ -96,7 +96,10 @@ def _escribir_tabla(ws, df: pd.DataFrame, columnas_ia: set[str] | None = None,
             if color:
                 celda.fill = PatternFill("solid", fgColor=color)
                 celda.font = Font(bold=True)
-    ws.freeze_panes = "B2"
+    # Fijas la fila de encabezados y las columnas hasta el barcode, para no perder de vista
+    # el DIP al desplazarse a la derecha.
+    fijas = list(df.columns).index("Fault Barcode") + 1 if "Fault Barcode" in df.columns else 1
+    ws.freeze_panes = ws.cell(2, fijas + 1).coordinate
     ws.auto_filter.ref = ws.dimensions
 
 
