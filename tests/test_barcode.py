@@ -103,3 +103,18 @@ def test_no_cache_en_todos_los_comandos_que_leen_icam(monkeypatch, tmp_path):
     principal(["extraer-icam", "--barcode", "T40S000FDR1", "--no-cache"])
     principal(["barcode", "T40S000FDR1", "--no-cache"])
     assert pedidos == [60, None, None]
+
+
+def test_dip_ya_auditado_manualmente_se_anota(tmp_path, auditor):
+    """Una marca AUDITDIP en Technical References: se audita igual y se anota."""
+    r = _registro()
+    r["sections"]["TaskInformation"] += (
+        "Technical References  \n\n\xa0\tName\tHyperlink\tType\tIETM\n"
+        "\tDIP OPEN - RT AUDIT COMPLETED\t\xa0\tAUDITDIP\t\xa0\n\nAttachments   \n\n")
+    fila = auditor.auditar_lote(lote_desde_icam(r, tmp_path / "icam.json")).filas.iloc[0]
+    assert fila["VERIFICACIÓN MANUAL"].startswith(
+        "- Ya se había auditado manualmente (AUDITDIP en Technical References: "
+        "DIP OPEN - RT AUDIT COMPLETED).")
+    assert fila["RESULTADO"] != "FUERA DE ALCANCE"
+    sin_marca = auditor.auditar_lote(lote_desde_icam(_registro(), tmp_path / "icam.json")).filas.iloc[0]
+    assert "auditado manualmente" not in sin_marca["VERIFICACIÓN MANUAL"]

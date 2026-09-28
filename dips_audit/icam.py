@@ -57,11 +57,13 @@ class FichaICAM:
     barcode: str = ""
     titulo: str = ""
     descripcion: str = ""
-    notas_diferimiento: str = ""     # "Deferral Notes" del historial (parte de la apertura)
+    notas_descripcion: str = ""     # "Deferral Notes" del historial (parte de la apertura)
     accion_correctiva: str = ""      # cierre: no se usa en la auditoría de apertura
     referencias_tecnicas: list[str] = field(default_factory=list)
     # Marcas que pone el auditor al terminar (tipo AUDITDIP o AUDITTR): no son referencias.
     marcas_auditoria: list[str] = field(default_factory=list)
+    # Las de tipo AUDITDIP: el DIP ya se auditó manualmente.
+    marcas_auditdip: list[str] = field(default_factory=list)
     adjuntos: list[str] = field(default_factory=list)
     intervalos: list[Intervalo] = field(default_factory=list)
     # Uso de la tarea cuando se encontró la falla (History, "Usage When Found"):
@@ -251,6 +253,8 @@ def leer_ficha(secciones: dict, barcode: str = "", titulo: str = "") -> FichaICA
         # La marca del auditor puede venir como AUDITDIP, AUDITTR o sin tipo.
         marca = tipo.upper().startswith("AUDIT") or _MARCA_AUDITORIA.search(nombre)
         (f.marcas_auditoria if marca else documentos).append(nombre)
+        if tipo.upper() == "AUDITDIP":
+            f.marcas_auditdip.append(nombre)
     if seleccionada:
         documentos.append(seleccionada)
     f.referencias_tecnicas = list(dict.fromkeys(d for d in documentos if d))
@@ -292,7 +296,7 @@ def leer_ficha(secciones: dict, barcode: str = "", titulo: str = "") -> FichaICA
     f.cambios_deadline = list(dict.fromkeys(
         _limpio(l) for l in historial.splitlines()
         if re.search(r"deadline (has been|was) (modified|added|removed|extended)", l, re.I)))
-    # Fault History va de la más nueva a la más vieja: el primer diferimiento es el último
+    # Fault History va de la más nueva a la más vieja: el primer "deferred" es el último
     # y la última certificación (el cierre), la primera.
     def fechas_historial(evento: str) -> list[str]:
         return [m.group(0) for l in falla.splitlines() if evento in l
@@ -304,5 +308,5 @@ def leer_ficha(secciones: dict, barcode: str = "", titulo: str = "") -> FichaICA
     # Sin notas, "Deferral Notes:" termina en la celda: no se toma la línea siguiente (la
     # fecha del próximo evento del historial pasaría por vencimiento del ítem).
     notas = re.findall(r"Deferral Notes:[  ]*(.*?)(?:\t|\n\n|$)", historial, re.S)
-    f.notas_diferimiento = " | ".join(dict.fromkeys(_limpio(n) for n in notas if _limpio(n)))
+    f.notas_descripcion = " | ".join(dict.fromkeys(_limpio(n) for n in notas if _limpio(n)))
     return f

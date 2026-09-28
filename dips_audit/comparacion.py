@@ -94,7 +94,7 @@ MOTIVOS = {
     "cierre_sin_adjuntos": "Cerrado sin attachments",
     "sin_adjuntos": "Sin attachments",
     "inicio_ta_incorrecto": "Start del T/A distinto de la apertura (Incorrect DIP Start Values)",
-    "sn_inconsistente": "S/N distinto del de las notas del diferimiento",
+    "sn_inconsistente": "S/N distinto del de las notas de la descripción",
     "referencia_tecnica_no_especifica": "Referencia no específica (barcode de trabajo)",
     "limite_faltante": "Al T/A le falta uno de los límites de la tabla (X o Y)",
     "intervalo_segun_manual": "TA según el daño o el tipo: revisar en el manual",

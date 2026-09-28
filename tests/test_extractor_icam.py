@@ -223,7 +223,7 @@ def test_lee_por_barcode_rapido_y_solo_lectura(icam, tmp_path):
     assert ficha.adjuntos == ["foto.jpg"]
     assert [(i.valor, i.parametro) for i in ficha.intervalos] == [(3.0, "CDY")]
     assert ficha.deferral_reference == "35-DIP"
-    assert ficha.notas_diferimiento == "TASK 12-15-21-210-801"
+    assert ficha.notas_descripcion == "TASK 12-15-21-210-801"
     # RIR: vigente, siguiente y el cerrado de Show Historical Tasks; página del RIR vigente.
     assert [(t.id, t.estado) for t in ficha.tareas_siguientes] == [
         ("T40S009T003A", "ACTV"), ("T40S009T003B", "FORECAST"), ("T40S009T0030", "COMPLETE")]

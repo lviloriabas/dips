@@ -26,7 +26,7 @@ _UNIDAD_TA = {"CDY": "DAY", "DAY": "DAY", "HOURS": "FH", "HOUR": "FH", "CYCLES":
 
 def _texto(dip: dict) -> str:
     return " ".join(str(x) for x in (dip.get("nombre"), dip.get("descripcion"),
-                                     dip.get("notas_diferimiento")) if x)
+                                     dip.get("notas_descripcion")) if x)
 
 
 def _limites_ta(dip: dict) -> tuple[dict[str, float], bool]:

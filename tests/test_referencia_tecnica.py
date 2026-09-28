@@ -21,6 +21,15 @@ from tests.conftest import ENCABEZADO_ENTRADA, crear_export
     ("EA 4700-0003C", ["EC 4700-0003"]),
     ("AMM 56-11-00-300-801; EC5600-0028C REV. 2", ["AMM 56-11-00-300-801", "EC 5600-0028"]),
     ("SRM 51-10-05-0G-0", ["SRM 51-10-05"]),
+    # Como se escriben a mano en la descripción (auditoría del 28-sep).
+    ("I.A.W SRM TASK 54-10-01-1A-1 ALLOWABLE DAMAGE 1", ["SRM 54-10-01"]),
+    ("DURING SV-3 TASK CARD B737-73-1-0001-JIC", ["JIC 73-1-0001"]),
+    ("DURING SERVICE VISIT 3 T/C B737 -05-1-0004-U-JIC", ["JIC 05-1-0004"]),
+    ("Task Card B737-05-1-0001U-JIC Due Date", ["JIC 05-1-0001"]),
+    ("DUE ACCOMPLISHMENT TASKCARD 32-020-02-U-JIC", ["JIC 32-020-02"]),
+    ("IAW FCD 3500-0018C-JIC; IAW CD 3500-0018C-JIC", ["EC 3500-0018"]),
+    ("During EA 2700-0099C OP2-JIC", ["EC 2700-0099"]),
+    ("7300-0132C.", ["EC 7300-0132"]),
     ("-", []),
     (None, []),
 ])
@@ -199,6 +208,11 @@ def test_mgm_no_es_referencia_tecnica():
     assert cita_mgm("", "IAW MGM 7.7") and not cita_mgm("AMM 12-15-21-210-801")
 
 
+def test_nota_sin_numero_cargada_en_icam_no_es_referencia():
+    """T40S009JLSQ: 'nota' en Technical References; la referencia está en la descripción."""
+    assert referencias_cargadas("nota; 72-00; BC: T40S009JLWN") == ["72-00", "BC: T40S009JLWN"]
+
+
 def test_apertura_solo_con_mgm_no_tiene_referencia(auditor, ctx):
     from dips_audit.reglas import ResultadoReglas
     from tests.conftest import hacer_dip
@@ -267,19 +281,20 @@ def test_lector_de_pestanas_de_icam():
     assert f.descripcion.startswith("O2 850 PSI")
     assert f.referencias_tecnicas == ["TASK 12-15-21-210-801"]
     assert f.marcas_auditoria == ["DIP OPEN - RT AUDIT COMPLETED"]
+    assert f.marcas_auditdip == ["DIP OPEN - RT AUDIT COMPLETED"]
     assert f.adjuntos == ["foto.jpg"]
     assert [(i.valor, i.parametro) for i in f.intervalos] == [(3.0, "CDY")]
-    assert f.deferral_reference == "35-DIP" and f.notas_diferimiento == "TASK 12-15-21-210-801"
+    assert f.deferral_reference == "35-DIP" and f.notas_descripcion == "TASK 12-15-21-210-801"
 
 
-def test_notas_de_diferimiento_vacias_no_toman_la_fecha_del_evento_siguiente():
+def test_notas_de_descripcion_vacias_no_toman_la_fecha_del_evento_siguiente():
     # T40S009J6NT: la descripción termina en "REPLACE BEFORE DUE DATE" y la fecha del evento
     # siguiente del historial pasaba por el vencimiento del ítem.
     from dips_audit.icam import leer_ficha
     historial = ("24-SEP-2026 12:24 UTC\tJAN\tACTV\t\xa0\tDeferral Reason: Waiting for "
                  "maintenance, Deferral Notes:\t\n24-SEP-2026 12:24 UTC\tJAN\tACTV\t\xa0\t"
                  "The task has been deferred.\t\n")
-    assert leer_ficha({"History": historial}).notas_diferimiento == ""
+    assert leer_ficha({"History": historial}).notas_descripcion == ""
 
 
 def test_lector_une_limites_por_uso_en_una_fila():
@@ -353,10 +368,10 @@ def test_json_sueltos_se_unen_en_un_solo_json(config, tmp_path):
 
 def test_sin_referencia_con_datos_de_icam(config, tmp_path):
     """Con ICAM: sin referencia cargada, sin captura adjunta y sin cita, es discrepancia.
-    La task card JIC de la descripción es donde se encontró la falla, no la referencia."""
+    Una task card sin número ("DURING TASK CARD WAS FOUND") no es una cita."""
     import json
     secciones = dict(SECCIONES)
-    secciones["TaskExecution"] = ("Description\nDURING TASK CARD B737-35-1-0001-U-JIC WAS FOUND "
+    secciones["TaskExecution"] = ("Description\nDURING TASK CARD WAS FOUND "
                                   "CREW OXYGEN 850 PSI\n\nLabor\n")
     secciones["TaskInformation"] = "Parent Assembly:\tBoeing 737-8V3 - HP-1837CMP\n"
     secciones["FaultInformation"] = "Fault Status:\tDEFER (Defer)\n"

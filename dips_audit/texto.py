@@ -109,6 +109,12 @@ def extraer_sn(texto: object) -> list[str]:
     return encontrados
 
 
+def clave_sn(sn: str) -> str:
+    """Lo que identifica un S/N: sus dígitos. El mismo S/N se escribe con o sin letras y
+    guiones (P11101989 / 11101989, 1234-AB / 1234)."""
+    return re.sub(r"\D", "", str(sn or ""))
+
+
 def _anio(valor: str) -> int:
     n = int(valor)
     return 2000 + n if n < 100 else n

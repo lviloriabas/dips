@@ -105,7 +105,7 @@ def test_cli_tipos_dip(export, capsys):
     salida = " ".join(capsys.readouterr().out.split())
     assert "Tipos de DIP auditados: others, Avionics" in salida
     assert "el Excel no tiene DIPs de tipo Avionics" in salida
-    assert "Fuera de alcance (otro tipo de DIP): 1 (Powerplant 1)" in salida
+    assert "FUERA DE ALCANCE 1 17%" in salida and "(Powerplant 1)" in salida
 
 
 def test_cli_archivo_inexistente(tmp_path):

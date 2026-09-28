@@ -109,7 +109,7 @@ def test_start_antes_de_la_apertura(catalogo, ctx):
     assert "inicio_ta_incorrecto" in codigos(r, "NO CRITICA")
 
 
-def test_start_en_la_fecha_del_diferimiento(catalogo, ctx):
+def test_start_en_el_defer_date(catalogo, ctx):
     """T40S009G72C: 'within 4 months from the performance date of this task': encontrado el
     7-sep, diferido el 9-sep y el T/A desde el 10-sep (tolerancia de 1 día)."""
     r = auditar(catalogo, ctx, "CABLES_ALERON", nombre="DIP-AILERON CONTROL CABLE CHECK", ata=27,
@@ -160,22 +160,22 @@ def test_lee_el_uso_al_encontrar_la_falla():
 
 # --- S/N ------------------------------------------------------------------------------------
 
-def test_sn_distinto_de_las_notas_del_diferimiento(catalogo, ctx):
-    """T40S009GS4U: S/N P11101989 en el DIP y 11101989 en las notas. El auditor: Incorrect
-    Serial Number Referenced."""
+def test_sn_distinto_de_las_notas_de_la_descripcion(catalogo, ctx):
+    """Cuenta el número del S/N: P11101989 y 11101989 son el mismo; 11101998 no."""
     nombre = "DIP- AFT PORTABLE OXYGEN BOTTLE WITH NEXT HYDRO DATE (31-OCT-2026) S/N P11101989"
+    for notas in ("AFT PORTABLE OXYGEN BOTTLE P/N 5500-A1A-BF23A S/N 11101989",
+                  "AFT PORTABLE OXYGEN BOTTLE S/N P11101989", "BOTTLE S/N P-11101989"):
+        r = auditar(catalogo, ctx, "OXIGENO_HYDRO", nombre=nombre, ata=35, notas_descripcion=notas)
+        assert "sn_inconsistente" not in codigos(r), notas
     r = auditar(catalogo, ctx, "OXIGENO_HYDRO", nombre=nombre, ata=35,
-                notas_diferimiento="AFT PORTABLE OXYGEN BOTTLE P/N 5500-A1A-BF23A S/N 11101989")
+                notas_descripcion="AFT PORTABLE OXYGEN BOTTLE S/N 11101998")
     assert "sn_inconsistente" in codigos(r, "NO CRITICA")
-    r = auditar(catalogo, ctx, "OXIGENO_HYDRO", nombre=nombre, ata=35,
-                notas_diferimiento="AFT PORTABLE OXYGEN BOTTLE S/N P11101989")
-    assert "sn_inconsistente" not in codigos(r)
 
 
 def test_sn_de_mas_en_un_texto_no_es_inconsistente(catalogo, ctx):
     """Dos kits en la descripción y uno en las notas: el que está coincide."""
     r = auditar(catalogo, ctx, "FAK", nombre="DIP - FAK", ata=25,
-                descripcion="FAK S/N CFAK322 AND FAK S/N FAK028", notas_diferimiento="FAK S/N CFAK322")
+                descripcion="FAK S/N CFAK322 AND FAK S/N FAK028", notas_descripcion="FAK S/N CFAK322")
     assert "sn_inconsistente" not in codigos(r)
 
 
@@ -213,6 +213,7 @@ def test_marcas_del_auditor_no_son_referencias():
     f = leer_ficha({"TaskInformation": tarea})
     assert f.referencias_tecnicas == ["AMM TASK 12-15-21-210-801"]
     assert len(f.marcas_auditoria) == 2
+    assert f.marcas_auditdip == []  # AUDITTR o sin tipo: no cuenta como auditado manualmente
 
 
 # --- DIP duplicado o creado por error ----------------------------------------------------

@@ -312,7 +312,7 @@ def normalizar_lote(original: pd.DataFrame) -> tuple[pd.DataFrame, list[str]]:
             # referencias en el Excel, o datos de ICAM).
             "datos_referencia": "descripcion" in mapa or "referencia_tecnica" in mapa,
             "intervalo_de_icam": False,
-            "notas_diferimiento": "",
+            "notas_descripcion": "",
             "adjuntos": None,          # lista de nombres si se leyó ICAM; None = sin dato
             "adjuntos_excel": _adjuntos_del_excel(v, mapa),  # cantidad según el Excel
             "uso_encontrado": None,    # ICAM: {"CYCLES": n, "HOURS": n} al encontrar la falla
@@ -324,8 +324,10 @@ def normalizar_lote(original: pd.DataFrame) -> tuple[pd.DataFrame, list[str]]:
             # Auditoría de cierre (datos de ICAM); None = no se leyó ICAM.
             "accion_correctiva": None,
             "sn_removidos": None,
+            "sn_instalados": None,
             "cambios_deadline": None,
             "marcas_auditoria": None,
+            "marcas_auditdip": None,   # marcas AUDITDIP: ya se auditó manualmente
             # Inventario de generators (PDF adjunto): {"archivos", "generadores", "errores"};
             # None = no se leyeron los PDF en ICAM.
             "inventario": None,
@@ -370,7 +372,7 @@ def _dato_icam(r: dict, ficha=None) -> dict:
     return {
         "referencia_tecnica": "; ".join(ficha.referencias_tecnicas),
         "descripcion": ficha.descripcion,
-        "notas_diferimiento": ficha.notas_diferimiento,
+        "notas_descripcion": ficha.notas_descripcion,
         "adjuntos": ficha.adjuntos,
         "intervalos": [{"value": i.valor, "parameter": i.parametro, "unit": i.unidad,
                         "start": i.inicio} for i in ficha.intervalos],
@@ -380,8 +382,10 @@ def _dato_icam(r: dict, ficha=None) -> dict:
         "parent_icam": ficha.parent_assembly,
         "accion_correctiva": ficha.accion_correctiva,
         "sn_removidos": ficha.sn_removidos,
+        "sn_instalados": ficha.sn_instalados,
         "cambios_deadline": ficha.cambios_deadline,
         "marcas_auditoria": ficha.marcas_auditoria,
+        "marcas_auditdip": ficha.marcas_auditdip,
         "fin_real": ficha.fin_real,
         "inventario": _inventario(r),
     }
@@ -400,7 +404,7 @@ def _inventario(r: dict) -> dict | None:
 
 
 def _registros_icam(ruta: Path) -> dict[str, dict]:
-    """Datos de ICAM por barcode: referencia técnica, descripción, notas de diferimiento,
+    """Datos de ICAM por barcode: referencia técnica, descripción, notas de la descripción,
     intervalos y adjuntos.
 
     Acepta el JSON que llena el extractor (`data/icam.json`, todos los DIPs juntos), otro
@@ -442,7 +446,7 @@ def _registros_icam(ruta: Path) -> dict[str, dict]:
                          "'technical_references'.")
     return {parse_texto(r[col_barcode]): {"referencia_tecnica": parse_texto(r[col_ref]),
                                           "descripcion": parse_texto(r[col_desc]) if col_desc else "",
-                                          "notas_diferimiento": "", "adjuntos": None,
+                                          "notas_descripcion": "", "adjuntos": None,
                                           "intervalos": []}
             for _, r in extra.iterrows()}
 
@@ -534,15 +538,15 @@ def completar_con_icam(lote: Lote, ruta: Path, registros: dict[str, dict] | None
         datos.at[i, "referencia_tecnica"] = r["referencia_tecnica"]
         if r["descripcion"]:
             datos.at[i, "descripcion"] = r["descripcion"]
-        datos.at[i, "notas_diferimiento"] = r["notas_diferimiento"]
+        datos.at[i, "notas_descripcion"] = r["notas_descripcion"]
         datos.at[i, "adjuntos"] = r["adjuntos"]
         if r.get("rirs") is not None:  # ICAM manda; si no trae RIR, quedan los del Excel
             datos.at[i, "rirs"] = r["rirs"]
         datos.at[i, "historico_rir"] = r.get("historico_rir", False)
         datos.at[i, "icam_intervalos"] = r["intervalos"]
         datos.at[i, "parent_icam"] = r.get("parent_icam", "")
-        for clave in ("accion_correctiva", "sn_removidos", "cambios_deadline", "marcas_auditoria",
-                      "uso_encontrado", "inventario"):
+        for clave in ("accion_correctiva", "sn_removidos", "sn_instalados", "cambios_deadline",
+                      "marcas_auditoria", "marcas_auditdip", "uso_encontrado", "inventario"):
             if clave in r:
                 datos.at[i, clave] = r[clave]
         # Fecha de cierre: si el Excel no la trae, la de ICAM (Actual End Date, en UTC).

@@ -14,7 +14,7 @@ from .asociacion import Asociacion, asociar, asociar_por_codigos, similares_en_t
 from .cargador import Lote, cargar_export, completar_con_icam
 from .discrepancias import Discrepancias, cargar_discrepancias
 from .referencia_tecnica import (IndiceReferencias, buscar_referencia, cita_barcode, cita_mgm,
-                                 es_captura_de_tarea, extraer_codigos, referencias_cargadas, revisar,
+                                 es_captura_de_barcode, extraer_codigos, referencias_cargadas, revisar,
                                  sin_task_cards)
 from .rir import requerido as rir_requerido
 from .rir import revisar as revisar_rir
@@ -189,6 +189,9 @@ class Auditor:
                 r.agregar(ctx, "sn_repetido", "Incorrect S/N",
                           f"S/N repetido en otro DIP activo: {', '.join(sn_repetidos[i])}.")
             self._por_error(dip, ctx, r)
+            if dip.get("marcas_auditdip"):
+                r.manuales.insert(0, "Ya se había auditado manualmente (AUDITDIP en Technical "
+                                  f"References: {'; '.join(dip['marcas_auditdip'])}).")
             estado = estado_final(r.hallazgos)
             comentario = self._comentario(r)
             filas.append(self._fila(dip, asoc, r, r.hallazgos, r.manuales, estado, comentario,
@@ -226,18 +229,18 @@ class Auditor:
         Como la acepta el auditor, sirve cualquiera de estas: cargada en ICAM (Technical
         References), una captura adjunta o citada en la descripción. Si falta la revisión o
         su fecha, se anota como observación (salvo en los manuales de revision_opcional de
-        config.yaml). El MGM no es referencia técnica. Las task cards JIC de la descripción
-        son la tarea donde se encontró la falla, no la referencia del DIP. Un barcode de
-        trabajo citado como fuente ("IAW BARCODE: TRF7N00900V4, STEP 63") sin referencia del
-        manual es una referencia no específica."""
+        config.yaml). El MGM no es referencia técnica. Las task cards (JIC) sí son
+        referencia técnica, en ICAM, en la descripción o en un attachment; para comparar
+        con la tabla, las de la descripción se toman como la tarea donde se encontró la
+        falla. Un barcode de trabajo citado como fuente ("IAW BARCODE: TRF7N00900V4,
+        STEP 63") sin referencia del manual es una referencia no específica."""
         if not dip.get("datos_referencia"):
             return  # no hay descripción ni referencias: no se puede revisar
         cargadas = referencias_cargadas(dip.get("referencia_tecnica"))
         adjuntos = dip.get("adjuntos")
         descripcion = sin_task_cards(dip.get("descripcion"))
-        encontrada = buscar_referencia("; ".join(cargadas), descripcion,
-                                       sin_task_cards(dip.get("notas_diferimiento")),
-                                       sin_task_cards(dip.get("nombre")))
+        encontrada = buscar_referencia("; ".join(cargadas), dip.get("descripcion"),
+                                       dip.get("notas_descripcion"), dip.get("nombre"))
         evidencia = [*(cargadas or [str(encontrada)]), *(f"Adjunto: {a}" for a in adjuntos or [])]
         dip["referencia_encontrada"] = "; ".join(x for x in dict.fromkeys(evidencia) if x)
         esperada = (self.indice_referencias.por_entrada.get(asoc.entrada.id)
@@ -248,7 +251,7 @@ class Auditor:
                 r.manuales.append("Verificar la referencia técnica." + corresponde)
             else:
                 mgm = cita_mgm(dip.get("referencia_tecnica"), descripcion,
-                               dip.get("notas_diferimiento"), dip.get("nombre"))
+                               dip.get("notas_descripcion"), dip.get("nombre"))
                 r.agregar(ctx, "sin_referencia_tecnica", "Missing Technical Reference",
                           "Sin referencia técnica"
                           + (" (el MGM no es referencia técnica)." if mgm else ".")
@@ -258,22 +261,22 @@ class Auditor:
             r.agregar(ctx, "referencia_tecnica_incompleta", "Missing Technical Reference",
                       f"Referencia técnica sin {' ni '.join(encontrada.faltantes)} "
                       f"({encontrada}).")
-        elif (adjuntos and not cargadas and all(es_captura_de_tarea(a) for a in adjuntos)
-              and not [c for c in extraer_codigos(descripcion) if not c.startswith("JIC")]
-              and (esperada is None or any(not c.startswith("JIC") for c in esperada))):
-            # Los tres filtros de combustible de HP-1846: "Per AMM 73-11-02" y como único
-            # attachment la task card donde se encontró la falla. El auditor: Missing Technical
-            # Reference. Si la tabla da una task card (FDR, halon), esa captura es la referencia.
+        elif (adjuntos and not cargadas and not encontrada.manual
+              and all(es_captura_de_barcode(a) for a in adjuntos)):
+            # T40S009H9BB: sin cita y como único attachment la captura de un barcode de trabajo.
             r.agregar(ctx, "sin_referencia_tecnica", "Missing Technical Reference",
-                      "Sin referencia técnica: el attachment es de la task card."
+                      "Sin referencia técnica: el attachment es de un barcode de trabajo."
                       + corresponde)
-        barcode = cita_barcode(dip.get("descripcion"), dip.get("notas_diferimiento"))
+        barcode = cita_barcode(dip.get("descripcion"), dip.get("notas_descripcion"))
         if barcode and (not encontrada.manual or encontrada.tipo == "TASK CARD"):
             r.agregar(ctx, "referencia_tecnica_no_especifica", "Non-Specific Technical Reference",
                       f"Cita el barcode {barcode}, no el manual." + corresponde)
         if asoc.entrada:
-            # Una task card JIC adjunta, como en la descripción, es la tarea donde se
-            # encontró la falla (el Service Visit), no la referencia del DIP.
+            # Una task card JIC adjunta, como en la descripción, suele ser la tarea donde se
+            # encontró la falla (el Service Visit): no se compara, salvo que sea la de la tabla.
+            citadas = extraer_codigos("; ".join([dip.get("descripcion") or "", *(adjuntos or [])]))
+            if esperada and {c for c in citadas if c.startswith("JIC")} & esperada:
+                return
             texto = "; ".join(x for x in (*cargadas, *map(sin_task_cards, adjuntos or []),
                                           descripcion) if x.strip())
             if not extraer_codigos(texto):

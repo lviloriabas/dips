@@ -16,7 +16,7 @@ import re
 from dataclasses import dataclass
 from datetime import date
 
-from .texto import extraer_fechas, extraer_sn, sin_acentos
+from .texto import clave_sn, extraer_fechas, extraer_sn, sin_acentos
 
 # Prefijo del nombre del campo -> columna. Los más largos primero ("POSITION" antes que "PN").
 _COLUMNAS = [("MANUFAC DATE", "fabricacion"), ("EXP DATE", "vence"), ("DIP BARCODE", "dip"),
@@ -93,10 +93,6 @@ def es_inventario(generadores: list[Generador]) -> bool:
     return any(g.vence for g in generadores)
 
 
-def _clave_sn(sn: str) -> str:
-    return re.sub(r"[^A-Z0-9]", "", sin_acentos(sn).upper())
-
-
 @dataclass
 class CruceInventario:
     generadores: list[Generador]    # los del DIP: por DIP Barcode o por S/N de la descripción
@@ -117,10 +113,10 @@ def cruzar(inventario: list[Generador], barcode: str, texto: str) -> CruceInvent
     """Generators del DIP en el inventario: los que tienen su barcode en DIP Barcode y los
     que tienen un S/N que menciona el DIP."""
     sn_dip = list(dict.fromkeys(extraer_sn(texto)))
-    claves = {_clave_sn(s) for s in sn_dip}
+    claves = {clave_sn(s) for s in sn_dip} - {""}
     barcode = (barcode or "").upper()
     propios = [g for g in inventario
-               if (barcode and g.dip == barcode) or _clave_sn(g.sn) in claves]
-    en_pdf = {_clave_sn(g.sn) for g in inventario}
+               if (barcode and g.dip == barcode) or clave_sn(g.sn) in claves]
+    en_pdf = {clave_sn(g.sn) for g in inventario}
     return CruceInventario(generadores=list(dict.fromkeys(propios)),
-                           sn_fuera=[s for s in sn_dip if _clave_sn(s) not in en_pdf])
+                           sn_fuera=[s for s in sn_dip if clave_sn(s) not in en_pdf])

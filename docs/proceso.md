@@ -59,7 +59,7 @@ flowchart TD
     D["4. Hoja Auditoría: filtrar RESULTADO<br/>y revisar POSIBLE DISCREPANCIA, REVISAR y SIN FUENTE"]
 ```
 
-Sin `--icam` se audita solo con el Excel: menos reglas (no hay Start del T/A, RIR vigentes, notas del diferimiento ni acción correctiva) y más verificaciones manuales.
+Sin `--icam` se audita solo con el Excel: menos reglas (no hay Start del T/A, RIR vigentes, notas de la descripción ni acción correctiva) y más verificaciones manuales.
 
 ## Recorrido de un DIP
 
@@ -168,7 +168,7 @@ Si en un DIP con REVISAR además falla otra regla, queda en POSIBLE DISCREPANCIA
 | Otra tarea del mismo capítulo-sección-tema                                                       | OBSERVACIÓN           |
 | Barcode de trabajo citado como referencia (no específica)                                         | POSIBLE DISCREPANCIA   |
 | Sin attachments (apertura o cierre)                                                                | POSIBLE DISCREPANCIA   |
-| S/N distinto del de las notas del diferimiento, o repetido en otro DIP activo                      | POSIBLE DISCREPANCIA   |
+| S/N distinto del de las notas de la descripción, o repetido en otro DIP activo                      | POSIBLE DISCREPANCIA   |
 | DIP duplicado, o declarado duplicado / creado por error y todavía abierto                         | POSIBLE DISCREPANCIA   |
 | Deferral Reference distinto del ATA                                                                | POSIBLE DISCREPANCIA   |
 | RIR faltante, con otro intervalo, sin un límite del T/A, en otro Parent Assembly o con otro Start | POSIBLE DISCREPANCIA   |

@@ -175,6 +175,17 @@ def test_cierre_con_datos_de_icam(catalogo, ctx):
                              "cierre_sn_distinto", "cierre_sin_adjuntos"}
 
 
+def test_cierre_sn_cuenta_el_numero_y_el_instalado(catalogo, ctx):
+    """Mismo número con otro prefijo, o el S/N de la botella que se puso: no es distinto."""
+    base = dict(estado="COMPLETE", complete_date=datetime(2026, 8, 21, 10, 0),
+                descripcion="CREW OXYGEN BOTTLE S/N P11101989 950 PSI")
+    r = auditar(catalogo, ctx, "OXIGENO_TRIPULACION", sn_removidos=[("801307-00", "11101989")], **base)
+    assert "cierre_sn_distinto" not in codigos(r)
+    r = auditar(catalogo, ctx, "OXIGENO_TRIPULACION", sn_removidos=[("801307-00", "55555")],
+                sn_instalados=[("801307-00", "11101989")], **base)
+    assert "cierre_sn_distinto" not in codigos(r)
+
+
 def test_cierre_sin_accion_correctiva_es_discrepancia(catalogo, ctx):
     """Sin acción correctiva es posible discrepancia; sin cita del manual, observación."""
     base = dict(estado="COMPLETE", complete_date=datetime(2026, 8, 21, 10, 0), adjuntos=["A.PDF"])

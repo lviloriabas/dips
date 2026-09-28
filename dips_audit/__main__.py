@@ -37,6 +37,7 @@ from .benchmark import DATOS as DATOS_BENCHMARK
 from .cargador import ErrorCarga
 from .extractor_icam import ErrorExtraccion
 from .referencias import ErrorCatalogo
+from .reglas import VERIFICACION_GENERAL
 
 consola = Console()
 ESTILOS = {
@@ -58,24 +59,6 @@ def _duracion(segundos: float) -> str:
         return f"{segundos:.1f} s"
     m, s = divmod(round(segundos), 60)
     return f"{m} min {s:02d} s" if m < 60 else f"{m // 60} h {m % 60:02d} min"
-
-
-def _tabla_estados(filas: pd.DataFrame) -> Table:
-    """DIPs por resultado. El % de OK, REVISAR, SIN FUENTE y POSIBLE DISCREPANCIA es sobre los auditados;
-    el de FUERA DE ALCANCE, sobre el total del archivo."""
-    total = len(filas)
-    conteo = filas["RESULTADO"].value_counts().to_dict()
-    auditados = total - conteo.get("FUERA DE ALCANCE", 0)
-    t = Table(title=f"Resultado por DIP ({auditados} auditados de {total})")
-    t.add_column("Resultado")
-    t.add_column("DIPs", justify="right")
-    t.add_column("%", justify="right")
-    for estado, estilo in ESTILOS.items():
-        n = conteo.get(estado, 0)
-        if n or estado != "FUERA DE ALCANCE":
-            base = total if estado == "FUERA DE ALCANCE" else auditados
-            t.add_row(f"[{estilo}]{estado}[/]", str(n), _pct(n, base))
-    return t
 
 
 def _tabla_hallazgos(resultado) -> Table | None:
@@ -105,55 +88,66 @@ def _tabla_hallazgos(resultado) -> Table | None:
     return t
 
 
+QUE_HACER = {
+    "OK": "Nada más que los puntos de revisión manual, si tiene",
+    "POSIBLE DISCREPANCIA": "Leer los hallazgos y decidir",
+    "REVISAR": "El T/A o el RIR depende del daño: verlo en el manual",
+    "SIN FUENTE": "No está en la tabla de referencias: verificar la fuente que cita",
+    "FUERA DE ALCANCE": "Otro tipo de DIP: no se auditó",  # se completa con los tipos
+}
+
+
+def _con_revision_manual(texto: str) -> bool:
+    """El DIP tiene algún punto de VERIFICACIÓN MANUAL propio, además del recordatorio general."""
+    return any(l.strip() and l.strip("- ").strip() != VERIFICACION_GENERAL for l in texto.splitlines())
+
+
 def _resumen(resultado, tiempos: dict[str, float]) -> Panel:
-    """Resumen final de la corrida: DIPs, resultado, hallazgos y tiempos."""
+    """Resumen final de la corrida: cuántos DIPs, qué resultado tuvieron y qué hacer con cada uno."""
     filas = resultado.filas
-    total = len(filas)
+    conteo = filas["RESULTADO"].value_counts().to_dict()
     en_alcance = filas[filas["RESULTADO"] != "FUERA DE ALCANCE"]
     auditados = len(en_alcance)
-    posibles = int((en_alcance["RESULTADO"] == "POSIBLE DISCREPANCIA").sum())
-    sin_fuente = int((en_alcance["RESULTADO"] == "SIN FUENTE").sum())
-    revisar = int((en_alcance["RESULTADO"] == "REVISAR").sum())
-    ok = int((en_alcance["RESULTADO"] == "OK").sum())
+    cierre = int((en_alcance["AUDITORÍA"] == "CIERRE").sum())
     h = resultado.hallazgos
-    discrepancias = int((~h["Severidad"].isin(["OBSERVACION", "SIN FUENTE", "CONSULTAR MANUAL"])).sum())
-    manuales = int((en_alcance["VERIFICACIÓN MANUAL"] != "").sum())
+    hallazgos = int((~h["Severidad"].isin(["OBSERVACION", "SIN FUENTE", "CONSULTAR MANUAL"])).sum())
+
     tipos = dict(zip(resultado.lote.datos["fila"], resultado.lote.datos["tipo"]))
     fuera = filas.loc[filas["RESULTADO"] == "FUERA DE ALCANCE", "Fila Excel"].map(tipos)
     detalle_fuera = ", ".join(f"{t} {n}" for t, n in fuera.value_counts().items())
-    cierre = int((en_alcance["AUDITORÍA"] == "CIERRE").sum())
-    lineas = [
-        f"[bold]DIPs en el archivo:[/] {total}   [bold]Auditados:[/] {auditados} "
-        f"(apertura {auditados - cierre}, cierre {cierre})",
-        f"[bold]Fuera de alcance (otro tipo de DIP):[/] {total - auditados}"
-        + (f" ({detalle_fuera})" if detalle_fuera else ""),
-        f"[{ESTILOS['POSIBLE DISCREPANCIA']}]POSIBLE DISCREPANCIA:[/] {posibles} "
-        f"({_pct(posibles, auditados)})   [{ESTILOS['REVISAR']}]REVISAR:[/] {revisar} "
-        f"({_pct(revisar, auditados)})   [{ESTILOS['SIN FUENTE']}]SIN FUENTE:[/] {sin_fuente} "
-        f"({_pct(sin_fuente, auditados)})   [{ESTILOS['OK']}]OK:[/] {ok} ({_pct(ok, auditados)})",
-        f"[bold]Hallazgos:[/] {discrepancias} posibles discrepancias",
-        f"[bold]DIPs con verificación manual pendiente:[/] {manuales} ({_pct(manuales, auditados)})",
-        "",
-    ]
-    return Panel.fit(Group("\n".join(lineas), _tabla_tiempos(tiempos, auditados)),
-                     title="Resumen de la corrida", border_style="green")
 
-
-def _tabla_tiempos(tiempos: dict[str, float], auditados: int) -> Table:
-    """Tiempo de cada etapa y su % del total."""
-    total = tiempos["Total"]
-    t = Table(title="Tiempos", title_justify="left", title_style="bold", box=box.SIMPLE_HEAD,
-              padding=(0, 1), pad_edge=False)
-    t.add_column("Etapa")
-    t.add_column("Tiempo", justify="right")
+    t = Table(box=box.SIMPLE_HEAD, padding=(0, 1), pad_edge=False)
+    t.add_column("Resultado")
+    t.add_column("DIPs", justify="right")
     t.add_column("%", justify="right")
-    for etapa, segundos in tiempos.items():
-        if etapa != "Total":
-            t.add_row(etapa, _duracion(segundos), f"{segundos / total:.0%}" if total else "-")
-    t.add_row("[bold]Total[/]", f"[bold]{_duracion(total)}[/]", "", end_section=True)
-    if auditados:
-        t.add_row("[dim]Auditoría por DIP[/]", f"[dim]{tiempos['Auditoría'] / auditados:.2f} s[/]", "")
-    return t
+    t.add_column("Qué hacer")
+    for estado in ("OK", "POSIBLE DISCREPANCIA", "REVISAR", "SIN FUENTE", "FUERA DE ALCANCE"):
+        n = conteo.get(estado, 0)
+        if not n and estado == "FUERA DE ALCANCE":
+            continue
+        base = len(filas) if estado == "FUERA DE ALCANCE" else auditados
+        que_hacer = QUE_HACER[estado]
+        if estado == "POSIBLE DISCREPANCIA" and hallazgos:
+            que_hacer += f" ({hallazgos} en total)"
+        elif estado == "FUERA DE ALCANCE":
+            que_hacer = f"Otro tipo de DIP ({detalle_fuera}): no se auditó"
+        t.add_row(f"[{ESTILOS[estado]}]{estado}[/]", str(n), f"{n / base:.0%}" if base else "-",
+                  que_hacer if n else "")
+
+    manuales = int(en_alcance["VERIFICACIÓN MANUAL"].map(_con_revision_manual).sum())
+    etapas = " · ".join(f"{e.lower()} {_duracion(s)}" for e, s in tiempos.items() if e != "Total")
+    lineas = [
+        f"[bold]{auditados} DIPs auditados[/]: {auditados - cierre} abiertos y {cierre} cerrados.",
+        t,
+        (f"[bold]Revisión manual:[/] {manuales} DIPs tienen algún punto puntual para mirar "
+         "(columna VERIFICACIÓN MANUAL del Excel)." if manuales else
+         "[bold]Revisión manual:[/] ningún DIP tiene puntos puntuales para mirar."),
+        "[dim]Como siempre, revisar en todos los attachments la captura de la referencia técnica "
+        "y el EC/RA.[/]",
+        "",
+        f"[dim]Tiempo: {_duracion(tiempos['Total'])} ({etapas})[/]",
+    ]
+    return Panel.fit(Group(*lineas), title="Resumen", border_style="green")
 
 
 def _vigencia(config, args) -> float | None:
@@ -459,7 +453,6 @@ def cmd_auditar(args, config) -> int:
     tiempos["Total"] = time.perf_counter() - inicio
 
     consola.print()
-    consola.print(_tabla_estados(filas))
     tabla = _tabla_hallazgos(resultado)
     if tabla:
         consola.print(tabla)

@@ -16,12 +16,18 @@ from .referencias import Catalogo, EntradaCatalogo, FilaReferencia
 
 # Tarea AMM o subtarea: 32-44-00-790-801 (se ignora el sufijo de efectividad -F00/-G00).
 _AMM = re.compile(r"(?<![\d-])(\d{2})-(\d{2})-(\d{2})-(\d{3})-(\d{3})")
-# ECRA / EC / EA: 3244-0178C REV 4 -> 3244-0178 (misma numeración de ingeniería).
-_EC = re.compile(r"\b(?:ECRA|EC\s*/\s*RA|EC|EA)\s*#?\s*:?\s*(\d{4})-(\d{4})", re.I)
+# ECRA / EC / EA / FCD: 3244-0178C REV 4 -> 3244-0178 (misma numeración de ingeniería).
+_EC = re.compile(r"\b(?:ECRA|EC\s*/\s*RA|EC|EA|FCD)\s*#?\s*:?\s*(\d{4})-(\d{4})", re.I)
+# El mismo número sin la sigla: "7300-0132C" (cargado así en ICAM), "CD 3500-0018C-JIC".
+_EC_SIN_SIGLA = re.compile(r"(?<![\d-])(\d{4})-(\d{4})(?:C\b|C?(?:\s*OP\s*\d+)?\s*-\s*JIC)", re.I)
 # Task card: B737-31-1-0003-U-JIC o MAX-31-1-0003-U-JIC (misma tarjeta en las dos flotas).
-_JIC = re.compile(r"\b(?:B737|MAX\d?)-(\d{2})-(\d)-(\d{4})-U-JIC", re.I)
-# SRM 51-10-05-0G-0 -> capítulo-sección-tema.
-_SRM = re.compile(r"\bSRM\s*(\d{2})-(\d{2})-(\d{2})", re.I)
+# También como se escribe a mano: "B737-73-1-0001-JIC", "B737 -05-1-0004-U-JIC", "0001U-JIC".
+_JIC = re.compile(r"\b(?:B737|MAX\d?)\s*-\s*(\d{2})\s*-\s*(\d)\s*-\s*(\d{4})\s*(?:-?\s*U\s*)?-\s*JIC",
+                  re.I)
+# Task card de servicio del tren: 32-020-02-U-JIC.
+_JIC_TREN = re.compile(r"(?<![\d-])(\d{2})-(\d{3})-(\d{2})-U-JIC", re.I)
+# SRM 51-10-05-0G-0 o SRM TASK 54-10-01-1A-1 -> capítulo-sección-tema.
+_SRM = re.compile(r"\bSRM\s*(?:TASK\s*)?(\d{2})-(\d{2})-(\d{2})", re.I)
 # El MGM (manual general de mantenimiento) no es referencia técnica válida: no cuenta.
 _MGM = re.compile(r"\bMGM\b", re.I)
 
@@ -32,9 +38,10 @@ def cita_mgm(*textos: object) -> bool:
 
 
 def sin_task_cards(texto: object) -> str:
-    """Quita las task cards JIC: en la descripción son la tarea donde se encontró la falla
-    ("DURING TASK CARD B737-25-1-0005-U-JIC"), no la referencia técnica del DIP."""
-    return _JIC.sub(" ", str(texto)) if texto else ""
+    """Quita las task cards JIC para comparar con la tabla: en la descripción suelen ser la
+    tarea donde se encontró la falla ("DURING TASK CARD B737-25-1-0005-U-JIC"). Para saber si
+    el DIP tiene referencia técnica sí cuentan: la task card es una referencia técnica."""
+    return _JIC_TREN.sub(" ", _JIC.sub(" ", str(texto))) if texto else ""
 
 
 # Un barcode de trabajo citado como la fuente del DIP: "TO BE ACCOMPLISHED IN 500FH IAW
@@ -45,14 +52,16 @@ _CITA_BARCODE = re.compile(
     r"(?:BARCODE|BC|WORK\s*ORDER)?\s*[:#.]?\s*\[?((?:TRF7N|T40S)[0-9A-Z]{6,})", re.I)
 
 
-# Attachment que es la captura de una task card JIC o de un barcode de trabajo
-# ("DIP B737-28-1-9001-U-JIC (Fuel Tanks ...).png", "[TRF7N0091HEX].png"), no de la referencia.
-_CAPTURA_DE_TAREA = re.compile(r"-U-JIC|\bJIC\b|\[(?:T40S|TRF7N)[0-9A-Z]+\]|^\s*(?:T40S|TRF7N)[0-9A-Z]{6,}"
-                               r"|TASK\s*CARD|SERVICE\s*VISIT", re.I)
+# Attachment que es la captura de un barcode de trabajo ("[TRF7N0091HEX].png",
+# "T40S00993NB 2 DAY INTERVALS.png"), no de la referencia. La captura de una task card
+# ("DIP B737-28-1-9001-U-JIC (Fuel Tanks ...) [TRF7N...].png") sí es de una referencia técnica.
+_CAPTURA_DE_BARCODE = re.compile(r"\[(?:T40S|TRF7N)[0-9A-Z]+\]|^\s*(?:T40S|TRF7N)[0-9A-Z]{6,}", re.I)
+_CAPTURA_DE_TASK_CARD = re.compile(r"JIC\b|TASK\s*CARD|SERVICE\s*VISIT", re.I)
 
 
-def es_captura_de_tarea(nombre: str) -> bool:
-    return bool(_CAPTURA_DE_TAREA.search(nombre or ""))
+def es_captura_de_barcode(nombre: str) -> bool:
+    return bool(_CAPTURA_DE_BARCODE.search(nombre or "")
+                and not _CAPTURA_DE_TASK_CARD.search(nombre or ""))
 
 
 def cita_barcode(*textos: object) -> str | None:
@@ -65,8 +74,8 @@ def cita_barcode(*textos: object) -> str | None:
 
 
 # Entradas de Technical References que no son una referencia: el marcador que ICAM pone
-# cuando falta, las marcas de auditoría y el MGM.
-_NO_REFERENCIA = re.compile(r"^\s*REFERENCE REQUIRED\s*$|RT AUDIT COMPLETED|^\s*MGM\b", re.I)
+# cuando falta, las marcas de auditoría, el MGM y las notas sin ningún número ("nota").
+_NO_REFERENCIA = re.compile(r"^\s*REFERENCE REQUIRED\s*$|RT AUDIT COMPLETED|^\s*MGM\b|^\D*$", re.I)
 
 
 def referencias_cargadas(texto: object) -> list[str]:
@@ -74,7 +83,7 @@ def referencias_cargadas(texto: object) -> list[str]:
     if not texto:
         return []
     return [x.strip() for x in str(texto).split(";")
-            if x.strip() and not _NO_REFERENCIA.search(x)]
+            if x.strip() and not _NO_REFERENCIA.search(x.strip())]
 
 
 def extraer_codigos(texto: object) -> list[str]:
@@ -84,7 +93,9 @@ def extraer_codigos(texto: object) -> list[str]:
     t = re.sub(r"\s+", " ", str(texto))
     codigos = [f"AMM {'-'.join(m.groups())}" for m in _AMM.finditer(t)]
     codigos += [f"EC {m.group(1)}-{m.group(2)}" for m in _EC.finditer(t)]
+    codigos += [f"EC {m.group(1)}-{m.group(2)}" for m in _EC_SIN_SIGLA.finditer(t)]
     codigos += [f"JIC {'-'.join(m.groups())}" for m in _JIC.finditer(t)]
+    codigos += [f"JIC {'-'.join(m.groups())}" for m in _JIC_TREN.finditer(t)]
     codigos += [f"SRM {'-'.join(m.groups())}" for m in _SRM.finditer(t)]
     return list(dict.fromkeys(codigos))
 
@@ -92,8 +103,8 @@ def extraer_codigos(texto: object) -> list[str]:
 # Referencia del manual: cualquier manual seguido de un identificador con números
 # (AMM TASK 12-15-21-200-801, FIM TASK ..., SRM 51-10-05, IPC 32-11-01, EC 1215-0032C).
 _MANUAL = re.compile(
-    r"\b(AMM|FIM|SRM|SWPM|IPC|CMM|TSM|WDM|SSM|MPD|DDG|SB|AD|ECRA|EC\s*/\s*RA|EC|EA|JIC"
-    r"|TASK\s*CARD)\b"
+    r"\b(AMM|FIM|SRM|SWPM|IPC|CMM|TSM|WDM|SSM|MPD|DDG|SB|AD|ECRA|EC\s*/\s*RA|EC|EA|FCD|JIC"
+    r"|TASK\s*CARD|T\s*/\s*C|TC)\b"
     r"\s*(?:SUB)?(?:TASK)?\s*[#:.]{0,2}\s*([A-Z0-9]*\d[A-Z0-9]*(?:[-.][A-Z0-9]+)*)", re.I)
 # Revisión del manual y su fecha, en cualquier orden y cerca una de otra:
 # "REV 28, 15-MAY-2026", "Rev.90 / 15 Jun 2026", "REVISION 12 DATED 01/08/2026",
@@ -113,8 +124,9 @@ _REV_NO_FECHA = re.compile(rf"\bREV(?:ISION)?\s*NO\.?\s*/\s*DATE\s*:?\s*(\d+)\s*
 
 def _tipo_manual(sigla: str) -> str:
     """Manual según cómo se cita (claves de revision_opcional en config.yaml)."""
-    sigla = re.sub(r"\s+", " ", sigla.upper()).replace(" / ", "/")
-    return {"JIC": "TASK CARD", "EC/RA": "ECRA"}.get(sigla, sigla)
+    sigla = re.sub(r"\s*/\s*", "/", re.sub(r"\s+", " ", sigla.upper()))
+    return {"JIC": "TASK CARD", "TASKCARD": "TASK CARD", "T/C": "TASK CARD", "TC": "TASK CARD",
+            "EC/RA": "ECRA"}.get(sigla, sigla)
 
 
 @dataclass

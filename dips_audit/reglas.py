@@ -11,7 +11,7 @@ from rapidfuzz.distance import Levenshtein
 from .discrepancias import Discrepancias
 from .inventario import cruzar
 from .referencias import EntradaCatalogo, Limite, Variante
-from .texto import extraer_fechas, extraer_psi, extraer_sn, normalizar, posiciones
+from .texto import clave_sn, extraer_fechas, extraer_psi, extraer_sn, normalizar, posiciones
 
 ORDEN_SEVERIDAD = {"CRITICA": 6, "NO CRITICA": 5, "REVISAR": 4, "CONSULTAR MANUAL": 3,
                    "SIN FUENTE": 2, "OBSERVACION": 1}
@@ -443,7 +443,7 @@ _SIN_TRABAJO = re.compile(
 
 # El técnico dice que el DIP se creó por error o está duplicado: en la acción correctiva
 # ("ENTERED BY MISTAKE", "DIP OPEN BY MISTAKE IN WRONG WP", "DUPLICATED DIP") o en el nombre,
-# la descripción o las notas del diferimiento ("DIP DUPLICADO, VER BC T40S009J3HP"). En esos
+# la descripción o las notas de la descripción ("DIP DUPLICADO, VER BC T40S009J3HP"). En esos
 # textos, "BY MISTAKE" suelto puede ser la falla ("OXYGEN MASK DEPLOYED BY MISTAKE"): tiene que
 # referirse al DIP.
 _POR_ERROR_ACCION = re.compile(
@@ -456,7 +456,7 @@ _POR_ERROR_DIP = re.compile(
 def dip_por_error(dip: dict) -> str | None:
     """Comentario si el técnico marcó el DIP como duplicado o creado por error; None si no."""
     accion = re.sub(r"^\s*\d+\.\s[^\n]*UTC\s*", "", dip.get("accion_correctiva") or "")
-    textos = [dip.get("nombre"), dip.get("descripcion"), dip.get("notas_diferimiento")]
+    textos = [dip.get("nombre"), dip.get("descripcion"), dip.get("notas_descripcion")]
     if _POR_ERROR_ACCION.search(accion):
         texto = accion
     else:
@@ -531,12 +531,16 @@ def regla_cierre(dip: dict, ctx: Contexto, r: ResultadoReglas) -> None:
                       f"{' ni '.join(encontrada.faltantes_exigidos(ctx.revision_opcional))} "
                       f"({encontrada}).")
 
-    removidos = {sn.upper() for _, sn in dip.get("sn_removidos") or []}
-    en_descripcion = set(extraer_sn(dip["nombre"] + " " + dip["descripcion"]))
-    if removidos and en_descripcion and not removidos & en_descripcion:
+    # En un cambio (botella, generator) la descripción puede nombrar el que se quitó o el
+    # que se puso: vale cualquiera de los dos de Part Requirements.
+    removidos = [sn for _, sn in dip.get("sn_removidos") or [] if clave_sn(sn)]
+    cambiados = {clave_sn(sn) for _, sn in (dip.get("sn_removidos") or [])
+                 + (dip.get("sn_instalados") or [])} - {""}
+    en_descripcion = extraer_sn(dip["nombre"] + " " + dip["descripcion"])
+    if removidos and en_descripcion and not cambiados & {clave_sn(s) for s in en_descripcion}:
         r.agregar(ctx, "cierre_sn_distinto", "Incorrect S/N",
-                  f"S/N removido {', '.join(sorted(removidos))}; la descripción dice "
-                  f"{', '.join(sorted(en_descripcion))}.")
+                  f"S/N removido {', '.join(sorted(set(removidos)))}; la descripción dice "
+                  f"{', '.join(sorted(set(en_descripcion)))}.")
 
     if cantidad_adjuntos(dip) == 0:
         r.agregar(ctx, "cierre_sin_adjuntos", "Missing Attachment",
@@ -547,8 +551,8 @@ def regla_inicio_ta(dip: dict, entrada: EntradaCatalogo | None, ctx: Contexto,
                     r: ResultadoReglas) -> None:
     """Start del T/A en ICAM: debe ser la apertura del DIP ("Incorrect DIP Start Values").
 
-    En días, el Start debe caer entre la fecha en que se encontró la falla y la del
-    diferimiento (un T/A "within 4 months from the performance date" cuenta desde el
+    En días, el Start debe caer entre la fecha en que se encontró la falla y el Defer
+    Date (un T/A "within 4 months from the performance date" cuenta desde el
     trabajo). En FH y FC, debe ser el uso al encontrar la falla (History, "Usage When Found").
     Con ventana "AFTER A, BEFORE B" (amortiguador, FDR, desgaste de frenos) el T/A empieza
     A después de la apertura y dura B - A. Los auditores marcan el T/A que empieza en la
@@ -656,26 +660,29 @@ def regla_programado_despues_del_due(dip: dict, ctx: Contexto, r: ResultadoRegla
 
 
 def _sn_parecidos(a: str, b: str) -> bool:
-    """El mismo S/N con un error de escritura: P11101989 / 11101989, AB7 / A87."""
+    """El mismo S/N con un error en el número: 1110198 / 11101989, 187 / 178."""
     return a in b or b in a or Levenshtein.distance(a, b) <= 1
 
 
 def regla_sn_consistente(dip: dict, ctx: Contexto, r: ResultadoReglas) -> None:
-    """El S/N del Fault Name y la descripción debe ser el de las notas del diferimiento
+    """El S/N del Fault Name y la descripción debe ser el de las notas de la descripción
     (ICAM). Si no coinciden, los auditores marcan "Incorrect Serial Number Referenced".
-    Un S/N de más en uno de los textos (otro componente del mismo DIP) no cuenta."""
-    notas = dip.get("notas_diferimiento") or ""
-    en_dip = set(extraer_sn(dip["nombre"] + " " + dip["descripcion"]))
-    en_notas = set(extraer_sn(notas))
-    if not en_dip or not en_notas or en_dip == en_notas:
+    Cuenta el número: P11101989 y 11101989 son el mismo S/N. Un S/N de más en uno de los
+    textos (otro componente del mismo DIP) no cuenta."""
+    def por_clave(texto: str) -> dict[str, str]:
+        return {clave_sn(s): s for s in extraer_sn(texto) if clave_sn(s)}
+
+    en_dip = por_clave(dip["nombre"] + " " + dip["descripcion"])
+    en_notas = por_clave(dip.get("notas_descripcion") or "")
+    if not en_dip or not en_notas or en_dip.keys() == en_notas.keys():
         return
-    parecidos = [(a, b) for a in sorted(en_dip - en_notas) for b in sorted(en_notas - en_dip)
-                 if _sn_parecidos(a, b)]
-    if not parecidos and en_dip & en_notas:
+    parecidos = [(en_dip[a], en_notas[b]) for a in sorted(en_dip.keys() - en_notas.keys())
+                 for b in sorted(en_notas.keys() - en_dip.keys()) if _sn_parecidos(a, b)]
+    if not parecidos and en_dip.keys() & en_notas.keys():
         return
-    pares = parecidos or [(", ".join(sorted(en_dip)), ", ".join(sorted(en_notas)))]
+    pares = parecidos or [(", ".join(sorted(en_dip.values())), ", ".join(sorted(en_notas.values())))]
     r.agregar(ctx, "sn_inconsistente", "Incorrect S/N",
-              "S/N distinto entre el DIP y las notas del diferimiento: "
+              "S/N distinto entre el DIP y las notas de la descripción: "
               + "; ".join(f"'{a}' / '{b}'" for a, b in pares) + ".")
 
 
@@ -733,6 +740,10 @@ def regla_severidad(dip: dict, ctx: Contexto, r: ResultadoReglas) -> None:
                   f"Fault Severity es '{dip['severidad']}' (se esperaba DIP).")
 
 
+# Recordatorio que llevan todos los DIPs: no cuenta como verificación pendiente en el resumen.
+VERIFICACION_GENERAL = "Verificar attachments: captura de referencia técnica y EC/RA adjunta."
+
+
 def auditar_dip(dip: dict, entrada: EntradaCatalogo | None, ctx: Contexto) -> ResultadoReglas:
     r = ResultadoReglas()
     if entrada is not None:
@@ -746,7 +757,7 @@ def auditar_dip(dip: dict, entrada: EntradaCatalogo | None, ctx: Contexto) -> Re
     regla_sn_consistente(dip, ctx, r)
     regla_ata(dip, entrada, ctx, r)
     regla_severidad(dip, ctx, r)
-    r.manuales.append("Verificar attachments: captura de referencia técnica y EC/RA adjunta.")
+    r.manuales.append(VERIFICACION_GENERAL)
     return r
 
 

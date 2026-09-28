@@ -36,7 +36,7 @@
 # FOUND: ..."), en las auditorías del 25-ago al 23-sep. Las auditorías más viejas dejaron pasar
 # discrepancias (DIPs cerrados sin attachments, S/N con errores de escritura): no se usan para
 # relajar una regla. Nuevas: sin attachments, Start del T/A (Incorrect DIP Start Values),
-# referencia no específica (barcode de trabajo) y S/N distinto de las notas del diferimiento.
+# referencia no específica (barcode de trabajo) y S/N distinto de las notas de la descripción.
 
 tipos:
 
@@ -68,7 +68,7 @@ tipos:
     reglas:
       intervalo_de_icam:                 {activa: true, severidad: OBSERVACION} # el Excel no trae intervalo; se usó el de ICAM
 
-  # Start del T/A en ICAM: en la apertura (en días, entre el hallazgo y el diferimiento; en FH
+  # Start del T/A en ICAM: en la apertura (en días, entre el hallazgo y el Defer Date; en FH
   # y FC, el uso al encontrar la falla). Con ventana "AFTER A, BEFORE B" en el catálogo
   # (amortiguador, FDR, frenos, filtro de combustible): A después de la apertura, con B - A.
   Incorrect DIP Start Values:
@@ -115,7 +115,7 @@ tipos:
     activo: true
     reglas:
       sn_repetido:                       {activa: true, severidad: NO CRITICA}  # mismo S/N en otro DIP activo del avión
-      sn_inconsistente:                  {activa: true, severidad: NO CRITICA}  # S/N del DIP distinto del de las notas del diferimiento
+      sn_inconsistente:                  {activa: true, severidad: NO CRITICA}  # S/N del DIP distinto del de las notas de la descripción
       cierre_sn_distinto:                {activa: true, severidad: OBSERVACION} # cierre: S/N removido distinto del de la descripción
       sn_fuera_de_inventario:            {activa: true, severidad: NO CRITICA}  # generators: S/N del DIP que no está en el PDF de inventario
 

@@ -279,17 +279,27 @@ def test_referencia_distinta_segun_lo_que_pide_la_tabla(auditor, ctx):
     assert h.get("referencia_tecnica_distinta") == "OBSERVACION"
 
 
-def test_attachment_de_la_task_card_no_es_la_referencia(auditor, ctx):
-    """T40S009G29M: 'Per AMM 73-11-02' y solo la captura de la task card donde se encontró.
-    El auditor: Missing Technical Reference."""
+def test_la_task_card_es_referencia_tecnica(auditor, ctx):
+    """La task card es referencia técnica: citada en la descripción o en un attachment."""
+    # T40S009G29M: 'Per AMM 73-11-02' y la captura de la task card.
     h = _referencia(auditor, ctx, "DIP - No. 1 ENGINE FUEL FILTER",
                     "Replace the No. 1 engine fuel filter after 10 hours but prior to 75 hours Per AMM "
                     "73-11-02 REV 90", adjuntos=["DIP B737-28-1-9001-U-JIC (Fuel Tanks - Refuel.png"])
-    assert "sin_referencia_tecnica" in h
-    h = _referencia(auditor, ctx, "DIP - No. 1 ENGINE FUEL FILTER",
-                    "Replace the fuel filter per AMM 73-11-02 REV 90",
-                    adjuntos=["DIP B737-28-1-9001-U-JIC.png", "AMM 73-11-02 TASK.pdf"])
     assert "sin_referencia_tecnica" not in h
+    # T40S009BE17 y T40S009C6DB: solo la task card, sin attachments.
+    for descripcion in ("FORWARD PAX PORTABLE OXIGEN BOTTLE NEXT HYDRO DUE DATE 09-2026, IAW TASK "
+                        "B737-05-1-0005-U-JIC (Passenger Cabin Inspection)",
+                        "FWD POB WAS FOUND WITH HYDRO DUE DATE LESS THAN 60 DAYS, IN REFERENCE TASK "
+                        "B737-05-1-0005-U-JIC WAS OPEN DIP FOR REPLACE.",
+                        "DURING SV-2 TASK CARD B737-73-1-0001-JIC FOUND ENGINE #2 SHORT TIME MESSAGE",
+                        "DUE ACCOMPLISHMENT TASKCARD 32-020-02-U-JIC (Right Main Landing Gear)"):
+        h = _referencia(auditor, ctx, "DIP-FORWARD PAX PORTABLE OXIGEN BOTTLE", descripcion, adjuntos=[])
+        assert "sin_referencia_tecnica" not in h, descripcion
+    # T40S009H9BB: sin cita y como attachment solo la captura de un barcode de trabajo.
+    h = _referencia(auditor, ctx, "STRUCTURE-OPEN DIP FOR SEAL CURE ON CONTROL CABIN WINDOW",
+                    "OPEN a DIP to visually inspect the tape/sealant repair in TWO (2) DAY INTERVAL.",
+                    adjuntos=["T40S00993NB 2 DAY INTERVALS.png"])
+    assert "sin_referencia_tecnica" in h
 
 
 def test_la_descripcion_manda_sobre_una_referencia_cargada_de_otro_item(auditor, ctx):
