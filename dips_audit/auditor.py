@@ -189,9 +189,10 @@ class Auditor:
                 r.agregar(ctx, "sn_repetido", "Incorrect S/N",
                           f"S/N repetido en otro DIP activo: {', '.join(sn_repetidos[i])}.")
             self._por_error(dip, ctx, r)
-            if dip.get("marcas_auditdip"):
-                r.manuales.insert(0, "Ya se había auditado manualmente (AUDITDIP en Technical "
-                                  f"References: {'; '.join(dip['marcas_auditdip'])}).")
+            marcas = dip.get("auditoria_manual") or dip.get("marcas_auditdip")
+            if marcas:
+                r.manuales.insert(0, "Ya se había auditado manualmente (Technical References "
+                                  f"en ICAM): {'; '.join(marcas)}.")
             estado = estado_final(r.hallazgos)
             comentario = self._comentario(r)
             filas.append(self._fila(dip, asoc, r, r.hallazgos, r.manuales, estado, comentario,
@@ -440,6 +441,7 @@ class Auditor:
             "REFERENCIA TÉCNICA DEL DIP": dip.get("referencia_encontrada") or "",
             "RIR EN ICAM": ("" if dip.get("rirs") is None
                             else "; ".join(map(str, dip["rirs"])) or "Sin RIR"),
+            "AUDITORÍA MANUAL EN ICAM": "\n".join(dip.get("auditoria_manual") or []),
             "ADJUNTOS EN ICAM": ("" if dip.get("adjuntos") is None
                                  else f"{len(dip['adjuntos'])}: " + ", ".join(dip["adjuntos"])
                                  if dip["adjuntos"] else "0"),

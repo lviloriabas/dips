@@ -328,6 +328,7 @@ def normalizar_lote(original: pd.DataFrame) -> tuple[pd.DataFrame, list[str]]:
             "cambios_deadline": None,
             "marcas_auditoria": None,
             "marcas_auditdip": None,   # marcas AUDITDIP: ya se auditó manualmente
+            "auditoria_manual": None,  # lo que anotó el auditor en cada marca
             # Inventario de generators (PDF adjunto): {"archivos", "generadores", "errores"};
             # None = no se leyeron los PDF en ICAM.
             "inventario": None,
@@ -386,6 +387,7 @@ def _dato_icam(r: dict, ficha=None) -> dict:
         "cambios_deadline": ficha.cambios_deadline,
         "marcas_auditoria": ficha.marcas_auditoria,
         "marcas_auditdip": ficha.marcas_auditdip,
+        "auditoria_manual": ficha.auditoria_manual,
         "fin_real": ficha.fin_real,
         "inventario": _inventario(r),
     }
@@ -546,7 +548,8 @@ def completar_con_icam(lote: Lote, ruta: Path, registros: dict[str, dict] | None
         datos.at[i, "icam_intervalos"] = r["intervalos"]
         datos.at[i, "parent_icam"] = r.get("parent_icam", "")
         for clave in ("accion_correctiva", "sn_removidos", "sn_instalados", "cambios_deadline",
-                      "marcas_auditoria", "marcas_auditdip", "uso_encontrado", "inventario"):
+                      "marcas_auditoria", "marcas_auditdip", "auditoria_manual", "uso_encontrado",
+                      "inventario"):
             if clave in r:
                 datos.at[i, clave] = r[clave]
         # Fecha de cierre: si el Excel no la trae, la de ICAM (Actual End Date, en UTC).

@@ -113,8 +113,9 @@ def test_dip_ya_auditado_manualmente_se_anota(tmp_path, auditor):
         "\tDIP OPEN - RT AUDIT COMPLETED\t\xa0\tAUDITDIP\t\xa0\n\nAttachments   \n\n")
     fila = auditor.auditar_lote(lote_desde_icam(r, tmp_path / "icam.json")).filas.iloc[0]
     assert fila["VERIFICACIÓN MANUAL"].startswith(
-        "- Ya se había auditado manualmente (AUDITDIP en Technical References: "
-        "DIP OPEN - RT AUDIT COMPLETED).")
+        "- Ya se había auditado manualmente (Technical References en ICAM): "
+        "Apertura: sin discrepancia.")
+    assert fila["AUDITORÍA MANUAL EN ICAM"] == "Apertura: sin discrepancia"
     assert fila["RESULTADO"] != "FUERA DE ALCANCE"
     sin_marca = auditor.auditar_lote(lote_desde_icam(_registro(), tmp_path / "icam.json")).filas.iloc[0]
     assert "auditado manualmente" not in sin_marca["VERIFICACIÓN MANUAL"]

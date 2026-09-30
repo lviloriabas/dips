@@ -64,6 +64,9 @@ class FichaICAM:
     marcas_auditoria: list[str] = field(default_factory=list)
     # Las de tipo AUDITDIP: el DIP ya se auditó manualmente.
     marcas_auditdip: list[str] = field(default_factory=list)
+    # Lo que anotó el auditor en cada marca, por etapa: "Apertura: DISCREPANCIA (MISSING RIR
+    # INTERVAL)", "Cierre: sin discrepancia".
+    auditoria_manual: list[str] = field(default_factory=list)
     adjuntos: list[str] = field(default_factory=list)
     intervalos: list[Intervalo] = field(default_factory=list)
     # Uso de la tarea cuando se encontró la falla (History, "Usage When Found"):
@@ -146,6 +149,30 @@ def _numero(texto: str) -> float | None:
 _DUE_USO = re.compile(r"^(-?[\d.,]+)\s*([A-Z]+)")
 _FECHA_ICAM = re.compile(r"\d{2}-[A-Z]{3}-\d{4}(?:\s+\d{2}:\d{2}\s+UTC)?")
 _MARCA_AUDITORIA = re.compile(r"RT AUDIT COMPLETED", re.I)
+_DISCREPANCIA_AUDITOR = re.compile(r"^\s*DIP\s+DISCREPANCY\s+FOUND\s*:?\s*", re.I)
+
+
+def _sin_repetir(texto: str) -> str:
+    """ICAM muestra la descripción dos veces seguidas ("X.X."): queda una."""
+    mitad = len(texto) // 2
+    return texto[:mitad] if len(texto) % 2 == 0 and texto[:mitad] == texto[mitad:] else texto
+
+
+def _veredicto(nombre: str, descripcion: str) -> str:
+    """Lo que anotó el auditor en la marca "DIP OPEN / CLOSED - RT AUDIT COMPLETED": con la
+    discrepancia, la descripción empieza con "DIP DISCREPANCY FOUND: motivo"; vacía, no
+    encontró discrepancia. Otro texto (p. ej. "DIP DUPLICATED, REFERENCE TO BC ...") es una nota."""
+    etapa = ("Apertura" if re.search(r"\bOPEN\b", nombre, re.I)
+             else "Cierre" if re.search(r"\bCLOSED\b", nombre, re.I) else nombre)
+    texto = _sin_repetir(descripcion.strip())
+    if texto.upper() == nombre.upper():
+        texto = ""
+    if _DISCREPANCIA_AUDITOR.match(texto):
+        motivo = _DISCREPANCIA_AUDITOR.sub("", texto).rstrip(". ")
+        return f"{etapa}: DISCREPANCIA" + (f" ({motivo})" if motivo else "")
+    return f"{etapa}: sin discrepancia" + (f" ({texto.rstrip('. ')})" if texto else "")
+
+
 # "Cycles ( CYCLES )<TAB>14496" y "Flying Hours ( HOURS )<TAB>54442.44"
 _USO = re.compile(r"\(\s*(CYCLES|HOURS)\s*\)\s*\t\s*(-?[\d.,]+)")
 
@@ -255,6 +282,10 @@ def leer_ficha(secciones: dict, barcode: str = "", titulo: str = "") -> FichaICA
         (f.marcas_auditoria if marca else documentos).append(nombre)
         if tipo.upper() == "AUDITDIP":
             f.marcas_auditdip.append(nombre)
+        if marca and _MARCA_AUDITORIA.search(nombre):
+            descripcion = _celda(fila, enc.index("Description")) if "Description" in enc else ""
+            f.auditoria_manual.append(_veredicto(nombre, descripcion))
+    f.auditoria_manual.sort(key=lambda v: not v.startswith("Apertura"))  # apertura primero
     if seleccionada:
         documentos.append(seleccionada)
     f.referencias_tecnicas = list(dict.fromkeys(d for d in documentos if d))

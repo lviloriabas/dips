@@ -155,7 +155,7 @@ Archivos: `dips_audit/extractor_icam.py` (cómo se lee) y `dips_audit/icam.py` (
 | --- | --- |
 | Task Execution | Descripción, acción correctiva, S/N removido e instalado |
 | Fault Information | Estado, severidad, Deferral Reference, Follow-on Tasks (RIR) |
-| Task Information | Parent Assembly, fecha real de cierre, Technical References, Attachments. Las marcas que pone el auditor al terminar ("DIP OPEN / CLOSED - RT AUDIT COMPLETED", tipo AUDITDIP, AUDITTR o sin tipo) se ignoran: no son referencias. Si hay alguna de tipo AUDITDIP, el DIP ya se auditó manualmente: se audita igual y se anota en VERIFICACIÓN MANUAL |
+| Task Information | Parent Assembly, fecha real de cierre, Technical References, Attachments. Las marcas que pone el auditor al terminar ("DIP OPEN / CLOSED - RT AUDIT COMPLETED", tipo AUDITDIP, AUDITTR o sin tipo) se ignoran: no son referencias. Si hay alguna de tipo AUDITDIP, el DIP ya se auditó manualmente: se audita igual y se anota en VERIFICACIÓN MANUAL. La Description de cada marca dice qué encontró el auditor: "DIP DISCREPANCY FOUND: motivo" es discrepancia; vacía, sin discrepancia; otro texto ("DIP DUPLICATED, REFERENCE TO BC ..."), una nota. Va por etapa (OPEN = apertura, CLOSED = cierre) en la columna AUDITORÍA MANUAL EN ICAM. En los 415 DIPs leídos al 28-sep: 17 marcas con discrepancia, 393 vacías y 4 con nota |
 | Scheduling | Intervalos del T/A, inicio, deadline, extensión y uso restante |
 | History | Cambios de deadline, notas de la descripción y uso al encontrar la falla (Usage When Found: ciclos y horas) |
 

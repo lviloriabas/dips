@@ -223,6 +223,28 @@ def test_marcas_del_auditor_no_son_referencias():
     assert f.referencias_tecnicas == ["AMM TASK 12-15-21-210-801"]
     assert len(f.marcas_auditoria) == 2
     assert f.marcas_auditdip == []  # AUDITTR o sin tipo: no cuenta como auditado manualmente
+    assert f.auditoria_manual == ["Apertura: DISCREPANCIA (X)", "Cierre: sin discrepancia"]
+
+
+def test_veredicto_del_auditor_en_la_marca():
+    """T40S009E421 y T40S009J53J: la descripción de la marca dice si hubo discrepancia (ICAM
+    la muestra dos veces seguidas). Vacía, el auditor no encontró ninguna. T40S009J3BH: otra
+    nota del auditor, sin discrepancia."""
+    tarea = ("Technical References\n\n\tName\tHyperlink\tType\tIETM\tDescription\tNotes\n"
+             "\tDIP CLOSED - RT AUDIT COMPLETED\t\xa0\tAUDITDIP\t\xa0\t\xa0\t\xa0\n"
+             "\tDIP OPEN - RT AUDIT COMPLETED\t\xa0\tAUDITDIP\t\xa0\t"
+             "DIP DISCREPANCY FOUND: Missing Technical Reference."
+             "DIP DISCREPANCY FOUND: Missing Technical Reference.\t\xa0\n\nAttachments\n")
+    f = leer_ficha({"TaskInformation": tarea})
+    assert f.auditoria_manual == ["Apertura: DISCREPANCIA (Missing Technical Reference)",
+                                  "Cierre: sin discrepancia"]
+    from dips_audit.icam import _veredicto
+    nota = "DIP DUPLICATED, REFERENCE TO BC T40S009J3HP"
+    assert _veredicto("DIP CLOSED - RT AUDIT COMPLETED", nota * 2) == (
+        f"Cierre: sin discrepancia ({nota})")
+    # La descripción que repite el nombre de la marca no es una nota.
+    assert _veredicto("DIP OPEN - RT AUDIT COMPLETED", "DIP OPEN - RT AUDIT COMPLETED" * 2) == (
+        "Apertura: sin discrepancia")
 
 
 # --- DIP duplicado o creado por error ----------------------------------------------------

@@ -212,7 +212,7 @@ Las Follow-on Tasks REQ (servicio de taller) no son RIR.
 | ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | Dashboard  | Indicadores y gráficos: resultado, apertura y cierre, DIPs por tipo y por flota, referencias y aviones con posible discrepancia                                                                                                                |
 | Resumen    | Archivo, fecha y conteos                                                                                                                                                                                                                         |
-| Auditoría | Las columnas del Excel de entrada y, al final, las del programa:`RESULTADO`, `HALLAZGOS`, `COMENTARIO SUGERIDO`, `VERIFICACIÓN MANUAL`, `REFERENCIA ASOCIADA`, `REFERENCIA TÉCNICA DEL DIP`, `RIR EN ICAM`, `ADJUNTOS EN ICAM` |
+| Auditoría | Las columnas del Excel de entrada y, al final, las del programa:`RESULTADO`, `HALLAZGOS`, `COMENTARIO SUGERIDO`, `VERIFICACIÓN MANUAL`, `REFERENCIA ASOCIADA`, `REFERENCIA TÉCNICA DEL DIP`, `RIR EN ICAM`, `ADJUNTOS EN ICAM`, `AUDITORÍA MANUAL EN ICAM` |
 | Hallazgos  | Un hallazgo por fila, con su tipo de discrepancia y si es de apertura o de cierre                                                                                                                                                                |
 
 ## Referencia técnica en los DIPs Others leídos de ICAM

@@ -75,7 +75,7 @@ Pruebas: `.venv\Scripts\python -m pytest`
 | SIN FUENTE | El DIP no está en la tabla de referencias: verificarlo contra la fuente que cita (o agregar la referencia a la tabla) |
 | OK | Hacer las verificaciones de `VERIFICACIÓN MANUAL` |
 
-Otras columnas: `COMENTARIO SUGERIDO`, `AUDITORÍA` (APERTURA/CIERRE), `ESTADO APERTURA` / `ESTADO CIERRE`, `REFERENCIA ASOCIADA`, `REFERENCIA TÉCNICA DEL DIP`, `RIR EN ICAM`, `ADJUNTOS EN ICAM`. El Excel de entrada no se modifica.
+Otras columnas: `COMENTARIO SUGERIDO`, `AUDITORÍA` (APERTURA/CIERRE), `ESTADO APERTURA` / `ESTADO CIERRE`, `REFERENCIA ASOCIADA`, `REFERENCIA TÉCNICA DEL DIP`, `RIR EN ICAM`, `ADJUNTOS EN ICAM`, `AUDITORÍA MANUAL EN ICAM` (lo que anotó el auditor en cada marca: discrepancia y motivo, o sin discrepancia). El Excel de entrada no se modifica.
 
 ## Ajustes
 

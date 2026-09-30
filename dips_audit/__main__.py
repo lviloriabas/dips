@@ -228,7 +228,8 @@ def _ficha_dip(resultado) -> Panel:
     for titulo, columna in (("T/A según referencia", "TA SEGÚN REFERENCIA"),
                             ("Referencia técnica esperada", "REFERENCIA TÉCNICA ESPERADA"),
                             ("Referencia técnica del DIP", "REFERENCIA TÉCNICA DEL DIP"),
-                            ("RIR", "RIR EN ICAM"), ("Attachments", "ADJUNTOS EN ICAM")):
+                            ("RIR", "RIR EN ICAM"), ("Attachments", "ADJUNTOS EN ICAM"),
+                            ("Auditoría manual en ICAM", "AUDITORÍA MANUAL EN ICAM")):
         if f[columna]:
             lineas.append(f"[bold]{titulo}:[/] {f[columna]}")
     lineas += ["", f"[bold]Resultado:[/] [{estilo}]{f['RESULTADO']}[/]"
