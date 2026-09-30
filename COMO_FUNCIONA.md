@@ -159,6 +159,8 @@ Se puede ejecutar varias veces: lo que ya está instalado se omite. No descarga 
 
 Al arrastrar un Excel sobre un `.bat` (o con doble clic), la ventana espera una tecla al final para que se pueda leer el resultado. Desde una consola abierta no espera. Lo decide `dips_audit/pausa.py` mirando si el proceso que abrió la ventana es el Explorador de Windows.
 
+Al empezar, los tres `.bat` buscan si hay una versión más nueva en GitHub (`dips_audit/actualizar.py`). Si la hay, muestran los cambios y preguntan si se actualiza (Enter = sí). Al actualizar se bajan los cambios, se reinstalan las librerías si cambió `requirements.txt` y el `.bat` se vuelve a lanzar con la versión nueva. No se busca nada si la PC no tiene git, si no hay conexión, si la rama actual no es `main` o si hay commits locales que no están en GitHub. Con la variable de entorno `DIPS_SIN_ACTUALIZAR` no se busca.
+
 Ojo: como `auditar.bat` decide por la existencia del archivo, una ruta mal escrita se interpreta como barcode y termina con "... no es un barcode ni un Excel de entrada que exista".
 
 ### 5.2 Comandos
@@ -1139,6 +1141,7 @@ Carpeta `dips_audit/`, en el orden en que intervienen:
 | Archivo | Qué hace | Funciones clave |
 | --- | --- | --- |
 | `__main__.py` | Comandos de consola, opciones, resumen en consola | `main`, `cmd_auditar`, `cmd_barcode`, `cmd_comparar`, `_modo_prueba` |
+| `actualizar.py` | Al inicio de los `.bat`: ofrece actualizar si GitHub tiene una versión más nueva | `main`, `_pendientes`, `_actualizar` |
 | `pausa.py` | Decide si el `.bat` debe esperar una tecla | `abierto_desde_explorador` |
 | `filtrar.py` | Copia FILTERED con los pendientes | `filtrar`, `pendiente` |
 | `extractor_icam.py` | Lee ICAM (solo lectura) y guarda `data/icam.json` | `extraer`, `ExtractorICAM.leer`, `verificar_sesion` |

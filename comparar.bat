@@ -8,6 +8,10 @@ rem (ver: python -m dips_audit comparar --help)
 chcp 65001 >nul
 setlocal
 set "RAIZ=%~dp0"
+rem Busca una version mas nueva en GitHub y pregunta si se actualiza; si se actualiza, se relanza
+rem (en una sola linea: cmd sigue leyendo este archivo y la actualizacion pudo cambiarlo;
+rem "call exit /b %%^ERRORLEVEL%%" sale con el codigo de la corrida relanzada).
+"%RAIZ%.venv\Scripts\python.exe" "%RAIZ%dips_audit\actualizar.py" & if errorlevel 3 (set "DIPS_SIN_ACTUALIZAR=1" & call "%~f0" %* & call exit /b %%^ERRORLEVEL%%)
 if "%~1"=="" (
     echo Arrastre el Excel "DIPs Audit (...)" sobre este archivo, o ejecute:
     echo     comparar.bat "DIPs Audit (23SEP2026).xlsx" [--icam]

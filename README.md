@@ -12,6 +12,8 @@ cd dips
 setup.bat
 ```
 
+Si la PC tiene git, al abrir `auditar.bat`, `comparar.bat` o `filtrar.bat` el programa avisa cuando hay una versión más nueva en GitHub y pregunta si se actualiza.
+
 ## Uso
 
 | Acción | Cómo | Resultado |
@@ -22,7 +24,7 @@ setup.bat
 | Filtrar DIPs pendientes de auditar | Arrastrar `DIPs Audit (...).xlsx` sobre `filtrar.bat` | `DIPs Audit (...) FILTERED.xlsx` junto al original: solo ACTV sin `DIP Open Audit User` y COMPLETE sin `DIP Closed Audit User` |
 | Modo prueba | Poner el Excel en `pruebas/entrada/` (o usar `--prueba`) | `pruebas/salidas/PRUEBA_...xlsx` |
 
-Por defecto se audita **solo con el Excel** (menos reglas). Para leer en ICAM todos los DIPs del archivo, de cualquier tipo, ejecute el `.bat` en la consola con `--icam` (ver [Comandos](#comandos)); el programa no hace preguntas.
+Por defecto se audita **solo con el Excel** (menos reglas). Para leer en ICAM todos los DIPs del archivo, de cualquier tipo, ejecute el `.bat` en la consola con `--icam` (ver [Comandos](#comandos)); fuera del aviso de actualización, el programa no hace preguntas.
 
 Con `--icam` se abre una ventana de Edge en ICAM: si pide sesión, iníciela ahí. El programa sigue apenas la sesión se inicia y se detiene apenas la página de inicio de sesión muestra un error. Al terminar la lectura, el programa cierra la ventana y todos los procesos de Edge que abrió; si una corrida anterior dejó alguno abierto, lo cierra al final de la siguiente. El Edge de uso diario no se toca.
 
