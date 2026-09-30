@@ -263,7 +263,7 @@ Cada consulta se reintenta hasta 3 veces (`icam.intentos`), esperando 0.5 s y 1 
 
 **3.6 Dónde se guarda.** Todos los DIPs van a un solo archivo, `data/icam.json` (`{"records": [...]}`), un registro por barcode con el texto de cada pestaña, la fecha de lectura y, si corresponde, los PDF y las RIR. Una lectura nueva reemplaza a la anterior del mismo barcode. El archivo se reescribe como mucho cada 5 segundos y al terminar (también si algo falla), primero en un temporal y después se reemplaza: nunca queda a medias. Si quedan JSON sueltos de versiones anteriores (`data/icam/*.json`), se unen a `data/icam.json` y se borran.
 
-**3.7 Al terminar.** Cierra el Edge de ICAM (`cerrar_al_terminar: false` lo deja abierto) y muestra "ICAM: N leídos, M de lo guardado, K con error", con los primeros 10 errores.
+**3.7 Al terminar.** Cierra el Edge de ICAM y todos los procesos de su perfil (también los que haya dejado una corrida anterior; el Edge de uso diario no se toca) y muestra "ICAM: N leídos, M de lo guardado, K con error", con los primeros 10 errores.
 
 **3.8 Si la sesión vence a mitad de camino.** La corrida se detiene con "La sesión de ICAM venció" y **no audita**. Lo leído hasta ahí queda guardado; al volver a ejecutar, los DIPs leídos en la última hora no se vuelven a leer.
 
@@ -908,7 +908,6 @@ Todo el criterio de auditoría está fuera del código Python: se ajusta sin pro
 | `icam.espera_segundos` | Máximo por página (30) |
 | `icam.espera_sesion_minutos` | Tope para iniciar sesión (3) |
 | `icam.selector_error_sesion`, `selector_busqueda`, `selector_contenido` | Selectores de la página (vacío = los de ICAM por defecto) |
-| `icam.cerrar_al_terminar` | Cerrar el Edge de ICAM al terminar (true) |
 
 ### 11.2 `config/discrepancias.yaml`
 

@@ -656,6 +656,7 @@ def main(argv: list[str] | None = None) -> int:
                                       "(los nombres que acepta --categorias)")
 
     args = p.parse_args(argv)
+    config = None
     try:
         config = cargar_configuracion(Path(args.config) if args.config else None)
         _modo_prueba(args, config)
@@ -667,6 +668,22 @@ def main(argv: list[str] | None = None) -> int:
             PermissionError) as ex:
         consola.print(f"[bold red]Error:[/] {ex}")
         return 1
+    finally:
+        if config is not None and args.comando != "abrir-icam":
+            _cerrar_edge_pendiente(config)
+
+
+def _cerrar_edge_pendiente(config) -> None:
+    """Si una corrida anterior dejó abierto el Edge de ICAM del programa (o esta no pudo
+    cerrarlo), se cierra al terminar. El Edge de uso diario no se toca."""
+    from .extractor_icam import cerrar_edge, edge_abierto
+
+    perfil = config.get("icam", {}).get("perfil")
+    if perfil and edge_abierto(perfil):
+        cerrados = cerrar_edge(perfil)
+        if cerrados:
+            consola.print(f"[dim]Se cerró el Edge de ICAM que había quedado abierto "
+                          f"({cerrados} procesos).[/]")
 
 
 if __name__ == "__main__":

@@ -8,9 +8,12 @@ un onload que intenta enviar datos y una imagen.
 
 import http.server
 import json
+import os
 import socket
+import subprocess
 import threading
 import time
+from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
 import pytest
@@ -18,7 +21,8 @@ import pytest
 pytest.importorskip("playwright")
 
 from dips_audit.extractor_icam import (  # noqa: E402
-    ErrorExtraccion, ErrorSesion, extraer, leer_registro)
+    ErrorExtraccion, ErrorSesion, _usa_perfil, cerrar_edge, extraer, leer_registro, procesos_edge,
+    ruta_edge)
 from dips_audit.icam import PESTANAS, leer_ficha  # noqa: E402
 
 TEXTOS = {
@@ -186,9 +190,11 @@ def icam(tmp_path):
     threading.Thread(target=servidor.serve_forever, daemon=True).start()
     config = {"url": f"http://127.0.0.1:{servidor.server_address[1]}/maintenix/common/ToDoList.jsp",
               "perfil": tmp_path / "perfil", "puerto": _puerto_libre(), "oculto": True,
-              "cerrar_al_terminar": True, "paralelo": 3, "intentos": 3, "espera_segundos": 15}
+              "paralelo": 3, "intentos": 3, "espera_segundos": 15}
     yield config
     servidor.shutdown()
+    # Aunque el test falle, no queda ningún Edge de su perfil.
+    cerrar_edge(config["perfil"])
 
 
 def _extraer(barcodes, config, carpeta):
@@ -212,6 +218,8 @@ def test_lee_por_barcode_rapido_y_solo_lectura(icam, tmp_path):
     # Solo llegaron búsquedas (DIP y RIR vigente): sin scripts de ICAM, sin onload y sin imágenes.
     assert _ICAMSimulado.envios == [ESCANEO] * (2 * len(barcodes))
     assert segundos < 30, f"12 DIPs con RIR en {segundos:.1f} s"
+    # Terminada la lectura no queda ningún proceso de Edge del perfil.
+    assert procesos_edge(icam["perfil"]) == []
 
     # Todos los DIPs quedan juntos en un solo JSON.
     datos = json.loads((tmp_path / "icam.json").read_text(encoding="utf-8"))
@@ -291,3 +299,42 @@ def test_vigencia_usa_lo_guardado_si_se_leyo_hace_menos_de_una_hora(tmp_path):
     # Sin ICAM (config vacía): si hubiera que leer, fallaría.
     assert extraer(["T40S009T000"], {}, tmp_path / "icam.json", vigencia_minutos=60) == {
         "T40S009T000": "guardado"}
+
+
+# --- Procesos de Edge -------------------------------------------------------------------
+
+
+def test_procesos_del_perfil_del_programa():
+    """Solo los procesos con el perfil del programa; el Edge de uso diario no se toca."""
+    perfil = Path(r"C:\dips\.icam_perfil")
+    edge = r'"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe" '
+    assert _usa_perfil(edge + r"--remote-debugging-port=9222 --user-data-dir=C:\dips\.icam_perfil "
+                       "--no-first-run", perfil)
+    assert _usa_perfil(edge + r'--user-data-dir="C:\dips\.icam_perfil" --type=renderer', perfil)
+    # Corridas anteriores pasaban la ruta relativa.
+    assert _usa_perfil(edge + "--remote-debugging-port=9222 --user-data-dir=.icam_perfil", perfil)
+    # Crashpad nombra el perfil en --database.
+    assert _usa_perfil(edge + r"--type=crashpad-handler --database=C:\dips\.icam_perfil\Crashpad",
+                       perfil)
+    assert not _usa_perfil(edge + "--profile-directory=Default", perfil)
+    assert not _usa_perfil(edge + r"--type=renderer --user-data-dir=C:\Users\x\Edge", perfil)
+
+
+@pytest.mark.skipif(os.name != "nt", reason="procesos de Edge en Windows")
+def test_la_siguiente_corrida_cierra_el_edge_que_quedo_abierto(icam, tmp_path):
+    """Un Edge del perfil que quedó abierto (colgado: sin puerto de depuración) no impide
+    leer, y al terminar no queda ninguno."""
+    try:
+        edge = ruta_edge()
+    except ErrorExtraccion as e:
+        pytest.skip(str(e))
+    icam["perfil"].mkdir(parents=True)
+    subprocess.Popen([edge, f"--user-data-dir={icam['perfil']}", "--headless=new", "--no-first-run",
+                      "about:blank"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    limite = time.monotonic() + 15
+    while not procesos_edge(icam["perfil"]) and time.monotonic() < limite:
+        time.sleep(0.3)
+    assert procesos_edge(icam["perfil"]), "no arrancó el Edge de prueba"
+    estado = _extraer(["T40S009T001"], icam, tmp_path / "icam.json")
+    assert estado == {"T40S009T001": "leido"}
+    assert procesos_edge(icam["perfil"]) == []

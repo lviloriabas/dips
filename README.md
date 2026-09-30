@@ -24,7 +24,7 @@ setup.bat
 
 Por defecto se audita **solo con el Excel** (menos reglas). Para leer en ICAM todos los DIPs del archivo, de cualquier tipo, ejecute el `.bat` en la consola con `--icam` (ver [Comandos](#comandos)); el programa no hace preguntas.
 
-Con `--icam` se abre una ventana de Edge en ICAM: si pide sesión, iníciela ahí. El programa sigue apenas la sesión se inicia y se detiene apenas la página de inicio de sesión muestra un error. Al terminar la lectura, el programa cierra la ventana (`cerrar_al_terminar` en `config/config.yaml`).
+Con `--icam` se abre una ventana de Edge en ICAM: si pide sesión, iníciela ahí. El programa sigue apenas la sesión se inicia y se detiene apenas la página de inicio de sesión muestra un error. Al terminar la lectura, el programa cierra la ventana y todos los procesos de Edge que abrió; si una corrida anterior dejó alguno abierto, lo cierra al final de la siguiente. El Edge de uso diario no se toca.
 
 ## Comandos
 

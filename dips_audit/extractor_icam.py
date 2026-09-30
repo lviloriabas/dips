@@ -28,6 +28,7 @@ la lectura se detiene y lo leído queda guardado.
 from __future__ import annotations
 
 import asyncio
+import atexit
 import json
 import os
 import re
@@ -179,12 +180,78 @@ def edge_activo(puerto: int) -> bool:
         return False
 
 
+_USER_DATA_DIR = re.compile(r'--user-data-dir=(?:"([^"]+)"|(\S+))', re.I)
+
+
+def _usa_perfil(linea: str, perfil: Path) -> bool:
+    """Si la línea de comandos de un proceso de Edge es del perfil del programa. El Edge de
+    uso diario no pasa --user-data-dir (o pasa otro): nunca se toca. Los procesos hijos
+    (crashpad) nombran el perfil en otro argumento, por eso también vale la ruta completa."""
+    if str(perfil).lower() in linea.lower():
+        return True
+    m = _USER_DATA_DIR.search(linea)
+    valor = (m.group(1) or m.group(2)) if m else ""
+    # Corridas anteriores pasaban la ruta relativa (".icam_perfil").
+    return bool(valor) and not Path(valor).is_absolute() and Path(valor).name == perfil.name
+
+
+def procesos_edge(perfil: Path | str) -> list[int]:
+    """PIDs de los procesos de Edge que usan el perfil del programa (abiertos por esta corrida
+    o por una anterior que no los cerró)."""
+    perfil = Path(perfil).resolve()
+    if os.name != "nt":
+        return []
+    comando = ("Get-CimInstance Win32_Process -Filter \"Name='msedge.exe'\" | "
+               "Select-Object ProcessId, CommandLine | ConvertTo-Json -Compress")
+    try:
+        salida = subprocess.run(["powershell", "-NoProfile", "-NonInteractive", "-Command", comando],
+                                capture_output=True, text=True, timeout=30,
+                                creationflags=subprocess.CREATE_NO_WINDOW).stdout.strip()
+        procesos = json.loads(salida) if salida else []
+    except (OSError, subprocess.TimeoutExpired, ValueError):
+        return []
+    if isinstance(procesos, dict):
+        procesos = [procesos]
+    return [p["ProcessId"] for p in procesos if _usa_perfil(p.get("CommandLine") or "", perfil)]
+
+
+def cerrar_edge(perfil: Path | str) -> int:
+    """Cierra todos los procesos de Edge del perfil del programa (con sus hijos). Devuelve
+    cuántos había."""
+    pids = procesos_edge(perfil)
+    if pids:
+        argumentos = ["taskkill", "/F", "/T"] + [a for pid in pids for a in ("/PID", str(pid))]
+        subprocess.run(argumentos, capture_output=True, creationflags=subprocess.CREATE_NO_WINDOW)
+    return len(pids)
+
+
+def edge_abierto(perfil: Path | str) -> bool:
+    """Chequeo rápido: Edge crea `lockfile` en el perfil mientras lo usa y lo borra al salir."""
+    return (Path(perfil) / "lockfile").exists()
+
+
+# Perfiles con un Edge abierto por esta corrida: se cierran al salir aunque la corrida se
+# interrumpa (Ctrl+C, error). Si el proceso muere sin poder hacerlo, la siguiente corrida los
+# encuentra por el perfil y los cierra.
+_ABIERTOS: set[Path] = set()
+
+
+@atexit.register
+def _cerrar_abiertos() -> None:
+    for perfil in list(_ABIERTOS):
+        cerrar_edge(perfil)
+        _ABIERTOS.discard(perfil)
+
+
 def abrir_edge(config: dict) -> subprocess.Popen | None:
     """Abre el Edge de ICAM directo en ICAM, si no está abierto."""
     puerto = int(config.get("puerto", 9222))
+    perfil = Path(config["perfil"]).resolve()
     if edge_activo(puerto):
         return None
-    perfil = Path(config["perfil"])
+    # Un Edge de una corrida anterior que quedó con el perfil pero no responde impediría abrir
+    # uno nuevo (Edge usa un solo proceso por perfil): se cierra antes.
+    cerrar_edge(perfil)
     perfil.mkdir(parents=True, exist_ok=True)
     argumentos = [ruta_edge(), f"--remote-debugging-port={puerto}", f"--user-data-dir={perfil}",
                   "--no-first-run", "--no-default-browser-check"]
@@ -199,6 +266,7 @@ def abrir_edge(config: dict) -> subprocess.Popen | None:
         if edge_activo(puerto):
             return proceso
         time.sleep(0.3)
+    cerrar_edge(perfil)
     raise ErrorExtraccion("El Edge de ICAM no respondió.")
 
 
@@ -223,29 +291,46 @@ class ExtractorICAM:
             from playwright.async_api import async_playwright
         except ImportError as e:
             raise ErrorExtraccion("Falta la librería playwright. Ejecute setup.bat.") from e
-        self._proceso = abrir_edge(self.config)
-        self._pw = await async_playwright().start()
-        self._navegador = await self._pw.chromium.connect_over_cdp(f"http://127.0.0.1:{self.puerto}")
-        self._contexto = self._navegador.contexts[0]
+        perfil = Path(self.config["perfil"]).resolve()
+        _ABIERTOS.add(perfil)
+        try:
+            self._proceso = abrir_edge(self.config)
+            self._pw = await async_playwright().start()
+            self._navegador = await self._pw.chromium.connect_over_cdp(
+                f"http://127.0.0.1:{self.puerto}")
+            self._contexto = self._navegador.contexts[0]
+        except BaseException:
+            await self.__aexit__()  # no deja abierto el Edge que alcanzó a abrir
+            raise
         return self
 
     async def __aexit__(self, *exc) -> None:
-        cerrar = self.config.get("cerrar_al_terminar", True)
+        """Terminada la lectura (o interrumpida), cierra el Edge de ICAM y todos los procesos
+        de su perfil, también los que haya dejado abiertos una corrida anterior."""
         if self._navegador:
-            if cerrar:  # terminada la lectura, cierra el Edge de ICAM
-                try:
-                    sesion = await self._navegador.new_browser_cdp_session()
-                    await sesion.send("Browser.close")
-                except Exception:
-                    pass
-            await self._navegador.close()  # sin cerrar_al_terminar, la ventana queda abierta
-        if self._pw:
-            await self._pw.stop()
-        if cerrar and self._proceso is not None:
             try:
-                self._proceso.wait(timeout=15)
-            except subprocess.TimeoutExpired:
-                self._proceso.kill()
+                sesion = await self._navegador.new_browser_cdp_session()
+                await sesion.send("Browser.close")
+            except Exception:
+                pass
+            try:
+                await self._navegador.close()
+            except Exception:
+                pass
+        if self._pw:
+            try:
+                await self._pw.stop()
+            except Exception:
+                pass
+        # Se espera a que Edge se cierre solo (guarda la sesión de ICAM en el perfil); lo que
+        # quede después se cierra a la fuerza.
+        perfil = Path(self.config["perfil"]).resolve()
+        limite = time.monotonic() + 10
+        while edge_abierto(perfil) and time.monotonic() < limite:
+            await asyncio.sleep(0.2)
+        cerrar_edge(perfil)
+        _ABIERTOS.discard(perfil)
+        self._pw = self._navegador = self._contexto = self._proceso = None
 
     def _en_icam(self, url: str) -> bool:
         return url.startswith(self.origen)

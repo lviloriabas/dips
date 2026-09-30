@@ -52,4 +52,3 @@ icam:
   selector_error_sesion: ""       # vacío = mensajes de error de Keycloak (ICAM) y de Microsoft
   selector_busqueda: ""           # vacío = el campo Barcode Search se busca solo
   selector_contenido: "body"      # de dónde se copia el texto de cada pestaña
-  cerrar_al_terminar: true        # cierra el Edge de ICAM al terminar la lectura (false: lo deja abierto)
