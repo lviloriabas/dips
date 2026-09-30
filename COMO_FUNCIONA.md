@@ -25,7 +25,7 @@ flowchart TD
     A[DIP: fila del Excel + lo leído en ICAM] --> B{¿Se reconoce el ítem<br/>en la tabla de referencias?}
     B -- Sí --> C[Se compara con lo que exige la tabla:<br/>intervalo, Parent Assembly, referencia técnica, RIR]
     B -- No --> D[Se compara con lo que dice su descripción:<br/>plazo, inspección repetitiva, vencimiento]
-    C --> E[Reglas que valen para todos:<br/>vencido, due date, Start del T/A, attachments,<br/>S/N, ATA, duplicados]
+    C --> E[Reglas que valen para todos:<br/>vencido, due date, Start del TA, attachments,<br/>S/N, ATA, duplicados]
     D --> E
     E --> F{¿DIP COMPLETE?}
     F -- Sí --> G[Reglas de cierre:<br/>cierre tarde, acción correctiva, attachments]
@@ -34,17 +34,6 @@ flowchart TD
 ```
 
 Un DIP que no está en la tabla sale SIN FUENTE si pasa todas las reglas que se le pueden aplicar, y POSIBLE DISCREPANCIA si falla alguna. Un DIP cerrado se audita dos veces, en la apertura y en el cierre.
-
-## Términos que se prestan a confusión
-
-Casi todos los nombres son los de ICAM. Estos conviene aclararlos:
-
-- T/A y TA no son lo mismo. El T/A es el plazo cargado en ICAM para el DIP, en la pestaña Scheduling: uno o varios límites (días, FH, FC), su Start y su deadline. El TA es lo que exige la tabla de referencias para ese ítem, por ejemplo "3 DAYS" o "60 DAYS OR 500 FH".
-- El Start es desde dónde cuenta el T/A: una fecha si el límite es en días, o un contador de horas o ciclos.
-- La tabla de referencias es la hoja `References` de `DIPs References.xlsx`. El catálogo (`config/catalogo_others.yaml`) dice cómo reconocer cada fila de la tabla en el nombre de un DIP. Una entrada del catálogo es un ítem y puede tener varias variantes de TA (por flota, por presión, por etapa).
-- Un hallazgo es una regla que falló. Si su severidad es observación, se anota pero no cambia el resultado. Lo que el programa no puede decidir va a la columna `VERIFICACIÓN MANUAL`.
-- Algunos ítems tienen una ventana "AFTER A, BEFORE B": su T/A empieza A después de la apertura y dura B - A (amortiguador, FDR, frenos...).
-- AUDITDIP es la marca que pone el auditor en Technical References al terminar su auditoría manual.
 
 ## Archivos
 
@@ -73,44 +62,89 @@ Cada vez que se abre `auditar.bat`, `comparar.bat` o `filtrar.bat`, el programa 
 
 ## Cómo se ejecuta
 
-Lo habitual es arrastrar el Excel sobre uno de los `.bat`:
+Los `.bat` se usan arrastrando el Excel encima o desde una consola abierta en la carpeta del programa. Desde la consola se les pueden agregar opciones. Arrastrar el Excel sobre `auditar.bat` es lo mismo que el primer comando.
 
-- `auditar.bat` audita. Si el argumento es un archivo que existe, audita ese Excel; si no, lo toma como un barcode y audita solo ese DIP (ver [Auditar un solo DIP](#auditar-un-solo-dip)). Por eso una ruta mal escrita termina en "... no es un barcode ni un Excel de entrada que exista".
-- `comparar.bat` compara el resultado del programa con la auditoría manual que ya trae el Excel.
-- `filtrar.bat` crea la copia `... FILTERED.xlsx` con los DIPs que faltan auditar.
+```bat
+:: Auditar solo con los datos del Excel
+auditar.bat "DIPs Audit (29SEP2026).xlsx"
 
-Si el `.bat` se abrió desde el Explorador (arrastrando o con doble clic), la ventana espera una tecla al final para que se pueda leer el resultado. Desde una consola no espera.
+:: Leer antes cada DIP en ICAM (unos 5 minutos cada 380 DIPs)
+auditar.bat "DIPs Audit (29SEP2026).xlsx" --icam
 
-Por debajo, todo es `.venv\Scripts\python -m dips_audit <comando>`. Además de `auditar`, `barcode` y `comparar` están:
+:: Solo los DIPs que faltan auditar: crea antes la copia FILTERED y audita esa
+auditar.bat "DIPs Audit (29SEP2026).xlsx" --icam --pendientes
 
-- `extraer-icam ARCHIVO`, que solo lee ICAM y guarda en `data/icam.json`. Con `--barcode X` muestra en JSON lo que interpretó de ese DIP, útil para diagnosticar.
-- `abrir-icam`, que abre el Edge de ICAM para iniciar sesión sin auditar.
-- `referencias`, que muestra cómo se interpretó la tabla: TA de cada entrada, Parent Assy, referencia técnica y advertencias.
-- `categorias`, que lista los tipos de discrepancia y sus reglas con los nombres que acepta `--categorias`.
-- `benchmark`, que mide el programa contra DIPs ya auditados, y `anonimizar`, que arma esa muestra.
+:: Con lo ya leído en ICAM, sin abrirlo y sin importar cuándo se leyó
+auditar.bat "DIPs Audit (29SEP2026).xlsx" --datos-icam data\icam.json
 
-El filtro de pendientes está en otro módulo: `python -m dips_audit.filtrar ARCHIVO`.
+:: Solo los DIPs Others; los demás quedan FUERA DE ALCANCE
+auditar.bat "DIPs Audit (29SEP2026).xlsx" --tipos-dip Others
 
-Las opciones más usadas:
+:: Como si fuera otro momento (cambia, por ejemplo, qué DIPs están vencidos)
+auditar.bat "DIPs Audit (29SEP2026).xlsx" --fecha "2026-09-29 14:00"
+
+:: Solo algunos tipos de discrepancia, o todos menos algunos (basta parte del nombre)
+auditar.bat "DIPs Audit (29SEP2026).xlsx" --categorias "Incorrect DIP Interval" RIR
+auditar.bat "DIPs Audit (29SEP2026).xlsx" --excluir-categorias "Missing S/N"
+
+:: Uno o varios DIPs por su barcode, sin Excel: los lee en ICAM y muestra el resultado en consola
+auditar.bat T40S0099V9C
+auditar.bat T40S0099V9C T40S009H0QN
+```
+
+```bat
+:: Comparar con la auditoría manual que trae el Excel
+comparar.bat "DIPs Audit (29SEP2026).xlsx"
+comparar.bat "DIPs Audit (29SEP2026).xlsx" --icam
+
+:: Crear la copia FILTERED con los DIPs que faltan auditar
+filtrar.bat "DIPs Audit (29SEP2026).xlsx"
+```
+
+Los demás comandos se ejecutan con el Python del entorno:
+
+```bat
+:: Solo leer ICAM y guardar en data\icam.json
+.venv\Scripts\python -m dips_audit extraer-icam "DIPs Audit (29SEP2026).xlsx"
+
+:: Ver en JSON lo que se interpretó de un DIP en ICAM (para diagnosticar)
+.venv\Scripts\python -m dips_audit extraer-icam --barcode T40S0099V9C
+
+:: Abrir el Edge de ICAM para iniciar sesión, sin auditar
+.venv\Scripts\python -m dips_audit abrir-icam
+
+:: Ver cómo se interpretó la tabla de referencias: TA, Parent Assy, referencia técnica y advertencias
+.venv\Scripts\python -m dips_audit referencias
+
+:: Listar los tipos de discrepancia y sus reglas (los nombres que acepta --categorias)
+.venv\Scripts\python -m dips_audit categorias
+
+:: Medir el programa contra DIPs ya auditados
+.venv\Scripts\python -m dips_audit benchmark
+
+:: Rearmar la muestra anónima del benchmark desde el histórico
+.venv\Scripts\python -m dips_audit anonimizar
+
+:: Correr las pruebas
+.venv\Scripts\python -m pytest
+
+:: Ver todas las opciones de un comando
+.venv\Scripts\python -m dips_audit auditar --help
+```
+
+Las opciones de los ejemplos tienen forma corta: `-i` es `--icam`, `-f` es `--fecha`, `-c` es `--categorias`, `-e` es `--excluir-categorias` y `-t` es `--tipos-dip`. `--datos-icam` también acepta un CSV o Excel con las columnas `barcode` y `technical_references`. Otras opciones:
 
 | Opción | Qué hace |
 | --- | --- |
-| `-i`, `--icam` | Lee en ICAM todos los DIPs del archivo antes de auditar. Sin esta opción se audita solo con el Excel |
 | `--no-cache` | Vuelve a leer en ICAM también los DIPs leídos hace menos de una hora |
-| `--datos-icam RUTA` | Usa datos de ICAM ya leídos (`data/icam.json`, o un CSV/Excel con `barcode` y `technical_references`) sin abrir ICAM, sin importar su antigüedad |
-| `--pendientes` | Filtra antes el Excel y audita solo los pendientes |
 | `-j`, `--hoja NOMBRE` | Hoja a leer. Por defecto, la primera con `Fault Barcode` y `Fault Name` |
-| `-f`, `--fecha "AAAA-MM-DD HH:MM"` | Audita como si fuera ese momento. Cambia, por ejemplo, qué DIPs están vencidos |
-| `-c`, `--categorias TIPO ...` | Revisa solo esos tipos de discrepancia (basta parte del nombre) |
-| `-e`, `--excluir-categorias TIPO ...` | Revisa todos menos esos |
-| `-t`, `--tipos-dip TIPO ...` | Audita solo esos tipos de DIP (`Others`, `Powerplant`...). El resto queda FUERA DE ALCANCE |
 | `-n`, `--sin-excel` | Solo consola, sin Excel de salida |
 | `--max-filas N` | Cuántos DIPs con posible discrepancia mostrar en consola (40 por defecto) |
 | `-o`, `--salida RUTA` | Dónde guardar el Excel de resultado |
 | `-p`, `--prueba` | Fuerza el modo prueba |
-| `--config RUTA` | Usa otro `config.yaml` (va antes del comando) |
+| `--config RUTA` | Usa otro `config.yaml`. Va antes del comando: `python -m dips_audit --config RUTA auditar ...` |
 
-No todas valen para todos los comandos: `python -m dips_audit <comando> --help` muestra las de cada uno. El programa termina con código 0 si salió bien, 1 si hubo un error y 2 si el benchmark empeoró.
+Si el argumento de `auditar.bat` no es un archivo que existe, se toma como barcode; por eso una ruta mal escrita termina en "... no es un barcode ni un Excel de entrada que exista". Si el `.bat` se abrió desde el Explorador (arrastrando o con doble clic), la ventana espera una tecla al final para que se pueda leer el resultado; desde una consola no espera. El programa termina con código 0 si salió bien, 1 si hubo un error y 2 si el benchmark empeoró.
 
 ## Una auditoría, paso a paso
 
@@ -220,7 +254,7 @@ El resultado es un `Lote` con dos tablas: `original`, con las columnas tal como 
 
 Si se leyó ICAM (o se pasó `--datos-icam`), a cada DIP del Excel que esté en `data/icam.json` se le suma lo leído allí (`cargador.completar_con_icam`, que interpreta las pestañas con `icam.leer_ficha`).
 
-Hay datos que solo están en ICAM: el T/A completo (límites, Start, deadlines y extensión), el uso al encontrar la falla (History, "Usage When Found"), las notas de la descripción (Deferral Notes), el Parent Assembly según ICAM (para compararlo con el de las RIR), la acción correctiva con los S/N removido e instalado, los cambios de deadline, las marcas AUDITDIP y el inventario de generators. La referencia técnica, los attachments y las RIR se toman de ICAM en lugar del Excel, y la descripción también, cuando ICAM trae texto. En todo lo demás (due date, apertura, estado, avión, Parent Assy, ATA) manda el Excel. ICAM solo completa la fecha de cierre y el intervalo cuando el Excel no los trae; si tuvo que usar el intervalo de ICAM, lo deja como observación.
+Hay datos que solo están en ICAM: el TA completo (límites, Start, deadlines y extensión), el uso al encontrar la falla (History, "Usage When Found"), las notas de la descripción (Deferral Notes), el Parent Assembly según ICAM (para compararlo con el de las RIR), la acción correctiva con los S/N removido e instalado, los cambios de deadline, las marcas AUDITDIP (las que deja el auditor en Technical References al terminar su auditoría manual) y el inventario de generators. La referencia técnica, los attachments y las RIR se toman de ICAM en lugar del Excel, y la descripción también, cuando ICAM trae texto. En todo lo demás (due date, apertura, estado, avión, Parent Assy, ATA) manda el Excel. ICAM solo completa la fecha de cierre y el intervalo cuando el Excel no los trae; si tuvo que usar el intervalo de ICAM, lo deja como observación.
 
 Un DIP que no está en el JSON sigue solo con el Excel. Las notas de la carga dicen cuántos se completaron.
 
@@ -276,7 +310,7 @@ La regla de Parent Assembly distinto de sus pares es solo para DIPs SIN FUENTE. 
 A cada DIP en alcance se le aplican, en este orden:
 
 1. Intervalo, Parent Assembly y S/N requerido, solo si el DIP está en la tabla.
-2. Fechas: due date, vencimiento del ítem, DIP vencido, Usage Remaining y, si está COMPLETE, las reglas de cierre. Después, Start del T/A, attachments, paquete programado después del due date, S/N contra las notas de la descripción, ATA, Deferral Reference y Fault Severity.
+2. Fechas: due date, vencimiento del ítem, DIP vencido, Usage Remaining y, si está COMPLETE, las reglas de cierre. Después, Start del TA, attachments, paquete programado después del due date, S/N contra las notas de la descripción, ATA, Deferral Reference y Fault Severity.
 3. Referencia técnica y RIR.
 4. Si el DIP es SIN FUENTE, las reglas contra su propia descripción.
 5. Lo que salió de comparar con los demás DIPs, el aviso de intervalo tomado de ICAM y las observaciones de la asociación.
@@ -288,26 +322,28 @@ Las reglas están en `reglas.py`, salvo la referencia técnica y la RIR (`Audito
 
 #### Intervalo
 
+Se compara el intervalo del DIP con el TA de la tabla:
+
 | Caso | Resultado |
 | --- | --- |
-| Igual al TA (en meses se acepta de 30 a 31 días por mes, más 1 día) | Correcto: el comentario sugerido dice "T/A aperturado correctamente" |
-| Igual a B - A en una ventana "AFTER A, BEFORE B" | Correcto (el Start se revisa aparte) |
-| Mayor que el TA | Posible discrepancia |
-| En otra unidad que el TA | Posible discrepancia |
-| Menor que el TA | Observación |
+| Igual al TA de la tabla (en meses se acepta de 30 a 31 días por mes, más 1 día) | Correcto: el comentario sugerido dice "T/A aperturado correctamente" |
+| Igual a B - A en una ventana "AFTER A, BEFORE B" | Correcto (el Start se revisa en [Start del TA](#start-del-ta)) |
+| Mayor que el TA de la tabla | Posible discrepancia |
+| En otra unidad que el TA de la tabla | Posible discrepancia |
+| Menor que el TA de la tabla | Observación |
 | Sin intervalo o sin tipo | Posible discrepancia, salvo que el DIP solo siga un RIR y la tabla no dé plazo: verificación manual |
 | 0 o negativo | Posible discrepancia |
-| Ítem UNTIL DUE DATE con el T/A en otra unidad que días | Posible discrepancia |
+| Ítem UNTIL DUE DATE con el TA del DIP en otra unidad que días | Posible discrepancia |
 | La tabla da el TA según el daño o el tipo | REVISAR, citando la tabla y el manual |
 | TA que no se pudo interpretar y no está definido en el catálogo | Verificación manual |
 
 El intervalo se compara exacto, porque es un número que se escribe a mano. Solo cuentan las variantes de la flota del DIP; si la flota no se conoce, se acepta cualquiera y se anota. Si el intervalo coincide con una variante condicional (el oxígeno de tripulación tiene 3 días, 1 día o 1 ciclo según la presión), queda la observación "corresponde a la condición ... Verificar que aplique", con la presión que diga el DIP.
 
-Cuando el TA tiene dos límites ("45 DAYS OR 225 FC"), con ICAM se exige que el T/A tenga los dos; si falta uno, es posible discrepancia. Sin ICAM queda para verificación manual, porque el Excel solo muestra el límite que vence primero.
+Cuando el TA de la tabla tiene dos límites ("45 DAYS OR 225 FC"), con ICAM se exige que el del DIP tenga los dos; si falta uno, es posible discrepancia. Sin ICAM queda para verificación manual, porque el Excel solo muestra el límite que vence primero.
 
 #### Due date y vencimiento del ítem
 
-En los T/A en días, el due date tiene que ser el Start del T/A más el intervalo, con un día de tolerancia. Sin ICAM se cuenta desde la apertura (o desde la apertura más A, si el T/A es una ventana: el FDR de 23 días cuenta desde la apertura más 7). Un due date posterior es posible discrepancia; uno anterior, observación.
+En los TA en días, el due date tiene que ser el Start del TA más el intervalo, con un día de tolerancia. Sin ICAM se cuenta desde la apertura (o desde la apertura más A, si el TA es una ventana: el FDR de 23 días cuenta desde la apertura más 7). Un due date posterior es posible discrepancia; uno anterior, observación.
 
 En los ítems UNTIL DUE DATE, el due date no puede pasar la fecha de vencimiento del ítem. En los generators de oxígeno esa fecha sale del PDF de inventario; en los demás, de la primera fecha del nombre o la descripción que sea posterior a la apertura. Pasarla es posible discrepancia, quedar más de un día antes es observación y, si no hay fecha, queda para verificación manual.
 
@@ -321,15 +357,15 @@ Un due date posterior a ese vencimiento, o un S/N del DIP que no está en el PDF
 
 Un DIP activo está vencido si su due date es anterior al momento de la auditoría (un due date sin hora vence al final del día) o si su Usage Remaining es negativo. Es posible discrepancia.
 
-Si el Usage Remaining de un DIP activo es mayor que el intervalo (con un día de tolerancia en días), queda una observación. Pasa cuando el T/A empieza después de la apertura, y los auditores lo aceptan.
+Si el Usage Remaining de un DIP activo es mayor que el intervalo (con un día de tolerancia en días), queda una observación. Pasa cuando el TA empieza después de la apertura, y los auditores lo aceptan.
 
-#### Start del T/A
+#### Start del TA
 
-Solo se revisa con ICAM y no en ítems UNTIL DUE DATE. El T/A tiene que empezar en la apertura. En días, el Start debe estar entre la fecha en que se encontró la falla y el Defer Date, con un día de tolerancia. En FH o FC debe ser el uso al encontrar la falla (History, "Usage When Found"), con 2 FH o 0 FC de tolerancia; en un motor se compara con el uso del motor y con el del avión. Si el uso es 0, o la diferencia es tan grande que es otro contador, no se compara.
+Solo se revisa con ICAM y no en ítems UNTIL DUE DATE. El Start es desde dónde cuenta el TA en ICAM (una fecha, o un contador de horas o ciclos) y tiene que ser la apertura. En días, el Start debe estar entre la fecha en que se encontró la falla y el Defer Date, con un día de tolerancia. En FH o FC debe ser el uso al encontrar la falla (History, "Usage When Found"), con 2 FH o 0 FC de tolerancia; en un motor se compara con el uso del motor y con el del avión. Si el uso es 0, o la diferencia es tan grande que es otro contador, no se compara.
 
-Los ítems con ventana tienen que empezar A después de la apertura y durar B - A. La ventana se define con `inicio` en el catálogo:
+Algunos ítems tienen una ventana "AFTER A, BEFORE B": su TA tiene que empezar A después de la apertura y durar B - A. La ventana se define con `inicio` en el catálogo:
 
-| Ítem | Ventana | T/A correcto |
+| Ítem | Ventana | TA correcto |
 | --- | --- | --- |
 | Amortiguador NG | After 5 landings, not later than 20 | Start + 5 FC, 15 FC |
 | Amortiguador MAX | Five to ten landings | Start + 5 FC, 5 FC |
@@ -338,7 +374,7 @@ Los ítems con ventana tienen que empezar A después de la apertura y durar B - 
 | Filtro de combustible del motor | Después de 10 FH, antes de 75 | Start + 10 FH, 65 FH |
 | Sellante de ventanas | Opcional: 7 días desde la apertura, o Start + 3 y 4 días | Cualquiera de las dos |
 
-Un T/A que empieza en otro momento (antes de la apertura, o en la apertura cuando debía empezar en A) es posible discrepancia. Si empieza bien pero dura B, vence después de la ventana y sale como intervalo excedido. En un DIP SIN FUENTE no se sabe si hay ventana: un Start posterior a la apertura queda como observación, pero uno anterior sí es posible discrepancia.
+Un TA que empieza en otro momento (antes de la apertura, o en la apertura cuando debía empezar en A) es posible discrepancia. Si empieza bien pero dura B, vence después de la ventana y sale como intervalo excedido. En un DIP SIN FUENTE no se sabe si hay ventana: un Start posterior a la apertura queda como observación, pero uno anterior sí es posible discrepancia.
 
 #### Attachments y paquete programado
 
@@ -392,8 +428,8 @@ En ICAM las RIR son las Follow-on Tasks de clase ADHOC; las REQ, como el servici
 | La tabla pide RIR, el DIP está cerrado y no se ve ninguna | Verificación manual en Show Historical Tasks |
 | RIR con otro intervalo | Posible discrepancia |
 | RIR más seguida que la tabla (cada 1 día cuando pide 2) | Observación, porque es más conservador |
-| El T/A tiene dos límites y la RIR uno solo | Posible discrepancia |
-| La RIR no empieza donde empieza el T/A (salvo redondeo) | Posible discrepancia |
+| El TA tiene dos límites y la RIR uno solo | Posible discrepancia |
+| La RIR no empieza donde empieza el TA (salvo redondeo) | Posible discrepancia |
 | La RIR está en otro Parent Assembly que el DIP | Posible discrepancia |
 
 Las tres últimas necesitan la página de la RIR, así que solo se revisan con ICAM.
@@ -404,7 +440,7 @@ Si el DIP no está en la tabla, se revisa contra lo que dice su descripción (`r
 
 | Si la descripción dice | Se revisa que |
 | --- | --- |
-| Un plazo: "within 60 days", "for 45 days or 225 FC", "no more than 100FH, 50FC or 10 days" | El T/A no sea mayor (con un día de tolerancia en días) ni esté en otra unidad. Si pide varios límites, con ICAM el T/A debe tenerlos todos; sin ICAM, queda para verificación manual |
+| Un plazo: "within 60 days", "for 45 days or 225 FC", "no more than 100FH, 50FC or 10 days" | El TA no sea mayor (con un día de tolerancia en días) ni esté en otra unidad. Si pide varios límites, con ICAM el TA debe tenerlos todos; sin ICAM, queda para verificación manual |
 | Una inspección repetitiva: "every 30 days", "after each 400 cycles", "inspect within 50 FH and correct within 100 FH" | Exista la RIR con ese intervalo, y con todos los límites si pide varios |
 | El vencimiento del ítem: "DUE DATE NOVEMBER/2027", "DUE DATE 11/2029" | El due date no lo pase. Con varios componentes, manda el que vence primero |
 | Nada, y el DIP no tiene intervalo ni RIR | Es posible discrepancia, salvo que se haya abierto y cerrado el mismo día |
@@ -490,7 +526,7 @@ Los colores son naranja claro para POSIBLE DISCREPANCIA, amarillo para REVISAR, 
 
 `auditar.bat T40S0099V9C`, o `python -m dips_audit barcode T40S0099V9C [T40S...]`. El código está en `cmd_barcode` y `cargador.lote_desde_icam`.
 
-El programa comprueba que cada argumento parezca un barcode (de 8 a 15 letras y números), lee el DIP en ICAM igual que en una auditoría normal (con la misma hora de vigencia, `--no-cache` y `--datos-icam`) y arma con eso una fila como si viniera del Excel. El Fault Name sale del título de la página; el estado, de la tarea; la apertura y el Defer Date, del Found on Date y del Fault History; el due date, del límite del T/A que vence primero (su Extended Deadline o, si no se puede leer, su Estimated Date); el intervalo y el Usage Remaining, del primer límite; el avión, de la matrícula del Parent Assembly; la flota, de la matrícula o, si está en un motor, de su modelo (LEAP es MAX, CFM56 es NG); y el ATA, de los dos primeros dígitos del Deferral Reference.
+El programa comprueba que cada argumento parezca un barcode (de 8 a 15 letras y números), lee el DIP en ICAM igual que en una auditoría normal (con la misma hora de vigencia, `--no-cache` y `--datos-icam`) y arma con eso una fila como si viniera del Excel. El Fault Name sale del título de la página; el estado, de la tarea; la apertura y el Defer Date, del Found on Date y del Fault History; el due date, del límite del TA que vence primero (su Extended Deadline o, si no se puede leer, su Estimated Date); el intervalo y el Usage Remaining, del primer límite; el avión, de la matrícula del Parent Assembly; la flota, de la matrícula o, si está en un motor, de su modelo (LEAP es MAX, CFM56 es NG); y el ATA, de los dos primeros dígitos del Deferral Reference.
 
 Lo audita con las mismas reglas y muestra en consola sus datos, el resultado, los hallazgos, la verificación manual y el comentario sugerido. No genera archivos. Como no hay otros DIPs, no se buscan duplicados, S/N repetidos ni pares; ICAM no trae el tipo de DIP, así que no se aplica `--tipos-dip`; y si el DIP está en un motor no se conoce la matrícula del avión, así que no se revisa si un attachment es de otro avión.
 
@@ -527,8 +563,8 @@ Sin `--icam` la corrida tarda segundos en vez de minutos, pero revisa menos y de
 | ¿Tiene referencia técnica? | Solo si la cita la descripción del Excel; si no, verificación manual | Cargada, captura adjunta o citada |
 | Referencia técnica contra la tabla | Con lo que diga el Excel | Con la referencia cargada, los attachments y la descripción |
 | Attachments | `Attach Docs` o `Attachment Status` | La lista de ICAM, con los nombres |
-| Start del T/A | No se revisa | Sí |
-| Due date contra el intervalo | Desde la apertura | Desde el Start del T/A |
+| Start del TA | No se revisa | Sí |
+| Due date contra el intervalo | Desde la apertura | Desde el Start del TA |
 | TA con dos límites | Verificación manual | Se revisa |
 | RIR | El RIR activo de las columnas `Rir ...`, sin Start ni Parent | Todas, con intervalo, límites, Start y Parent |
 | S/N contra las notas de la descripción | No | Sí |
@@ -553,7 +589,7 @@ El criterio de la auditoría está fuera del código Python: se puede ajustar si
 | `tolerancias.dias` | Diferencia aceptada en días (1) |
 | `tolerancias.meses_min`, `meses_max` | Un mes es entre 30 y 31 días |
 | `tolerancias.horas_cierre` | Horas aceptadas después del due date al cerrar (5: UTC contra hora de Panamá) |
-| `tolerancias.inicio_fh`, `inicio_fc` | Diferencia aceptada en el Start de un T/A por uso (2 FH, 0 FC) |
+| `tolerancias.inicio_fh`, `inicio_fc` | Diferencia aceptada en el Start de un TA por uso (2 FH, 0 FC) |
 | `referencia_tecnica.revision_opcional` | Manuales cuya cita no necesita REV ni fecha (AMM, SRM, TASK CARD) |
 | `icam.url`, `icam.perfil`, `icam.puerto` | Dirección de ICAM, perfil y puerto del Edge |
 | `icam.archivo` | Dónde se guarda lo leído (`data/icam.json`) |
@@ -615,20 +651,20 @@ PD es posible discrepancia y Obs. es observación. La severidad es la que tiene 
 
 | Código | Tipo de discrepancia | Qué revisa | Resultado |
 | --- | --- | --- | --- |
-| `intervalo_excedido` | Incorrect DIP Interval | T/A mayor que el TA (o empieza bien pero vence después de la ventana) | PD |
-| `intervalo_menor` | Incorrect DIP Interval | T/A menor que el TA | Obs. |
-| `intervalo_cero` | Incorrect DIP Interval | T/A con intervalo 0 | PD |
-| `tipo_intervalo_incorrecto` | Incorrect DIP Interval | T/A en otra unidad que el TA (o UNTIL DUE DATE no en días) | PD |
+| `intervalo_excedido` | Incorrect DIP Interval | TA mayor que el de la tabla (o empieza bien pero vence después de la ventana) | PD |
+| `intervalo_menor` | Incorrect DIP Interval | TA menor que el de la tabla | Obs. |
+| `intervalo_cero` | Incorrect DIP Interval | TA con intervalo 0 | PD |
+| `tipo_intervalo_incorrecto` | Incorrect DIP Interval | TA en otra unidad que el de la tabla (o UNTIL DUE DATE no en días) | PD |
 | `variante_condicional` | Incorrect DIP Interval | El intervalo es el de una condición de la tabla (presión...) | Obs. |
 | `usage_remaining_mayor_a_intervalo` | Incorrect DIP Interval | Usage Remaining mayor que el intervalo | Obs. |
-| `limite_faltante` | Incorrect DIP Interval | La tabla pide dos límites y el T/A en ICAM no los tiene | PD |
+| `limite_faltante` | Incorrect DIP Interval | La tabla pide dos límites y el TA en ICAM no los tiene | PD |
 | `intervalo_segun_manual` | Incorrect DIP Interval | La tabla da el TA según el daño o el tipo | REVISAR |
-| `intervalo_mayor_a_descripcion` | Incorrect DIP Interval | SIN FUENTE: T/A mayor que el plazo de la descripción | PD |
-| `tipo_intervalo_distinto_a_descripcion` | Incorrect DIP Interval | SIN FUENTE: T/A en otra unidad que la descripción | PD |
-| `limite_declarado_faltante` | Incorrect DIP Interval | SIN FUENTE: la descripción pide varios límites y el T/A no los tiene | PD |
-| `datos_incompletos` | Deferral Interval Not Documented | Sin intervalo o sin tipo (en SIN FUENTE: sin T/A ni RIR) | PD |
+| `intervalo_mayor_a_descripcion` | Incorrect DIP Interval | SIN FUENTE: TA mayor que el plazo de la descripción | PD |
+| `tipo_intervalo_distinto_a_descripcion` | Incorrect DIP Interval | SIN FUENTE: TA en otra unidad que la descripción | PD |
+| `limite_declarado_faltante` | Incorrect DIP Interval | SIN FUENTE: la descripción pide varios límites y el TA no los tiene | PD |
+| `datos_incompletos` | Deferral Interval Not Documented | Sin intervalo o sin tipo (en SIN FUENTE: sin TA ni RIR) | PD |
 | `intervalo_de_icam` | Missing Data | El Excel no trae intervalo; se usó el de ICAM | Obs. |
-| `inicio_ta_incorrecto` | Incorrect DIP Start Values | Start del T/A distinto de la apertura (o de apertura + A) | PD (Obs. en SIN FUENTE con Start posterior) |
+| `inicio_ta_incorrecto` | Incorrect DIP Start Values | Start del TA distinto de la apertura (o de apertura + A) | PD (Obs. en SIN FUENTE con Start posterior) |
 | `due_date_posterior_a_intervalo` | Incorrect Due Date | Due date después del Start + intervalo | PD |
 | `due_date_anterior_a_intervalo` | Incorrect Due Date | Due date antes del Start + intervalo | Obs. |
 | `due_date_posterior_a_vencimiento_item` | Incorrect Due Date | Due date después del vencimiento del ítem | PD |
@@ -655,8 +691,8 @@ PD es posible discrepancia y Obs. es observación. La severidad es la que tiene 
 | `rir_faltante` | RIR | La tabla pide RIR y no hay | PD |
 | `rir_intervalo_incorrecto` | RIR | RIR con otro intervalo | PD |
 | `rir_intervalo_menor` | RIR | RIR más seguida que la tabla | Obs. |
-| `rir_limite_faltante` | RIR | El T/A tiene un límite que la RIR no tiene | PD |
-| `rir_inicio_distinto` | RIR | La RIR no empieza donde empieza el T/A | PD |
+| `rir_limite_faltante` | RIR | El TA tiene un límite que la RIR no tiene | PD |
+| `rir_inicio_distinto` | RIR | La RIR no empieza donde empieza el TA | PD |
 | `rir_parent_distinto` | RIR | RIR en otro Parent Assembly | PD |
 | `rir_segun_manual` | RIR | La tabla da el RIR según el daño | REVISAR |
 | `rir_descripcion_faltante` | RIR | SIN FUENTE: la descripción pide inspección repetitiva y no hay RIR | PD |
@@ -690,31 +726,6 @@ Las pruebas (`.venv\Scripts\python -m pytest`, carpeta `tests/`) revisan cada re
 El benchmark (`python -m dips_audit benchmark`) tarda un segundo. Audita 50 DIPs que ya auditaron personas (`benchmark/dips_auditados.xlsx`, una copia sin nombres del histórico hecha con `anonimizar`) y compara con su veredicto; prueba 46 nombres difíciles de asociar (`benchmark/casos_asociacion.yaml`), cada uno con su referencia correcta o "ninguna"; y compara los indicadores con la línea base (`benchmark/linea_base.json`). Si alguno empeora lo dice y termina con código 2; si el cambio era intencional, se copia el resultado nuevo sobre la línea base. Los resultados quedan en `benchmark/resultados/`, en JSON para comparar y en Markdown para leer.
 
 Conviene correrlo después de cualquier cambio en reglas, catálogo, tabla o configuración, porque arreglar un caso puede romper otro.
-
-## Mensajes de error
-
-| Mensaje | Qué hacer |
-| --- | --- |
-| "No se encontró una hoja con las columnas 'Fault Barcode' y 'Fault Name'" | Revisar que sea el export correcto: esos encabezados tienen que estar en las primeras 20 filas |
-| "La hoja 'X' no existe" | Corregir `--hoja`; el mensaje lista las hojas que hay |
-| "Faltan columnas obligatorias en el Excel: ..." | El export tiene otro formato. Ver [Lectura del Excel de entrada](#lectura-del-excel-de-entrada) |
-| "[ID] La referencia '...' no existe en DIPs References.xlsx" | El catálogo cita una DESCRIPTION que cambió o no existe: corregir el texto en el catálogo o en la tabla |
-| "ID repetido en el catálogo" | Renombrar una de las dos entradas |
-| "... no es un barcode ni un Excel de entrada que exista" | Revisar la ruta, entre comillas si tiene espacios |
-| "No se encontró Microsoft Edge en el equipo" | Instalar Edge |
-| "El Edge de ICAM no respondió" | Edge no abrió el puerto en 30 segundos: cerrar el Edge de ICAM y volver a ejecutar |
-| "No se pudo iniciar sesión en ICAM: ..." | Revisar usuario y clave y volver a ejecutar |
-| "No se inició sesión en ICAM en 3 minutos" | Iniciar sesión en el Edge de ICAM y volver a ejecutar |
-| "Se cerró la ventana de ICAM sin iniciar sesión" | Volver a ejecutar |
-| "ICAM no cargó..." | Revisar la red, la VPN o si ICAM está caído |
-| "La sesión de ICAM venció" | Iniciar sesión y volver a ejecutar; lo leído quedó guardado |
-| "Falta la librería playwright" | Volver a correr `setup.bat` |
-| "Permission denied" | Cerrar el Excel de salida (o el FILTERED) y volver a ejecutar |
-| "El Excel no trae las columnas de la auditoría manual" | `comparar` necesita el export "DIPs Audit (...)" completo |
-| "--pendientes: Ninguna hoja tiene las columnas ..." | Usar el export "DIPs Audit (...)", que trae los usuarios de auditoría en la fila 1 |
-| "Fecha inválida" | Usar `AAAA-MM-DD` o `"AAAA-MM-DD HH:MM"` en `--fecha` |
-| "'X' no es un tipo de discrepancia" | Ver los nombres con `python -m dips_audit categorias` |
-| "Empeoró respecto de la línea base" | Revisar el cambio; si era intencional, actualizar la línea base |
 
 ## Mapa del código
 
