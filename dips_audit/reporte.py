@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from datetime import datetime
 from pathlib import Path
 
@@ -266,14 +267,18 @@ def _indicador(ws, i: int, nombre: str, n: int, pct: float | None, color: str) -
 
 
 def _apiladas_por(ws, datos, columna: str, titulo: str, fila_tabla: int, fila: int,
-                  col_ini: int, col_fin: int, encabezado: str, ordenar: bool = True) -> int:
-    """Barras apiladas por resultado para cada valor de `columna` (de mayor a menor si `ordenar`).
-    Devuelve la próxima fila libre de la tabla de datos."""
+                  col_ini: int, col_fin: int, encabezado: str, ordenar: bool = True,
+                  orden: list[str] | None = None) -> int:
+    """Barras apiladas por resultado para cada valor de `columna` (en el `orden` dado, o de mayor
+    a menor si `ordenar`). Devuelve la próxima fila libre de la tabla de datos."""
     tabla = datos.groupby([columna, "RESULTADO"]).size().unstack(fill_value=0)
     if tabla.empty:
         return fila_tabla
     columnas = [r for r in _RESULTADOS + ["FUERA DE ALCANCE"] if r in tabla.columns]
-    if ordenar:
+    if orden:
+        tabla = tabla.loc[[o for o in orden if o in tabla.index]
+                          + [t for t in tabla.index if t not in orden]]
+    elif ordenar:
         tabla = tabla.loc[tabla[columnas].sum(axis=1).sort_values(ascending=False).index]
     f1, f2 = _tabla_datos(ws, fila_tabla, [encabezado] + columnas,
                           [[str(t)] + [int(tabla.loc[t, c]) for c in columnas] for t in tabla.index])
@@ -288,6 +293,21 @@ def _apiladas_por(ws, datos, columna: str, titulo: str, fila_tabla: int, fila: i
     g.legend.position = "t"
     _anclar(ws, g, fila, col_ini, col_fin, _ALTO_GRAFICO)
     return f2 + 2
+
+
+# Flotas del dashboard, en este orden. Los NG-900 salen como "900" y lo que no se pudo
+# precisar (un MAX sin matrícula, un NG sin modelo) como "Sin flota".
+_FLOTAS_DASHBOARD = ["MAX 8", "MAX 9", "700", "800"]
+
+
+def _flota_dashboard(flota: str, avion: str) -> str:
+    """MAX + HP-98xx -> MAX 8, MAX + HP-99xx -> MAX 9; NG-700 -> 700, NG-800 -> 800."""
+    if flota == "MAX":
+        m = re.search(r"\bHP-?(98|99)\d{2}", avion.upper())
+        return f"MAX {m.group(1)[1]}" if m else "Sin flota"
+    if flota.startswith("NG-"):
+        return flota[3:]
+    return "Sin flota"
 
 
 def _top(ws, conteo, titulo: str, encabezado: str, fila_tabla: int, fila: int, col_ini: int,
@@ -386,9 +406,10 @@ def _hoja_dashboard(ws, resultado: ResultadoAuditoria) -> None:
                               fila1, *derecha, "Auditoría", ordenar=False)
     siguiente = _apiladas_por(ws, datos, "TIPO", "DIPs por tipo", siguiente, fila2, *izquierda,
                               "Tipo DIP")
-    flotas = en_alcance.assign(Flota=en_alcance["Flota"].replace("", "Sin flota"))
+    flotas = en_alcance.assign(Flota=[_flota_dashboard(f, a) for f, a in
+                                      zip(en_alcance["Flota"], en_alcance["Aircraft"])])
     siguiente = _apiladas_por(ws, flotas, "Flota", "DIPs por flota", siguiente, fila2, *derecha,
-                              "Flota")
+                              "Flota", orden=_FLOTAS_DASHBOARD)
 
     # Referencias y aviones con más posibles discrepancias
     discrepancias = en_alcance[en_alcance["RESULTADO"] == "POSIBLE DISCREPANCIA"]
