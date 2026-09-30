@@ -520,7 +520,7 @@ Para cada DIP en alcance se arma un `Contexto` (fecha de auditoría, tolerancias
 5. Parent Assembly distinto de sus pares (del paso 9), intervalo tomado de ICAM, observaciones de la asociación y, si no tiene referencia, el hallazgo SIN FUENTE.
 6. Duplicado o, si no, S/N repetido (del paso 9).
 7. DIP creado por error o declarado duplicado: si aplica, **reemplaza todos los hallazgos anteriores**.
-8. Si tiene marca AUDITDIP, la nota "Ya se había auditado manualmente" al principio de `VERIFICACIÓN MANUAL`.
+8. Si tiene marcas del auditor en Technical References, la nota "Ya se había auditado manualmente" al principio de `VERIFICACIÓN MANUAL`, con lo que anotó en cada una (p. ej. "Apertura: DISCREPANCIA (MISSING RIR INTERVAL); Cierre: sin discrepancia").
 
 Cada regla, al fallar, agrega un **hallazgo** (código, tipo de discrepancia, severidad y mensaje) o una línea de verificación manual. El detalle de cada grupo:
 
@@ -778,6 +778,7 @@ Columnas que agrega el programa en la hoja Auditoría:
 | `REFERENCIA TÉCNICA DEL DIP` | La referencia cargada (o la cita encontrada) y `Adjunto: nombre` por cada attachment |
 | `RIR EN ICAM` | Cada RIR con su intervalo, "Sin RIR", o vacío si no hay dato. Sin ICAM muestra el RIR de las columnas `Rir ...` del Excel |
 | `ADJUNTOS EN ICAM` | Cantidad y nombres; "0" si no tiene; vacío sin ICAM |
+| `AUDITORÍA MANUAL EN ICAM` | Lo que anotó el auditor en cada marca "DIP OPEN / CLOSED - RT AUDIT COMPLETED", apertura primero: "DISCREPANCIA (motivo)" si la descripción dice "DIP DISCREPANCY FOUND: motivo"; "sin discrepancia" si está vacía (con la nota entre paréntesis si trae otro texto). Vacío sin ICAM o sin marcas |
 | `AUDITORÍA` | APERTURA o CIERRE |
 | `FECHA AUDITORÍA` | El momento al que se auditó |
 | `ESTADO APERTURA` / `ESTADO CIERRE` | Resultado de cada auditoría |
@@ -876,7 +877,7 @@ Sin `--icam` el programa es mucho más rápido, pero revisa menos y deja más ve
 | Reglas de la descripción (SIN FUENTE) | Con la descripción del Excel | Con la descripción y las notas de ICAM |
 | Acción correctiva, S/N removido | No | Sí |
 | Generators de oxígeno | Verificación manual, fecha de la descripción | Exp. Date del PDF de inventario |
-| DIP ya auditado (AUDITDIP) | No se sabe | Nota en verificación manual |
+| DIP ya auditado (AUDITDIP) | No se sabe | Nota en verificación manual y veredicto del auditor por etapa |
 | Tiempo | Segundos | Unos 5 minutos cada 380 DIPs |
 
 ---
