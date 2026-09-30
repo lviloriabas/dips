@@ -7,7 +7,7 @@ import pytest
 
 from dips_audit.__main__ import main
 from dips_audit.auditor import Auditor
-from dips_audit.reporte import exportar_excel
+from dips_audit.reporte import _flota_dashboard, exportar_excel
 from tests.conftest import ENCABEZADO_ENTRADA, crear_export
 
 AVION = "Boeing 737-8V3 - HP-1837CMP"
@@ -116,3 +116,12 @@ def test_cli_tipos_dip(export, capsys):
 
 def test_cli_archivo_inexistente(tmp_path):
     assert main(["auditar", str(tmp_path / "no_existe.xlsx"), "--sin-excel"]) == 1
+
+
+@pytest.mark.parametrize("flota, avion, esperado", [
+    ("MAX", "HP-9810CMP", "MAX 8"), ("MAX", "HP-9924CMP", "MAX 9"),
+    ("NG-700", "HP-1369CMP", "700"), ("NG-800", "HP-1837CMP", "800"),
+    ("MAX", "", "Sin flota"), ("NG", "HP-1837CMP", "Sin flota"), ("", "", "Sin flota"),
+])
+def test_flotas_del_dashboard(flota, avion, esperado):
+    assert _flota_dashboard(flota, avion) == esperado

@@ -453,7 +453,7 @@ Archivo: `dips_audit/reporte.py`. Se crea en `salidas/<archivo>_AUDITORIA_<fecha
 
 | Hoja | Contenido |
 | --- | --- |
-| Dashboard | Indicadores por resultado y gráficos: resultado, apertura y cierre, DIPs por tipo, DIPs por flota, referencias y aviones con posible discrepancia. Los datos de cada gráfico están a la derecha (columna T) |
+| Dashboard | Indicadores por resultado y gráficos: resultado, apertura y cierre, DIPs por tipo, DIPs por flota (MAX 8, MAX 9, 700 y 800), referencias y aviones con posible discrepancia. Los datos de cada gráfico están a la derecha (columna T) |
 | Resumen | Archivo, fecha y conteos |
 | Auditoría | Un DIP por fila: resultado, hallazgos, comentario sugerido, referencia, TA, referencia técnica, RIR, adjuntos, apertura/cierre y las columnas originales |
 | Hallazgos | Un hallazgo por fila: posible discrepancia u observación, y si es de apertura o de cierre |
