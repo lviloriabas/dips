@@ -7,8 +7,8 @@ Cada fila de `DIPs References.xlsx` (Others, Powerplant y Structures) tiene en `
 ## Instalación
 
 ```bat
-git clone https://github.com/lviloriabas/dips-ai.git
-cd dips-ai
+git clone https://github.com/lviloriabas/dips.git
+cd dips
 setup.bat
 ```
 
