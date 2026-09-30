@@ -186,12 +186,14 @@ def test_cierre_sn_cuenta_el_numero_y_el_instalado(catalogo, ctx):
     assert "cierre_sn_distinto" not in codigos(r)
 
 
-def test_cierre_sin_accion_correctiva_es_discrepancia(catalogo, ctx):
-    """Sin acción correctiva es posible discrepancia; sin cita del manual, observación."""
+def test_cierre_sin_accion_correctiva_es_observacion(catalogo, ctx):
+    """Sin acción correctiva no es discrepancia (se cierra por la validación de QC o solo con
+    partes): observación. Sin cita del manual, también."""
     base = dict(estado="COMPLETE", complete_date=datetime(2026, 8, 21, 10, 0), adjuntos=["A.PDF"])
     r = auditar(catalogo, ctx, "OXIGENO_TRIPULACION",
                 accion_correctiva="1. JUAN PEREZ (Technician), 21-AUG-2026 10:00 UTC\n", **base)
-    assert "cierre_sin_accion_correctiva" in codigos(r, "NO CRITICA")
+    assert "cierre_sin_accion_correctiva" in codigos(r, "OBSERVACION")
+    assert estado_final(r.hallazgos) == "OK"
     assert "cierre_sin_referencia_tecnica" not in codigos(r)
     r = auditar(catalogo, ctx, "OXIGENO_TRIPULACION", accion_correctiva="BOTTLE REPLACED", **base)
     assert "cierre_sin_referencia_tecnica" in codigos(r, "OBSERVACION")
@@ -273,8 +275,10 @@ def test_parent_assy_flexible_es_observacion(catalogo, ctx):
 
 
 def test_deferral_reference_distinta_al_ata(catalogo, ctx):
+    """El ATA del DIP no es relevante para la auditoría: observación."""
     r = auditar(catalogo, ctx, "OXIGENO_TRIPULACION", deferral_ref="25-DIP")
-    assert "deferral_reference_ata" in codigos(r, "NO CRITICA")
+    assert "deferral_reference_ata" in codigos(r, "OBSERVACION")
+    assert estado_final(r.hallazgos) == "OK"
 
 
 def test_sin_sn_es_observacion(catalogo, ctx):

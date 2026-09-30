@@ -21,7 +21,7 @@ FILAS = [
     # Sin referencia en la tabla
     ["T3", 25, "Others", "DEFIBRILLATOR DUE DATE", 38, "DAY", "ACTV", "HP-1837CMP", AVION, "DIP",
      "25-DIP", datetime(2026, 9, 25, 23, 59), datetime(2026, 8, 18, 9, 0), None, 36],
-    # Duplicado del oxígeno siguiente
+    # Duplicado del oxígeno siguiente: observación, no discrepancia
     ["T4", 35, "Others", "CREW OXYGEN 850 PSI", 3, "DAY", "ACTV", "HP-1837CMP", AVION, "DIP",
      "35-DIP", datetime(2026, 8, 21, 23, 59), datetime(2026, 8, 18, 9, 0), None, 2],
     ["T5", 35, "Others", "DIP-CREW OXYGEN BOTTLE", 3, "DAY", "ACTV", "HP-1837CMP", AVION, "DIP",
@@ -48,9 +48,11 @@ def test_auditoria_de_punta_a_punta(auditor_others, export, tmp_path):
         "T2": "POSIBLE DISCREPANCIA",
         "T3": "SIN FUENTE",
         "T4": "OK",
-        "T5": "POSIBLE DISCREPANCIA",
+        "T5": "OK",
         "T6": "FUERA DE ALCANCE",
     }
+    h = resultado.hallazgos
+    assert set(h[(h["Fault Barcode"] == "T5") & (h["Código"] == "duplicado")]["Severidad"]) == {"OBSERVACION"}
     comentario = resultado.filas.set_index("Fault Barcode").loc["T1", "COMENTARIO SUGERIDO"]
     assert comentario == "T/A aperturado correctamente"
 

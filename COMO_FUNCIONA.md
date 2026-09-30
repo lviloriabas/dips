@@ -299,9 +299,9 @@ La columna `REFERENCIA ASOCIADA` dice con qué ítem se reconoció el DIP, y `AS
 
 Antes de revisar cada DIP por separado se buscan duplicados, S/N repetidos y Parent Assembly distintos de sus pares, mirando todos los DIPs en alcance a la vez.
 
-Dos DIPs son posibles duplicados si están en el mismo avión, son el mismo ítem del catálogo, citan las mismas posiciones (FWD/AFT, LH/RH, #1/#2...) en el nombre y en la descripción, y estuvieron abiertos al mismo tiempo (sin fecha de cierre, basta con que se hayan abierto el mismo día). Además, si los dos citan S/N tienen que compartir alguno, y si citan mensajes de mantenimiento tienen que ser los mismos: 75-20451 y 75-10451 son dos fallas. En un ítem con varias etapas deben tener el mismo intervalo (un re-torque a 60 días y otro a 12 meses son etapas distintas), y en un ítem con vencimiento, el mismo due date. Se marca el que se abrió después. Si uno de los dos ya estaba cerrado a la hora de la auditoría, el duplicado ya se corrigió y queda como observación.
+Dos DIPs son posibles duplicados si están en el mismo avión, son el mismo ítem del catálogo, citan las mismas posiciones (FWD/AFT, LH/RH, #1/#2...) en el nombre y en la descripción, y estuvieron abiertos al mismo tiempo (sin fecha de cierre, basta con que se hayan abierto el mismo día). Además, si los dos citan S/N tienen que compartir alguno, y si citan mensajes de mantenimiento tienen que ser los mismos: 75-20451 y 75-10451 son dos fallas. En un ítem con varias etapas deben tener el mismo intervalo (un re-torque a 60 días y otro a 12 meses son etapas distintas), y en un ítem con vencimiento, el mismo due date. Se marca el que se abrió después. Un duplicado es un duplicado, no una discrepancia: queda como observación.
 
-Hay S/N repetido cuando dos o más DIPs activos del mismo avión citan el mismo S/N, como un FAK 1 y un FAK 2 con el mismo número. No se marca si ya se marcó como duplicado.
+Hay S/N repetido cuando dos o más DIPs activos del mismo avión citan el mismo S/N, como un FAK 1 y un FAK 2 con el mismo número. Es la señal de un duplicado: también queda como observación, y no se anota si ya se anotó el duplicado.
 
 La regla de Parent Assembly distinto de sus pares es solo para DIPs SIN FUENTE. Si el DIP cita una EC/ECRA y al menos otros dos DIPs del archivo que citan la misma están todos en otro Parent Assembly, se marca. Por ejemplo, cinco cambios de toberas por la ECRA 7300-0132C cargados en el motor y uno en el avión. Solo se hace con EC, porque una AMM puede ser genérica.
 
@@ -328,7 +328,7 @@ Se compara el intervalo del DIP con el TA de la tabla:
 | --- | --- |
 | Igual al TA de la tabla (en meses se acepta de 30 a 31 días por mes, más 1 día) | Correcto: el comentario sugerido dice "T/A aperturado correctamente" |
 | Igual a B - A en una ventana "AFTER A, BEFORE B" | Correcto (el Start se revisa en [Start del TA](#start-del-ta)) |
-| Mayor que el TA de la tabla | Posible discrepancia |
+| Mayor que el TA de la tabla | Posible discrepancia, si de verdad vence después: con el Start de ICAM, un TA que empieza antes de la apertura y vence dentro del TA no se marca (el Start sí). Sin ICAM se cuenta desde la apertura |
 | En otra unidad que el TA de la tabla | Posible discrepancia |
 | Menor que el TA de la tabla | Observación |
 | Sin intervalo o sin tipo | Posible discrepancia, salvo que el DIP solo siga un RIR y la tabla no dé plazo: verificación manual |
@@ -374,7 +374,7 @@ Algunos ítems tienen una ventana "AFTER A, BEFORE B": su TA tiene que empezar A
 | Filtro de combustible del motor | Después de 10 FH, antes de 75 | Start + 10 FH, 65 FH |
 | Sellante de ventanas | Opcional: 7 días desde la apertura, o Start + 3 y 4 días | Cualquiera de las dos |
 
-Un TA que empieza en otro momento (antes de la apertura, o en la apertura cuando debía empezar en A) es posible discrepancia. Si empieza bien pero dura B, vence después de la ventana y sale como intervalo excedido. En un DIP SIN FUENTE no se sabe si hay ventana: un Start posterior a la apertura queda como observación, pero uno anterior sí es posible discrepancia.
+Un TA que empieza en otro momento (antes de la apertura, o en la apertura cuando debía empezar en A) es posible discrepancia. Si empieza bien pero dura B, vence después de la ventana y sale como intervalo excedido. En un ítem sin ventana, un Start posterior a la apertura con eso descontado del intervalo (más ciclos en el Start, menos en el TA) se acepta si vence dentro del TA de la tabla; si vence después, es posible discrepancia. En un DIP SIN FUENTE no se sabe si hay ventana: un Start posterior a la apertura queda como observación, pero uno anterior sí es posible discrepancia.
 
 #### Attachments y paquete programado
 
@@ -392,7 +392,7 @@ Con ICAM, los S/N de la descripción se comparan con los de las notas de la desc
 
 #### ATA, Deferral Reference, Fault Severity y Parent Assembly
 
-Un Deferral Reference que empieza con otro ATA ("25-..." en un DIP ATA 35) es posible discrepancia. Un ATA distinto del de la fila de la tabla y una Fault Severity distinta de DIP son observaciones.
+El ATA del DIP no es relevante para la auditoría: un Deferral Reference que empieza con otro ATA ("25-..." en un DIP ATA 35) y un ATA distinto del de la fila de la tabla son observaciones. Una Fault Severity distinta de DIP también.
 
 El tipo de Parent Assy del DIP (AIRCRAFT, ENGINE o APU) tiene que ser el de la tabla; si no, es posible discrepancia. Si la tabla tiene asterisco, o la entrada tiene `parent_assy_flexible` (ítems que se transfieren al robar el motor), queda como observación. Un Parent Assy vacío queda para verificación manual.
 
@@ -455,13 +455,13 @@ Para saber si se cerró tarde, primero se mira el Usage Remaining: negativo quie
 
 Si el due date es posterior al original (`Orig Fault Due Date`) y el cierre fue después del original, hubo una extensión y se marca como posible discrepancia para que se verifique. Los cambios de deadline que muestra History se listan en `VERIFICACIÓN MANUAL`.
 
-La acción correctiva se revisa solo con ICAM. Vacía es posible discrepancia. Sin cita del manual es observación, salvo que remita a otra tarea o que no haya habido trabajo ("BY MISTAKE", "PREVIOUSLY ACCOMPLISHED", "NO FURTHER ACTION"), en cuyo caso queda para verificación manual. Una cita sin REV o sin fecha es observación. Si ni el S/N removido ni el instalado coinciden con el de la descripción, también es observación.
+La acción correctiva se revisa solo con ICAM. Vacía no es discrepancia (queda así cuando se cierra por la validación de QC o solo con partes): observación. Sin cita del manual también es observación, salvo que remita a otra tarea o que no haya habido trabajo ("BY MISTAKE", "PREVIOUSLY ACCOMPLISHED", "NO FURTHER ACTION"), en cuyo caso queda para verificación manual. Una cita sin REV o sin fecha es observación. Si ni el S/N removido ni el instalado coinciden con el de la descripción, también es observación.
 
 Un DIP cerrado sin attachments es posible discrepancia de cierre.
 
 #### DIP creado por error o declarado duplicado
 
-Si la acción correctiva dice "DUPLICATED", "BY MISTAKE", "BY ERROR", "POR ERROR"..., o si el nombre, la descripción o las notas lo dicen refiriéndose al DIP ("DIP DUPLICADO", pero no "MASK DEPLOYED BY MISTAKE", que es la falla), el DIP no se audita. Se borran sus hallazgos y verificaciones y queda uno solo: "DIP creado por error." o "DIP duplicado (ver T40S...).". Si sigue abierto es posible discrepancia; si ya se cerró, observación.
+Si la acción correctiva dice "DUPLICATED", "BY MISTAKE", "BY ERROR", "POR ERROR"..., o si el nombre, la descripción o las notas lo dicen refiriéndose al DIP ("DIP DUPLICADO", pero no "MASK DEPLOYED BY MISTAKE", que es la falla), el DIP no se audita. Se borran sus hallazgos y verificaciones y queda uno solo: "DIP creado por error." o "DIP duplicado (ver T40S...).". Es observación, esté abierto o cerrado.
 
 ### El resultado
 
@@ -476,7 +476,7 @@ Cada hallazgo tiene la severidad que le asigna `config/discrepancias.yaml` a su 
 
 Sin hallazgos, o solo con observaciones, el DIP es OK. Los nombres confunden un poco: la severidad REVISAR da POSIBLE DISCREPANCIA, y el resultado REVISAR sale de CONSULTAR MANUAL. CRITICA, NO CRITICA y REVISAR se mantienen separadas para cuando se definan los niveles de discrepancia con los auditores; hoy solo sirven para ordenar los hallazgos.
 
-Algunos casos fijan la severidad en el código, siempre como observación: Parent Assembly flexible, duplicado ya cerrado, creado por error ya cerrado, Start posterior en un SIN FUENTE y referencia técnica distinta cuando no es grave. Si la regla, su tipo de discrepancia o su categoría (con `--categorias`) están desactivados, el hallazgo directamente no se agrega. Por eso, con `--categorias`, un DIP sin referencia puede salir OK: SIN FUENTE es del tipo "Missing Reference in Table" y también quedó afuera. La consola y el Excel lo avisan.
+Algunos casos fijan la severidad en el código, siempre como observación: Parent Assembly flexible, Start posterior en un SIN FUENTE y referencia técnica distinta cuando no es grave. Si la regla, su tipo de discrepancia o su categoría (con `--categorias`) están desactivados, el hallazgo directamente no se agrega. Por eso, con `--categorias`, un DIP sin referencia puede salir OK: SIN FUENTE es del tipo "Missing Reference in Table" y también quedó afuera. La consola y el Excel lo avisan.
 
 Un DIP COMPLETE tiene hallazgos de apertura y de cierre. Son de cierre `completado_fuera_de_plazo`, `cierre_deadline_extendido`, `cierre_sin_accion_correctiva`, `cierre_sin_referencia_tecnica`, `cierre_referencia_incompleta`, `cierre_sn_distinto` y `cierre_sin_adjuntos` (`reglas.CODIGOS_CIERRE`); todos los demás son de apertura. En el Excel, `ESTADO APERTURA` es el resultado de los hallazgos de apertura y `ESTADO CIERRE` el de los de cierre más el SIN FUENTE, que vale para las dos. `RESULTADO` junta todos. `AUDITORÍA` dice CIERRE si el DIP está COMPLETE y APERTURA si no.
 
@@ -651,7 +651,7 @@ PD es posible discrepancia y Obs. es observación. La severidad es la que tiene 
 
 | Código | Tipo de discrepancia | Qué revisa | Resultado |
 | --- | --- | --- | --- |
-| `intervalo_excedido` | Incorrect DIP Interval | TA mayor que el de la tabla (o empieza bien pero vence después de la ventana) | PD |
+| `intervalo_excedido` | Incorrect DIP Interval | TA que vence después del de la tabla (o empieza bien pero vence después de la ventana) | PD |
 | `intervalo_menor` | Incorrect DIP Interval | TA menor que el de la tabla | Obs. |
 | `intervalo_cero` | Incorrect DIP Interval | TA con intervalo 0 | PD |
 | `tipo_intervalo_incorrecto` | Incorrect DIP Interval | TA en otra unidad que el de la tabla (o UNTIL DUE DATE no en días) | PD |
@@ -664,7 +664,7 @@ PD es posible discrepancia y Obs. es observación. La severidad es la que tiene 
 | `limite_declarado_faltante` | Incorrect DIP Interval | SIN FUENTE: la descripción pide varios límites y el TA no los tiene | PD |
 | `datos_incompletos` | Deferral Interval Not Documented | Sin intervalo o sin tipo (en SIN FUENTE: sin TA ni RIR) | PD |
 | `intervalo_de_icam` | Missing Data | El Excel no trae intervalo; se usó el de ICAM | Obs. |
-| `inicio_ta_incorrecto` | Incorrect DIP Start Values | Start del TA distinto de la apertura (o de apertura + A) | PD (Obs. en SIN FUENTE con Start posterior) |
+| `inicio_ta_incorrecto` | Incorrect DIP Start Values | Start del TA distinto de la apertura (o de apertura + A); posterior con el intervalo descontado se acepta | PD (Obs. en SIN FUENTE con Start posterior) |
 | `due_date_posterior_a_intervalo` | Incorrect Due Date | Due date después del Start + intervalo | PD |
 | `due_date_anterior_a_intervalo` | Incorrect Due Date | Due date antes del Start + intervalo | Obs. |
 | `due_date_posterior_a_vencimiento_item` | Incorrect Due Date | Due date después del vencimiento del ítem | PD |
@@ -673,14 +673,14 @@ PD es posible discrepancia y Obs. es observación. La severidad es la que tiene 
 | `programado_despues_del_due` | Overdue DIP | Paquete de trabajo programado después del due date | PD |
 | `parent_assy_incorrecto` | Incorrect Parent Assembly | Parent Assembly distinto del de la tabla | PD (Obs. si es flexible) |
 | `parent_assy_distinto_a_pares` | Incorrect Parent Assembly | SIN FUENTE: los demás DIPs con la misma EC están en otro | PD |
-| `deferral_reference_ata` | Incorrect ATA | Deferral Reference no empieza con el ATA | PD |
+| `deferral_reference_ata` | Incorrect ATA | Deferral Reference no empieza con el ATA | Obs. |
 | `ata_distinto_a_referencia` | Incorrect ATA | ATA distinto del de la tabla | Obs. |
 | `sin_sn_en_descripcion` | Missing S/N | La tabla pide S/N y el DIP no lo cita | Obs. |
-| `sn_repetido` | Incorrect S/N | Mismo S/N en otro DIP activo del avión | PD |
+| `sn_repetido` | Incorrect S/N | Mismo S/N en otro DIP activo del avión (señal de duplicado) | Obs. |
 | `sn_inconsistente` | Incorrect S/N | S/N distinto del de las notas de la descripción | PD |
 | `sn_fuera_de_inventario` | Incorrect S/N | Generators: S/N que no está en el PDF | PD |
-| `duplicado` | Duplicated DIP | Mismo avión, ítem y posición, abiertos a la vez | PD (Obs. si uno ya cerró) |
-| `duplicado_declarado` | Duplicated DIP | El técnico dice que es duplicado o creado por error | PD (Obs. si ya cerró) |
+| `duplicado` | Duplicated DIP | Mismo avión, ítem y posición, abiertos a la vez | Obs. |
+| `duplicado_declarado` | Duplicated DIP | El técnico dice que es duplicado o creado por error | Obs. |
 | `fault_severity` | Incorrect Fault Severity | Fault Severity distinta de DIP | Obs. |
 | `sin_referencia_tecnica` | Missing Technical Reference | Sin referencia cargada, sin captura y sin cita | PD |
 | `referencia_tecnica_incompleta` | Missing Technical Reference | La cita sin REV o sin fecha | Obs. |
@@ -713,7 +713,7 @@ PD es posible discrepancia y Obs. es observación. La severidad es la que tiene 
 | --- | --- | --- | --- |
 | `completado_fuera_de_plazo` | Late Completion | Cerrado después del due date | PD |
 | `cierre_deadline_extendido` | Late Completion | Cerrado después del due date original, con extensión | PD |
-| `cierre_sin_accion_correctiva` | Missing Technical Reference | Sin acción correctiva | PD |
+| `cierre_sin_accion_correctiva` | Missing Technical Reference | Sin acción correctiva | Obs. |
 | `cierre_sin_referencia_tecnica` | Missing Technical Reference | La acción correctiva no cita el manual | Obs. |
 | `cierre_referencia_incompleta` | Missing Technical Reference | La cita de la acción sin REV o sin fecha | Obs. |
 | `cierre_sn_distinto` | Incorrect S/N | S/N removido distinto del de la descripción | Obs. |

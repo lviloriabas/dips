@@ -151,6 +151,39 @@ def _inicio_ta_uso(dip: dict, unidad: str) -> list[float]:
     return []
 
 
+def _corrido_uso(dip: dict, unidad: str, cerca_de: float = 0) -> float | None:
+    """Cuánto después del uso al encontrar la falla empieza un T/A por uso (FH, FC) en ICAM;
+    negativo si empieza antes. En un motor se toma el contador más cercano a `cerca_de`.
+    None sin dato, o si el Start es de otro contador (motor contra avión)."""
+    uso = (dip.get("uso_encontrado") or {}).get(_PARAMETRO[unidad])
+    starts = _inicio_ta_uso(dip, unidad)
+    if uso is None or uso <= 0 or not starts:
+        return None
+    corrido = min((x - uso for x in starts), key=lambda d: abs(d - cerca_de))
+    return None if abs(corrido - cerca_de) > 10 * max(dip["intervalo"] or 1, 1) else corrido
+
+
+def _corrido(dip: dict, unidad: str) -> float | None:
+    """Cuánto después de la apertura empieza el T/A en ICAM, en la unidad del DIP (días o
+    FH/FC); negativo si empieza antes. None sin dato."""
+    if unidad == "DAY":
+        inicio, found = _inicio_ta(dip), _como_fecha(dip["found_date"])
+        return None if inicio is None or found is None else (inicio - found).days
+    return _corrido_uso(dip, unidad) if unidad in _PARAMETRO else None
+
+
+def _tolerancia(unidad: str, ctx: Contexto) -> float:
+    return ctx.tol_dias if unidad == "DAY" else ctx.inicio_fh if unidad == "FH" else ctx.inicio_fc
+
+
+def _plazo_maximo(dip: dict, entrada: EntradaCatalogo, ctx: Contexto) -> float | None:
+    """Plazo más largo que da la referencia contado desde la apertura, en la unidad del DIP
+    (con ventana "AFTER A, BEFORE B", B). None si no lo da en esa unidad."""
+    rangos = [_rango_limite(lim, dip["unidad"], ctx)
+              for v in _variantes_aplicables(dip, entrada) for lim in v.limites]
+    return max((x[1] for x in rangos if x), default=None)
+
+
 def _rango_limite(lim: Limite, unidad_dip: str, ctx: Contexto) -> tuple[float, float] | None:
     """Rango aceptado para el valor del DIP según un límite de la referencia."""
     if lim.unidad == "MONTH":
@@ -301,6 +334,12 @@ def regla_intervalo(dip: dict, entrada: EntradaCatalogo, ctx: Contexto, r: Resul
 
     r.intervalo_ok = False
     if valor > maximo[0]:
+        # Solo importa si de verdad vence después: un T/A que empieza antes de la apertura
+        # con más intervalo puede vencer dentro del TA (el Start lo revisa regla_inicio_ta).
+        # Sin el Start de ICAM se cuenta desde la apertura.
+        corrido = _corrido(dip, unidad)
+        if corrido is not None and corrido + valor <= maximo[0] + _tolerancia(unidad, ctx):
+            return
         r.agregar(ctx, "intervalo_excedido", "Incorrect DIP Interval",
                   f"T/A con {_fmt(valor)} {unidad}; la referencia indica {texto_ref}.")
     else:
@@ -557,7 +596,9 @@ def regla_inicio_ta(dip: dict, entrada: EntradaCatalogo | None, ctx: Contexto,
     Con ventana "AFTER A, BEFORE B" (amortiguador, FDR, desgaste de frenos) el T/A empieza
     A después de la apertura y dura B - A. Los auditores marcan el T/A que empieza en la
     apertura con B (vence igual, pero con otro Start) y el que empieza antes de la apertura.
-    No aplica a los ítems con vencimiento (UNTIL DUE DATE): ahí manda la fecha del ítem."""
+    En un ítem sin ventana, un Start posterior con eso descontado del intervalo se acepta si
+    vence dentro del TA. No aplica a los ítems con vencimiento (UNTIL DUE DATE): ahí manda
+    la fecha del ítem."""
     unidad, valor = dip["unidad"], dip["intervalo"]
     if unidad is None or (entrada is not None and entrada.hasta_vencimiento):
         return
@@ -581,13 +622,10 @@ def regla_inicio_ta(dip: dict, entrada: EntradaCatalogo | None, ctx: Contexto,
                       else "el día de") + f" la apertura ({_fecha(found)})")
     elif unidad in _PARAMETRO:
         uso = (dip.get("uso_encontrado") or {}).get(_PARAMETRO[unidad])
-        starts = _inicio_ta_uso(dip, unidad)
-        if uso is None or not starts:
-            return
-        corrido = min((x - uso for x in starts), key=lambda d: abs(d - retraso))
-        if uso <= 0 or abs(corrido - retraso) > 10 * max(valor or 1, 1):
-            return  # uso en 0 o de otro contador (motor contra avión): no se puede comparar
-        tolerancia = ctx.inicio_fh if unidad == "FH" else ctx.inicio_fc
+        corrido = _corrido_uso(dip, unidad, retraso)
+        if uso is None or corrido is None:
+            return  # sin dato, uso en 0 o de otro contador (motor contra avión)
+        tolerancia = _tolerancia(unidad, ctx)
         fuera = abs(corrido - retraso) > tolerancia
         detalle = (f"Start del T/A {_fmt(round(uso + corrido, 2))} {unidad}: "
                    + (f"{_fmt(abs(round(corrido, 2)))} {unidad} "
@@ -604,6 +642,12 @@ def regla_inicio_ta(dip: dict, entrada: EntradaCatalogo | None, ctx: Contexto,
         fuera = not any(abs(corrido - v.inicio.valor) <= tolerancia
                         for v in _variantes_aplicables(dip, entrada)
                         if v.inicio is not None and v.inicio.unidad == unidad)
+    if fuera and entrada is not None and corrido > 0 and valor \
+            and not any(v.inicio for v in _variantes_aplicables(dip, entrada)):
+        # Ítem sin ventana, con Start después de la apertura y eso descontado del intervalo
+        # (más ciclos en el Start, menos en el T/A): si vence dentro del TA, se acepta.
+        tope = _plazo_maximo(dip, entrada, ctx)
+        fuera = tope is None or corrido + valor > tope + tolerancia
     if fuera:
         # Sin fuente no se sabe si el ítem tiene una ventana: un Start posterior a la
         # apertura queda para verificar. Uno anterior nunca es correcto.

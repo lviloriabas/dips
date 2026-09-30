@@ -37,6 +37,13 @@
 # discrepancias (DIPs cerrados sin attachments, S/N con errores de escritura): no se usan para
 # relajar una regla. Nuevas: sin attachments, Start del T/A (Incorrect DIP Start Values),
 # referencia no específica (barcode de trabajo) y S/N distinto de las notas de la descripción.
+#
+# Criterios del 30-sep-2026: un duplicado (declarado, detectado o por S/N repetido) no es
+# discrepancia, el cierre sin acción correctiva tampoco y el ATA del DIP no es relevante: los
+# tres quedan como OBSERVACION. El intervalo excedido solo cuenta si el T/A de verdad vence
+# después del TA; un Start posterior con eso descontado del intervalo es aceptable
+# (dips_audit/reglas.py). Las auditorías de DIPs antiguos se hacían de otra forma: no sirven
+# para medir el programa.
 
 tipos:
 
@@ -100,10 +107,11 @@ tipos:
       parent_assy_incorrecto:            {activa: true, severidad: CRITICA}
       parent_assy_distinto_a_pares:      {activa: true, severidad: REVISAR}     # SIN FUENTE: los demás DIPs con la misma EC/AMM están en otro
 
+  # El ATA cargado en el DIP no es relevante para la auditoría: solo observación.
   Incorrect ATA:
     activo: true
     reglas:
-      deferral_reference_ata:            {activa: true, severidad: NO CRITICA}  # Deferral Reference distinto del ATA
+      deferral_reference_ata:            {activa: true, severidad: OBSERVACION} # Deferral Reference distinto del ATA
       ata_distinto_a_referencia:         {activa: true, severidad: OBSERVACION} # ATA distinto al de la referencia
 
   Missing S/N:
@@ -114,18 +122,18 @@ tipos:
   Incorrect S/N:
     activo: true
     reglas:
-      sn_repetido:                       {activa: true, severidad: NO CRITICA}  # mismo S/N en otro DIP activo del avión
+      sn_repetido:                       {activa: true, severidad: OBSERVACION} # mismo S/N en otro DIP activo del avión (señal de duplicado)
       sn_inconsistente:                  {activa: true, severidad: NO CRITICA}  # S/N del DIP distinto del de las notas de la descripción
       cierre_sn_distinto:                {activa: true, severidad: OBSERVACION} # cierre: S/N removido distinto del de la descripción
       sn_fuera_de_inventario:            {activa: true, severidad: NO CRITICA}  # generators: S/N del DIP que no está en el PDF de inventario
 
+  # Un duplicado es un duplicado, no una discrepancia: se anota como observación.
   Duplicated DIP:
     activo: true
     reglas:
-      # Si uno de los dos ya estaba cerrado a la hora de la auditoría, queda como OBSERVACION.
-      duplicado:                         {activa: true, severidad: NO CRITICA}  # mismo avión, componente y abiertos a la vez
-      # El técnico lo marcó como duplicado o creado por error: si ya está cerrado, OBSERVACION.
-      duplicado_declarado:               {activa: true, severidad: NO CRITICA}  # "DUPLICATED", "ENTERED BY MISTAKE"
+      duplicado:                         {activa: true, severidad: OBSERVACION} # mismo avión, componente y abiertos a la vez
+      # El técnico lo marcó como duplicado o creado por error.
+      duplicado_declarado:               {activa: true, severidad: OBSERVACION} # "DUPLICATED", "ENTERED BY MISTAKE"
 
   Incorrect Fault Severity:
     activo: true
@@ -135,9 +143,10 @@ tipos:
   # Apertura: sirve la referencia cargada en ICAM (Technical References), una captura
   # adjunta o la cita en la descripción, como la acepta el auditor (calibrado con la
   # auditoría del 23-sep-2026). Sin datos de ICAM no se marca: queda para verificar.
-  # Cierre: sin acción correctiva es posible discrepancia. Si la acción no cita el manual
-  # (salvo que remita a otra tarea o que el DIP se haya cerrado sin trabajo: abierto por
-  # error, ya hecho, sin acción) queda como observación: el 23-sep los auditores la aceptaron.
+  # Cierre: sin acción correctiva no es discrepancia (en ICAM queda vacía si se cerró por la
+  # validación de QC o solo con partes): observación. Si la acción no cita el manual (salvo que
+  # remita a otra tarea o que el DIP se haya cerrado sin trabajo: abierto por error, ya hecho,
+  # sin acción) también queda como observación: el 23-sep los auditores la aceptaron.
   # El MGM no es referencia técnica. AMM, SRM y task card no necesitan revisión ni fecha
   # (referencia_tecnica.revision_opcional en config.yaml).
   Missing Technical Reference:
@@ -145,7 +154,7 @@ tipos:
     reglas:
       sin_referencia_tecnica:            {activa: true, severidad: NO CRITICA}  # sin referencia cargada, sin captura y sin cita
       referencia_tecnica_incompleta:     {activa: true, severidad: OBSERVACION} # la cita sin revisión o sin fecha (el auditor no la marca)
-      cierre_sin_accion_correctiva:      {activa: true, severidad: NO CRITICA}  # cierre: sin acción correctiva en ICAM
+      cierre_sin_accion_correctiva:      {activa: true, severidad: OBSERVACION} # cierre: sin acción correctiva en ICAM
       cierre_sin_referencia_tecnica:     {activa: true, severidad: OBSERVACION} # cierre: la acción correctiva no cita el manual
       cierre_referencia_incompleta:      {activa: true, severidad: OBSERVACION} # cierre: la cita sin revisión o sin fecha
 

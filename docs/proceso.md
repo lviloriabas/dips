@@ -168,13 +168,13 @@ Si en un DIP con REVISAR además falla otra regla, queda en POSIBLE DISCREPANCIA
 | Otra tarea del mismo capítulo-sección-tema                                                       | OBSERVACIÓN           |
 | Barcode de trabajo citado como referencia (no específica)                                         | POSIBLE DISCREPANCIA   |
 | Sin attachments (apertura o cierre)                                                                | POSIBLE DISCREPANCIA   |
-| S/N distinto del de las notas de la descripción, o repetido en otro DIP activo                      | POSIBLE DISCREPANCIA   |
-| DIP duplicado, o declarado duplicado / creado por error y todavía abierto                         | POSIBLE DISCREPANCIA   |
-| Deferral Reference distinto del ATA                                                                | POSIBLE DISCREPANCIA   |
+| S/N distinto del de las notas de la descripción                                                    | POSIBLE DISCREPANCIA   |
+| DIP duplicado (o S/N repetido en otro DIP activo), o declarado duplicado / creado por error       | OBSERVACIÓN           |
+| Deferral Reference distinto del ATA                                                                | OBSERVACIÓN           |
 | RIR faltante, con otro intervalo, sin un límite del T/A, en otro Parent Assembly o con otro Start | POSIBLE DISCREPANCIA   |
 | Sin intervalo o sin tipo de intervalo                                                              | POSIBLE DISCREPANCIA   |
 | Cierre después del due date, o después del original con deadline extendido                       | POSIBLE DISCREPANCIA   |
-| Cierre sin acción correctiva                                                                      | POSIBLE DISCREPANCIA   |
+| Cierre sin acción correctiva                                                                      | OBSERVACIÓN           |
 | Acción correctiva sin cita del manual                                                             | OBSERVACIÓN           |
 | TA o RIR según el daño o el tipo ("DEPENDING ON...", "CONSULT REF.")                             | REVISAR (ir al manual) |
 | Sin referencia en la tabla                                                                         | SIN FUENTE             |

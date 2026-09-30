@@ -106,6 +106,38 @@ def test_otro_trabajo_sobre_el_amortiguador_empieza_en_la_apertura(catalogo, ctx
     assert "inicio_ta_incorrecto" not in codigos(r)
 
 
+DPI = dict(nombre="DIP - IDG DPI", unidad="FH", tipo_intervalo_original="HOUR", ata=24,
+           deferral_ref="24-DIP", due_date=None, usage_remaining=None, flota="NG-800",
+           uso_encontrado={"HOURS": 1000.0})
+
+
+def _ta_horas(start, intervalo):
+    return [{"value": intervalo, "parameter": "HOURS", "unit": "HOUR",
+             "start": f"Aircraft {start} / Component {start}"}]
+
+
+def test_start_posterior_con_el_intervalo_descontado(catalogo, ctx):
+    """DPI, 400 FH: Start 20 FH después de encontrar la falla con 380 FH vence a las 400 de la
+    tabla (más horas en el Start, menos en el T/A): se acepta. Con 400 FH vence después."""
+    r = auditar(catalogo, ctx, "DPI", intervalo=380.0, icam_intervalos=_ta_horas(1020, 380), **DPI)
+    assert not codigos(r) & {"inicio_ta_incorrecto", "intervalo_excedido"}
+    r = auditar(catalogo, ctx, "DPI", intervalo=400.0, icam_intervalos=_ta_horas(1020, 400), **DPI)
+    assert "inicio_ta_incorrecto" in codigos(r, "NO CRITICA")
+
+
+def test_intervalo_excedido_solo_si_vence_despues(catalogo, ctx):
+    """420 FH desde 20 FH antes de encontrar la falla vence a las 400: el intervalo no se pasó
+    (el Start antes de la apertura sí se marca). Desde la apertura, 420 FH se pasa."""
+    r = auditar(catalogo, ctx, "DPI", intervalo=420.0, icam_intervalos=_ta_horas(980, 420), **DPI)
+    assert "intervalo_excedido" not in codigos(r)
+    assert "inicio_ta_incorrecto" in codigos(r, "NO CRITICA")
+    r = auditar(catalogo, ctx, "DPI", intervalo=420.0, icam_intervalos=_ta_horas(1000, 420), **DPI)
+    assert "intervalo_excedido" in codigos(r, "CRITICA")
+    # Sin el Start de ICAM se cuenta desde la apertura.
+    r = auditar(catalogo, ctx, "DPI", intervalo=420.0, **{**DPI, "uso_encontrado": {}})
+    assert "intervalo_excedido" in codigos(r, "CRITICA")
+
+
 def _ta_dias(start, intervalo):
     return [{"value": intervalo, "parameter": "CDY", "unit": "DAY", "start": f"{start} 23:59 UTC"}]
 
