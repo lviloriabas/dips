@@ -465,7 +465,7 @@ Si la acción correctiva dice "DUPLICATED", "BY MISTAKE", "BY ERROR", "POR ERROR
 
 ### El resultado
 
-Cada hallazgo tiene la severidad que le asigna `config/discrepancias.yaml` a su regla; una regla que no está en el archivo cuenta como NO CRITICA. El resultado del DIP es el de su hallazgo más grave:
+Cada hallazgo tiene la severidad que le asigna `config/discrepancias.yaml` a su regla. Al iniciar una auditoría se comprueba que todas las reglas del programa estén en el archivo; si falta alguna, se informa el error. El resultado del DIP es el de su hallazgo más grave:
 
 | Severidad | Se muestra como | Da el resultado |
 | --- | --- | --- |
@@ -607,13 +607,12 @@ Agrupa las reglas por tipo de discrepancia, con los nombres que usa el departame
 ```yaml
 tipos:
   Incorrect DIP Interval:
-    activo: true                     # false = no se revisa ninguna regla de este tipo
     reglas:
-      intervalo_excedido: {activa: true, severidad: CRITICA}
-      intervalo_menor:    {activa: true, severidad: OBSERVACION}
+      intervalo_excedido: CRITICA
+      intervalo_menor: OBSERVACION
 ```
 
-`activa: false` desactiva una regla y `activo: false` todo el tipo; una regla desactivada no aparece en ningún lado. La `severidad` decide qué pasa con el DIP (ver [El resultado](#el-resultado)). Si el archivo tiene un valor inválido (una severidad que no existe, `activa: si` en vez de `true`, una regla en dos tipos), el programa se detiene y dice cuál. Para revisar solo algunos tipos en una corrida sin tocar el archivo están `--categorias` y `--excluir-categorias`.
+Todas las reglas y tipos están activos por defecto. `intervalo_excedido: {activa: false, severidad: CRITICA}` desactiva una regla y `activo: false` debajo del tipo desactiva todo ese tipo; una regla desactivada no aparece en ningún lado. La severidad decide qué pasa con el DIP (ver [El resultado](#el-resultado)). Ejecute `python -m dips_audit validar-reglas` antes de auditar: detecta valores, campos y códigos inválidos. Para revisar solo algunos tipos en una corrida sin tocar el archivo están `--categorias` y `--excluir-categorias`. El procedimiento completo está en [configurar_reglas.md](docs/configurar_reglas.md).
 
 ### `config/catalogo_others.yaml`
 
@@ -636,7 +635,7 @@ Una entrada por ítem:
 - Para que se entienda un error de escritura frecuente, se agrega a `_SINONIMOS` en `dips_audit/texto.py`.
 - Para cubrir un ítem que sale SIN FUENTE, se agrega la fila a `DIPs References.xlsx`. Con eso ya se reconoce por su referencia técnica y por sus palabras; para reconocer todos sus DIPs, conviene escribirle su entrada en el catálogo.
 - Si un DIP se asocia a un ítem equivocado, se agrega la palabra que lo distingue en `excluir` de esa entrada.
-- Para que una regla sea solo observación, se cambia su `severidad` a OBSERVACION en `discrepancias.yaml`. Para desactivarla, `activa: false`.
+- Para que una regla sea solo observación, se cambia su valor a `OBSERVACION` en `discrepancias.yaml`. Para desactivarla, se usa `{activa: false, severidad: VALOR_ACTUAL}`.
 - Las tolerancias están en `config/config.yaml`.
 - Una regla nueva lleva una función en `reglas.py` (o un método en `auditor.py`, si necesita la asociación o datos de ICAM), su código en `discrepancias.yaml` (y en `CODIGOS_CIERRE`, si es de cierre), su motivo en `comparacion.MOTIVOS` y una prueba en `tests/`.
 - Un dato nuevo de ICAM se interpreta en `icam.leer_ficha`, se pasa al DIP en `cargador._dato_icam` y `completar_con_icam`, y se usa en la regla.

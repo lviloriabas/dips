@@ -23,6 +23,7 @@ from datetime import datetime
 from pathlib import Path
 
 import pandas as pd
+import yaml
 from rich import box
 from rich.console import Console, Group
 from rich.panel import Panel
@@ -560,6 +561,21 @@ def cmd_categorias(args, config) -> int:
     return 0
 
 
+def cmd_validar_reglas(args, config) -> int:
+    """Comprueba la sintaxis, los valores y la correspondencia con el código."""
+    from .discrepancias import cargar_discrepancias, validar_cobertura
+
+    try:
+        reglas = cargar_discrepancias(config["discrepancias"])
+        validar_cobertura(reglas)
+    except (ValueError, yaml.YAMLError) as ex:
+        consola.print(f"[bold red]Reglas inválidas:[/] {ex}")
+        return 1
+    consola.print(f"[bold green]Reglas válidas:[/] {len(reglas.reglas)} reglas en "
+                  f"{len(reglas.tipos)} tipos. Archivo: {config['discrepancias']}")
+    return 0
+
+
 def _argumentos_categorias(p: argparse.ArgumentParser) -> None:
     p.add_argument("-c", "--categorias", nargs="+", metavar="TIPO",
                    help="Revisar solo estos tipos de discrepancia (basta una parte del nombre, "
@@ -654,6 +670,7 @@ def main(argv: list[str] | None = None) -> int:
     sub.add_parser("referencias", help="Muestra cómo se interpretó la tabla de referencias")
     sub.add_parser("categorias", help="Muestra los tipos de discrepancia y sus reglas "
                                       "(los nombres que acepta --categorias)")
+    sub.add_parser("validar-reglas", help="Comprueba el archivo de reglas antes de auditar")
 
     args = p.parse_args(argv)
     config = None
@@ -662,8 +679,10 @@ def main(argv: list[str] | None = None) -> int:
         _modo_prueba(args, config)
         return {"auditar": cmd_auditar, "comparar": cmd_comparar, "benchmark": cmd_benchmark, "anonimizar": cmd_anonimizar,
                 "barcode": cmd_barcode, "extraer-icam": cmd_extraer_icam, "abrir-icam": cmd_abrir_icam,
-                "referencias": cmd_referencias, "categorias": cmd_categorias}[args.comando](args, config)
+                "referencias": cmd_referencias, "categorias": cmd_categorias,
+                "validar-reglas": cmd_validar_reglas}[args.comando](args, config)
     except (ErrorCarga, ErrorCatalogo, ErrorAnonimizacion, ErrorExtraccion,
+            ValueError, yaml.YAMLError,
             FileNotFoundError,
             PermissionError) as ex:
         consola.print(f"[bold red]Error:[/] {ex}")

@@ -61,6 +61,7 @@ Otros comandos (`.venv\Scripts\python -m dips_audit ...`):
 | Comando | Uso |
 | --- | --- |
 | `categorias` | Lista los tipos de discrepancia |
+| `validar-reglas` | Comprueba el archivo de reglas y detecta códigos mal escritos |
 | `referencias` | Muestra cómo se interpretó la tabla de referencias |
 | `extraer-icam archivo.xlsx` / `--barcode X` | Solo leer ICAM |
 | `abrir-icam` | Abrir el Edge de ICAM para iniciar sesión |
@@ -88,7 +89,7 @@ Otras columnas: `COMENTARIO SUGERIDO`, `AUDITORÍA` (APERTURA/CIERRE), `ESTADO A
 | Palabras clave de referencias Others | `config/catalogo_others.yaml` |
 | TA, Parent Assembly, AMM/ECRA, RIR | `DIPs References.xlsx` |
 
-Tras cambiar una regla, correr `benchmark` y comparar con la línea base.
+Para cambiar una regla, siga la [guía de configuración](docs/configurar_reglas.md). Después ejecute `validar-reglas` y `benchmark` para comprobar el archivo y comparar los resultados con la línea base.
 
 ## Problemas frecuentes
 
@@ -103,5 +104,6 @@ Tras cambiar una regla, correr `benchmark` y comparar con la línea base.
 ## Documentos
 
 - [tecnico.md](docs/tecnico.md): funcionamiento y reglas en detalle
+- [configurar_reglas.md](docs/configurar_reglas.md): cambios frecuentes en las reglas, paso a paso
 - [proceso.md](docs/proceso.md): proceso en diagramas
 - [comparacion_modos.md](docs/comparacion_modos.md): registro del modo con agente (eliminado)

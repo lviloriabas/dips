@@ -6,7 +6,8 @@ from pathlib import Path
 import pytest
 
 from dips_audit.auditor import Auditor
-from dips_audit.discrepancias import Discrepancias, cargar_discrepancias
+from dips_audit.discrepancias import (Discrepancias, cargar_discrepancias,
+                                     validar_cobertura)
 from dips_audit.reglas import auditar_dip, estado_final
 from tests.conftest import RAIZ, crear_export, hacer_dip
 from tests.test_integracion import FILAS
@@ -92,9 +93,10 @@ def test_regla_fuera_del_documento_es_no_critica(ctx, catalogo):
 def test_documento_en_la_auditoria_completa(config, tmp_path):
     """También en las reglas que se revisan sobre el lote (duplicados)."""
     texto = (RAIZ / "config" / "discrepancias.yaml").read_text(encoding="utf-8")
-    texto = texto.replace("  Duplicated DIP:\n    activo: true", "  Duplicated DIP:\n    activo: false")
-    texto = texto.replace("intervalo_excedido:                {activa: true, severidad: CRITICA}",
-                          "intervalo_excedido:                {activa: true, severidad: NO CRITICA}")
+    texto = texto.replace("  Duplicated DIP:\n    reglas:",
+                          "  Duplicated DIP:\n    activo: false\n    reglas:")
+    texto = texto.replace("intervalo_excedido:                CRITICA",
+                          "intervalo_excedido:                NO CRITICA")
     ruta = tmp_path / "discrepancias.yaml"
     ruta.write_text(texto, encoding="utf-8")
     auditor = Auditor({**config, "discrepancias": ruta}, fecha_auditoria=date(2026, 8, 20))
@@ -154,3 +156,34 @@ def test_errores_del_documento(datos, error):
 def test_documento_del_proyecto_es_valido():
     d = cargar_discrepancias(Path(RAIZ / "config" / "discrepancias.yaml"))
     assert all(d.tipos.values()) and all(r.activa for r in d.reglas.values())
+    validar_cobertura(d)
+
+
+def test_validar_reglas_detecta_codigo_mal_escrito(tmp_path, capsys):
+    from dips_audit.__main__ import main
+
+    ruta = tmp_path / "discrepancias.yaml"
+    original = (RAIZ / "config" / "discrepancias.yaml").read_text(encoding="utf-8")
+    ruta.write_text(original.replace("intervalo_excedido:", "intervalo_exedico:"),
+                    encoding="utf-8")
+    config = (RAIZ / "config" / "config.yaml").read_text(encoding="utf-8")
+    (tmp_path / "config.yaml").write_text(config.replace(
+        'discrepancias: "config/discrepancias.yaml"', f'discrepancias: "{ruta.as_posix()}"'),
+        encoding="utf-8")
+    assert main(["--config", str(tmp_path / "config.yaml"), "validar-reglas"]) == 1
+    salida = capsys.readouterr().out
+    assert "intervalo_excedido" in salida and "intervalo_exedico" in salida
+    assert main(["--config", str(tmp_path / "config.yaml"), "auditar", "sin-archivo.xlsx",
+                 "--sin-excel"]) == 1
+    assert "intervalo_exedico" in capsys.readouterr().out
+
+
+def test_cargar_reglas_rechaza_claves_repetidas_y_campos_incorrectos(tmp_path):
+    ruta = tmp_path / "reglas.yaml"
+    ruta.write_text("tipos:\n  A:\n    reglas:\n      x: CRITICA\n      x: OBSERVACION\n",
+                    encoding="utf-8")
+    with pytest.raises(ValueError, match="Clave repetida 'x'"):
+        cargar_discrepancias(ruta)
+    with pytest.raises(ValueError, match="campos desconocidos"):
+        Discrepancias.desde_dict({"A": {"reglas": {"x": {"activia": False,
+                                                            "severidad": "CRITICA"}}}})

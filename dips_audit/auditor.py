@@ -12,7 +12,7 @@ import yaml
 
 from .asociacion import Asociacion, asociar, asociar_por_codigos, similares_en_tabla
 from .cargador import Lote, cargar_export, completar_con_icam
-from .discrepancias import Discrepancias, cargar_discrepancias
+from .discrepancias import Discrepancias, cargar_discrepancias, validar_cobertura
 from .referencia_tecnica import (IndiceReferencias, buscar_referencia, cita_barcode, cita_mgm,
                                  es_captura_de_barcode, extraer_codigos, referencias_cargadas, revisar,
                                  sin_task_cards)
@@ -74,6 +74,7 @@ class Auditor:
         self.tipos = {str(t).upper() for t in tipos} if tipos else None
         tol = config.get("tolerancias", {})
         self.discrepancias: Discrepancias = cargar_discrepancias(config["discrepancias"])
+        validar_cobertura(self.discrepancias)
         self._ctx_base = dict(
             discrepancias=self.discrepancias,
             tol_dias=tol.get("dias", 1), meses_min=tol.get("meses_min", 30),

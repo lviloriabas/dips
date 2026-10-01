@@ -114,7 +114,7 @@ Cada hallazgo es de apertura o de cierre: los códigos de `reglas.CODIGOS_CIERRE
 | Agregar una regla | Una función en `reglas.py` (o un método en `auditor.py` si necesita la asociación o datos de ICAM), su código en `discrepancias.yaml` (si es de cierre, también en `CODIGOS_CIERRE`) y un test |
 | Usar un dato nuevo de ICAM | `icam.leer_ficha` (interpretarlo) -> `cargador._dato_icam` y `completar_con_icam` (pasarlo al `dip`) -> la regla |
 
-Después de cualquiera de estos cambios: `.venv\Scripts\python -m pytest` y `.venv\Scripts\python -m dips_audit benchmark`.
+Después de cualquiera de estos cambios: `.venv\Scripts\python -m dips_audit validar-reglas`, `.venv\Scripts\python -m pytest` y `.venv\Scripts\python -m dips_audit benchmark`. Para cambios de configuración, vea la [guía paso a paso](configurar_reglas.md).
 
 ---
 
