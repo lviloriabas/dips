@@ -2,7 +2,7 @@ from datetime import date
 
 import pytest
 
-from dips_audit.texto import (contiene_frase, extraer_fechas, extraer_psi, extraer_sn,
+from dips_audit.texto import (contiene_frase, extraer_fechas, extraer_pn, extraer_psi, extraer_sn,
                               menciona_referencia_tecnica, normalizar, posiciones)
 
 
@@ -46,9 +46,20 @@ def test_extraer_psi(texto, esperado):
     ("DIP - UNIVERSAL PROTECTION KIT S/N: COPA-7 Due Date", ["COPA-7"]),
     ("DIP - PORTABLE ELT", []),
     ("S/N DUE DATE", []),
+    ("BOTTLE 2 P/N2 5500-A1 S/N2: P11101989", ["P11101989"]),
+    ("P/N2: 33700002 S/N2: 00875", ["00875"]),
+    ("P/N2: 33700002", []),
+    ("S/N: 12345", ["12345"]),
+    ("S/N12345 SN67890", ["12345", "67890"]),
 ])
 def test_extraer_sn(texto, esperado):
     assert extraer_sn(texto) == esperado
+
+
+def test_pn_numerado_se_distingue_del_serial():
+    texto = "P/N2: 33700002 S/N2: 00875; PART NUMBER M30903872; PN M30903872"
+    assert extraer_pn(texto) == ["33700002", "M30903872"]
+    assert extraer_sn(texto) == ["00875"]
 
 
 @pytest.mark.parametrize("texto, esperado", [

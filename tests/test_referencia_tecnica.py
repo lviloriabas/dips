@@ -127,8 +127,9 @@ def test_auditoria_con_referencia_tecnica_en_el_excel(config, tmp_path):
         _fila("R3", "CREW OXYGEN 850 PSI", 3, "DAY", 35, "AMM TASK 12-15-41-610-802", "HP-1839CMP"),
         _fila("R4", "DIP - NOSE INTERNAL INSPECTION", 3, "CYCLES", 5, "AMM 05-51-18-210-801"),
     ]
-    ruta = crear_export(tmp_path / "entrada.xlsx", filas,
-                        encabezado=ENCABEZADO_ENTRADA + ["Technical References"])
+    ruta = crear_export(tmp_path / "entrada.xlsx",
+                        [fila + [datetime(2026, 7, 8)] for fila in filas],
+                        encabezado=ENCABEZADO_ENTRADA + ["Technical References", "Defer Dt"])
     resultado = Auditor(config, fecha_auditoria=date(2026, 8, 20)).auditar_archivo(ruta)
     f = resultado.filas.set_index("Fault Barcode")
     assert "Technical Reference" not in f.loc["R1", "HALLAZGOS"]
@@ -226,11 +227,31 @@ def test_apertura_solo_con_mgm_no_tiene_referencia(auditor, ctx):
     assert "el MGM no es referencia técnica" in h.mensaje
 
 
+def test_corte_y_accion_correctiva_en_referencia(auditor, ctx):
+    from dips_audit.reglas import ResultadoReglas
+    from tests.conftest import hacer_dip
+
+    for dia, exigible in [(8, True), (9, False), (10, False)]:
+        dip = hacer_dip(defer_date=datetime(2026, 7, dia), referencia_tecnica="",
+                        adjuntos=[], datos_referencia=True)
+        r = ResultadoReglas()
+        auditor._referencia_tecnica(dip, auditor._asociar(dip), ctx, r)
+        assert ("sin_referencia_tecnica" in {h.codigo for h in r.hallazgos}) is exigible
+
+    dip = hacer_dip(defer_date=datetime(2026, 7, 8), estado="COMPLETE",
+                    referencia_tecnica="", adjuntos=[], datos_referencia=True,
+                    accion_correctiva="REPLACED IAW AMM TASK 12-15-21-210-801")
+    r = ResultadoReglas()
+    auditor._referencia_tecnica(dip, auditor._asociar(dip), ctx, r)
+    assert not {"sin_referencia_tecnica", "referencia_tecnica_distinta"} & {
+        h.codigo for h in r.hallazgos}
+
+
 def test_opcion_revision_opcional_en_la_auditoria(config, tmp_path):
     ruta = crear_export(tmp_path / "entrada.xlsx",
                         [_fila("M2", "CREW OXYGEN 850 PSI", 3, "DAY", 35,
-                               "AMM TASK 12-15-21-210-801")],
-                        encabezado=ENCABEZADO_ENTRADA + ["Technical References"])
+                               "AMM TASK 12-15-21-210-801") + [datetime(2026, 7, 8)]],
+                        encabezado=ENCABEZADO_ENTRADA + ["Technical References", "Defer Dt"])
     f = (Auditor(config, fecha_auditoria=date(2026, 8, 20)).auditar_archivo(ruta)
          .filas.set_index("Fault Barcode"))
     assert "Referencia técnica sin REV" not in f.loc["M2", "HALLAZGOS"]
@@ -337,7 +358,10 @@ def test_carpeta_del_extractor(config, tmp_path):
     carpeta.mkdir()
     (carpeta / "J1.json").write_text(json.dumps({"barcode": "J1", "sections": SECCIONES}),
                                      encoding="utf-8")
-    ruta = crear_export(tmp_path / "entrada.xlsx", [_fila("J1", "CREW OXYGEN 850 PSI", 3, "DAY", 35)])
+    ruta = crear_export(tmp_path / "entrada.xlsx",
+                        [_fila("J1", "CREW OXYGEN 850 PSI", 3, "DAY", 35)
+                         + [datetime(2026, 7, 8)]],
+                        encabezado=ENCABEZADO_ENTRADA + ["Defer Dt"])
     resultado = Auditor(config, fecha_auditoria=date(2026, 8, 20)).auditar_archivo(ruta, icam=carpeta)
     fila = resultado.filas.set_index("Fault Barcode").loc["J1"]
     assert fila["REFERENCIA TÉCNICA DEL DIP"] == "TASK 12-15-21-210-801; Adjunto: foto.jpg"
@@ -380,7 +404,10 @@ def test_sin_referencia_con_datos_de_icam(config, tmp_path):
     carpeta.mkdir()
     (carpeta / "J1.json").write_text(json.dumps({"barcode": "J1", "sections": secciones}),
                                      encoding="utf-8")
-    ruta = crear_export(tmp_path / "entrada.xlsx", [_fila("J1", "CREW OXYGEN 850 PSI", 3, "DAY", 35)])
+    ruta = crear_export(tmp_path / "entrada.xlsx",
+                        [_fila("J1", "CREW OXYGEN 850 PSI", 3, "DAY", 35)
+                         + [datetime(2026, 7, 8)]],
+                        encabezado=ENCABEZADO_ENTRADA + ["Defer Dt"])
     resultado = Auditor(config, fecha_auditoria=date(2026, 8, 20)).auditar_archivo(ruta, icam=carpeta)
     fila = resultado.filas.set_index("Fault Barcode").loc["J1"]
     assert "Sin referencia técnica. Corresponde" in fila["HALLAZGOS"]

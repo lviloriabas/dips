@@ -22,7 +22,8 @@ from .referencias import Catalogo, EntradaCatalogo, cargar_catalogo, cargar_refe
 from .reglas_descripcion import buscar_parent_distinto_de_pares, revisar_descripcion
 from .reglas import (ACTIVOS, MOSTRAR_SEVERIDAD, ORDEN_SEVERIDAD, POSIBLE_DISCREPANCIA,
                      REVISAR, SIN_FUENTE, Contexto, Hallazgo, auditar_dip, buscar_duplicados,
-                     buscar_sn_repetidos, como_fecha_hora, dip_por_error, estado_final, etapa)
+                     buscar_sn_repetidos, como_fecha_hora, dip_por_error, estado_final, etapa,
+                     referencia_y_adjunto_exigibles)
 
 RAIZ = Path(__file__).resolve().parent.parent
 FUERA_DE_ALCANCE = "FUERA DE ALCANCE"
@@ -36,6 +37,8 @@ def cargar_configuracion(ruta: Path | None = None) -> dict:
     config = yaml.safe_load(ruta.read_text(encoding="utf-8"))
     config.setdefault("carpeta_pruebas", "pruebas")
     for clave in ("referencias", "catalogo", "carpeta_salida", "discrepancias", "carpeta_pruebas"):
+        if clave == "referencias" and str(config[clave]).lower().startswith("https://"):
+            continue
         p = Path(config[clave])
         config[clave] = p if p.is_absolute() else RAIZ / p
     icam = config.get("icam")
@@ -241,10 +244,13 @@ class Auditor:
         cargadas = referencias_cargadas(dip.get("referencia_tecnica"))
         adjuntos = dip.get("adjuntos")
         descripcion = sin_task_cards(dip.get("descripcion"))
+        accion = dip.get("accion_correctiva") if dip.get("estado") == "COMPLETE" else None
         encontrada = buscar_referencia("; ".join(cargadas), dip.get("descripcion"),
-                                       dip.get("notas_descripcion"), dip.get("nombre"))
+                                       dip.get("notas_descripcion"), accion, dip.get("nombre"))
         evidencia = [*(cargadas or [str(encontrada)]), *(f"Adjunto: {a}" for a in adjuntos or [])]
         dip["referencia_encontrada"] = "; ".join(x for x in dict.fromkeys(evidencia) if x)
+        if not referencia_y_adjunto_exigibles(dip):
+            return
         esperada = (self.indice_referencias.por_entrada.get(asoc.entrada.id)
                     if asoc.entrada else None)
         corresponde = f" Corresponde {', '.join(sorted(esperada))}." if esperada else ""
@@ -280,7 +286,7 @@ class Auditor:
             if esperada and {c for c in citadas if c.startswith("JIC")} & esperada:
                 return
             texto = "; ".join(x for x in (*cargadas, *map(sin_task_cards, adjuntos or []),
-                                          descripcion) if x.strip())
+                                          descripcion, accion or "") if x.strip())
             if not extraer_codigos(texto):
                 return  # sin número de tarea que comparar con la tabla
             revision = revisar(texto, asoc.entrada, self.catalogo, self.indice_referencias)
@@ -297,6 +303,13 @@ class Auditor:
 
     def _rir(self, dip: dict, asoc: Asociacion, ctx, r) -> None:
         """RIR del DIP (columnas Rir del Excel o Follow-on Tasks de ICAM) contra la referencia y el T/A."""
+        from .rir import remanentes_inverosimiles
+
+        rirs = list(dip.get("rirs_excel") or [])
+        if dip.get("rirs") is not dip.get("rirs_excel"):
+            rirs += dip.get("rirs") or []
+        for mensaje in remanentes_inverosimiles(rirs):
+            r.agregar(ctx, "rir_restante_inverosimil", "RIR", mensaje)
         entrada = asoc.entrada
         if entrada and entrada.rir_segun_manual:
             # El RIR cambia según el daño o la medición: no se compara, se revisa en el manual.

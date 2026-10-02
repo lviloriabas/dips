@@ -89,6 +89,7 @@ class _ICAMSimulado(http.server.BaseHTTPRequestHandler):
     fallar_una_vez: set[str] = set()   # "barcode/pestaña" que responde 500 la primera vez
     sin_sesion = False
     login_con_error = False   # la página de inicio de sesión muestra un error (clave errada)
+    squib = False
 
     def log_message(self, *args):
         pass
@@ -136,17 +137,30 @@ class _ICAMSimulado(http.server.BaseHTTPRequestHandler):
             else:
                 contenido = _html_pestana(TEXTOS[pestana].format(
                     barcode=barcode, historico=HISTORICO.format(barcode=barcode) if historico else ""))
+                if self.squib and pestana == "TaskExecution":
+                    contenido += ("<table id='idTablePartRequirementList'><tr><td>Part No</td></tr>"
+                                  "<tr><td><a href='/maintenix/web/part/PartDetails.jsp?aPart=1'>"
+                                  "M30903872</a></td></tr></table>")
                 if pestana == "TaskInformation":
                     contenido += TABLA_ADJUNTOS.format(barcode=barcode)
                 if pestana == "FaultInformation":
                     contenido += (f"<a href='{url.path}?aTask={barcode}&aTab=idTabFaultInformation"
                                   "&aShowHistorical=true'>Show Historical Tasks</a>")
             self._responder(200, (
-                f"<html><head><title>Fault Details - CREW OXYGEN [{barcode}]</title>"
+                f"<html><head><title>Fault Details - {'SQUIB' if self.squib else 'CREW OXYGEN'} [{barcode}]</title>"
                 "<script>fetch('/guardar', {method: 'POST', body: 'x'})</script></head>"
                 "<body onload=\"fetch('/guardar-onload', {method: 'POST'})\">"
                 f"{CABECERA}<img src='/logo.png'><div id='idBarcode'>{barcode}</div>{enlaces}"
                 f"<div id='idTab{pestana}'>{contenido}</div></body></html>"))
+        elif url.path.endswith("PartDetails.jsp"):
+            tabla = ("<h2>Related Parts</h2><table><tr><td>Part No</td></tr>"
+                     "<tr><td>UNRELATED123</td></tr></table>")
+            if "aTab" in parse_qs(url.query):
+                tabla += ("<table id='idTableAlternateParts'><tr><td>Part No</td><td>Name</td></tr>"
+                          "<tr><td>M30903872A</td><td>CARTRIDGE</td></tr></table>")
+            self._responder(200, "<title>Part Details - M30903872</title>" + tabla +
+                             "<a id='idTabAlternates_link' href='PartDetails.jsp?aPart=1&aTab=Alternates'>"
+                             "Alternate Parts</a>")
         elif url.path == ADJUNTO:
             from tests.test_inventario import pdf_con_campos
 
@@ -186,6 +200,7 @@ def _puerto_libre() -> int:
 def icam(tmp_path):
     _ICAMSimulado.envios, _ICAMSimulado.fallar_una_vez = [], set()
     _ICAMSimulado.sin_sesion = _ICAMSimulado.login_con_error = False
+    _ICAMSimulado.squib = False
     servidor = http.server.ThreadingHTTPServer(("127.0.0.1", 0), _ICAMSimulado)
     threading.Thread(target=servidor.serve_forever, daemon=True).start()
     config = {"url": f"http://127.0.0.1:{servidor.server_address[1]}/maintenix/common/ToDoList.jsp",
@@ -249,6 +264,17 @@ def test_lee_por_barcode_rapido_y_solo_lectura(icam, tmp_path):
     _ICAMSimulado.envios.clear()
     assert _extraer(barcodes, icam, tmp_path / "icam.json") == {b: "leido" for b in barcodes}
     assert _ICAMSimulado.envios == [ESCANEO] * (2 * len(barcodes))
+
+
+def test_squib_lee_analogos_del_pn_y_excluye_otras_partes(icam, tmp_path):
+    _ICAMSimulado.squib = True
+    archivo = tmp_path / "icam.json"
+    assert _extraer(["T40S009T000"], icam, archivo) == {"T40S009T000": "leido"}
+    registro = leer_registro(archivo, "T40S009T000")
+    assert registro["partes"]["M30903872"]["verificado"] is True
+    assert registro["partes"]["M30903872"]["analogos"] == ["M30903872A"]
+    assert "partes_errores" not in registro
+    assert _ICAMSimulado.envios == [ESCANEO, ESCANEO]
 
 
 def test_sin_sesion_avisa_y_no_se_queda_en_el_login(icam, tmp_path):

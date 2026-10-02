@@ -32,6 +32,8 @@ Con `--icam` se abre una ventana de Edge en ICAM: si pide sesión, iníciela ah�
 
 ```bat
 auditar.bat "DIPs Audit (23SEP2026).xlsx" --icam
+auditar.bat "DIPs Audit (23SEP2026).xlsx" --referencias "referencias.pdf"
+auditar.bat "DIPs Audit (23SEP2026).xlsx" --referencias "https://copaairlines.sharepoint.com/.../doc2.aspx?..."
 auditar.bat T40S0099V9C
 auditar.bat "DIPs Audit (23SEP2026).xlsx" -f "2026-09-23 14:00"
 auditar.bat "DIPs Audit (23SEP2026).xlsx" --categorias "Incorrect DIP Interval" RIR
@@ -44,6 +46,7 @@ comparar.bat "DIPs Audit (23SEP2026).xlsx" -i -e RIR
 | Opción | Uso |
 | --- | --- |
 | `-i`, `--icam` | Leer en ICAM todos los DIPs del archivo (sin esta opción, solo el Excel: menos reglas) |
+| `--referencias XLSX/PDF/URL` | Usar otra tabla de referencias local o un enlace de SharePoint. El PDF debe contener texto seleccionable y las nueve columnas de `References` en una misma tabla |
 | `--no-cache` | Leer en ICAM todos los DIPs, aunque se hayan leído hace menos de 1 hora (por defecto se usa lo guardado en `data/icam.json`) |
 | `--datos-icam RUTA` | Usar datos de ICAM ya extraídos (`data/icam.json` o CSV), sin leer ICAM |
 | `--pendientes` | Auditar solo los DIPs ACTV sin `DIP Open Audit User` y COMPLETE sin `DIP Closed Audit User`. Antes crea `... FILTERED.xlsx` junto al original, como `filtrar.bat` (sin esta opción, se auditan todos) |
@@ -55,6 +58,23 @@ comparar.bat "DIPs Audit (23SEP2026).xlsx" -i -e RIR
 | `-t`, `--tipos-dip TIPO ...` | Auditar solo esos tipos de DIP (columna `Type DIP` / `Area`, p. ej. `Others`). Por defecto, todos |
 | `-p`, `--prueba` | Forzar modo prueba |
 | `-o`, `--salida RUTA` | Excel de resultado (solo `auditar`) |
+
+Para SharePoint, el programa abre el mismo perfil de Edge que usa ICAM. Si Microsoft pide
+inicio de sesión, la persona lo hace en esa ventana; el programa descarga el archivo con
+esa sesión y lo valida antes de auditar. La sesión queda en `.icam_perfil/`. Si el enlace
+no permite descarga automática, descargue el XLSX o PDF en Edge y pase su ruta con
+`--referencias`. También puede dejar esa ruta o enlace en `config/config.yaml`.
+
+La revisión de referencia técnica y la exigencia de attachments aplican a los DIPs
+diferidos **antes del 9 de julio de 2026**. Si falta la fecha de diferimiento, esos
+hallazgos no se infieren. En DIPs COMPLETE, se lee la acción correctiva de ICAM para
+contrastar la referencia y los S/N citados.
+
+Se reconocen etiquetas como `S/N2` y `P/N2` por separado. Los squibs se revisan por P/N:
+el extractor consulta la página de la parte y sus análogos en ICAM. Si no puede confirmar
+esa lista, deja la comprobación pendiente. Un lote (Batch No) no se compara como serial.
+Los remanentes RIR claramente fuera del intervalo se señalan para revisar su configuración;
+se compara cada valor en su unidad, tanto en Excel como en ICAM.
 
 Otros comandos (`.venv\Scripts\python -m dips_audit ...`):
 
@@ -87,7 +107,7 @@ Otras columnas: `COMENTARIO SUGERIDO`, `AUDITORÍA` (APERTURA/CIERRE), `ESTADO A
 | Reglas activas y observaciones | `config/discrepancias.yaml` |
 | Tolerancias, lectura de ICAM, manuales sin REV/fecha | `config/config.yaml` |
 | Palabras clave de referencias Others | `config/catalogo_others.yaml` |
-| TA, Parent Assembly, AMM/ECRA, RIR | `DIPs References.xlsx` |
+| TA, Parent Assembly, AMM/ECRA, RIR | `DIPs References.xlsx`, un PDF de la misma tabla o el enlace de SharePoint |
 
 Para cambiar una regla, siga la [guía de configuración](docs/configurar_reglas.md). Después ejecute `validar-reglas` y `benchmark` para comprobar el archivo y comparar los resultados con la línea base.
 

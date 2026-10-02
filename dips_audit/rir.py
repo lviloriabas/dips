@@ -15,6 +15,7 @@ Reglas (criterios de los auditores en el histórico):
 
 from __future__ import annotations
 
+import math
 import re
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -36,6 +37,7 @@ class Limite:
     valor: float
     unidad: str       # DAY, FH, FC, MONTH
     inicio: str = ""  # Start en ICAM (solo si se leyó la página del RIR)
+    restante: float | None = None  # Usage Remaining de este límite, en la misma unidad
 
     def __str__(self) -> str:
         v = int(self.valor) if float(self.valor).is_integer() else round(self.valor, 2)
@@ -65,7 +67,8 @@ def _intervalo_por_due(actual: TareaSiguiente, siguiente: TareaSiguiente) -> Lim
     """Intervalo entre la tarea vigente y la siguiente."""
     if (actual.restante is not None and siguiente.restante is not None
             and actual.unidad == siguiente.unidad and actual.unidad):
-        return Limite(round(siguiente.restante - actual.restante, 2), unidad(actual.unidad))
+        return Limite(round(siguiente.restante - actual.restante, 2), unidad(actual.unidad),
+                      restante=actual.restante)
     a, b = _fecha(actual.fecha), _fecha(siguiente.fecha)
     if a and b and not actual.unidad and not siguiente.unidad:
         return Limite((b - a).days, "DAY")
@@ -84,7 +87,7 @@ def agrupar(tareas: list[TareaSiguiente], detalles: dict[str, FichaICAM] | None 
         rir = RIR(nombre, [t.id for t in grupo], [t.estado for t in grupo])
         detalle = next((detalles[t.id] for t in grupo if t.id in detalles), None)
         if detalle and detalle.intervalos:
-            rir.limites = [Limite(i.valor, unidad(i.parametro), i.inicio)
+            rir.limites = [Limite(i.valor, unidad(i.parametro), i.inicio, _restante(i.restante))
                            for i in detalle.intervalos if i.valor is not None]
             rir.parent = detalle.parent_assembly
             rir.fuente = "página del RIR"
@@ -96,6 +99,32 @@ def agrupar(tareas: list[TareaSiguiente], detalles: dict[str, FichaICAM] | None 
                 rir.limites, rir.fuente = [limite], "ACTV/FORECAST"
         rirs.append(rir)
     return rirs
+
+
+def _restante(texto: str) -> float | None:
+    m = re.fullmatch(r"(-?[\d.,]+)(?:\s+[A-Z]+)?", (texto or "").strip(), re.I)
+    if not m:
+        return None
+    try:
+        return float(m.group(1).replace(",", ""))
+    except ValueError:
+        return None
+
+
+def remanentes_inverosimiles(rirs: list[RIR]) -> list[str]:
+    """Valores claramente fuera del intervalo; una demora pequeña puede ser real."""
+    mensajes = []
+    for rir in rirs:
+        for limite in rir.limites:
+            restante, intervalo = limite.restante, limite.valor
+            if restante is None or not math.isfinite(intervalo) or intervalo <= 0:
+                continue
+            if (not math.isfinite(restante) or restante < -max(5, intervalo)
+                    or restante > intervalo + max(5, intervalo * 0.1)):
+                mensajes.append(f"RIR {rir.ids[0]} Usage Remaining {restante:g} {limite.unidad}, "
+                                f"fuera del rango esperable para un intervalo de {limite} "
+                                f"({rir.fuente or 'ICAM'}). Verificar configuración en ICAM.")
+    return list(dict.fromkeys(mensajes))
 
 
 def requerido(texto_rir: str) -> Limite | None:

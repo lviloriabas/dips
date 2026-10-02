@@ -131,3 +131,27 @@ def test_formato_dips_audit(tmp_path):
 def test_formato_anterior_sin_datos_de_rir(tmp_path):
     lote = cargar_export(crear_export(tmp_path / "e.xlsx", [FILA]))
     assert lote.datos.iloc[0]["rirs"] is None
+
+
+def test_excel_conserva_remanente_rir_y_accion_correctiva(tmp_path):
+    cabecera = ENCABEZADO_AUDIT + ["Rir Driver Usage Rem", "Corrective Action"]
+    fila = _fila_audit("T1", ("R1", "RIR", 50, "HOURS")) + [-2778.4, "REPLACED S/N2: 00875"]
+    lote = cargar_export(crear_export(tmp_path / "e.xlsx", [fila], encabezado=cabecera))
+    d = lote.datos.iloc[0]
+    assert d["rirs_excel"][0].limites[0].restante == -2778.4
+    assert d["accion_correctiva"] == "REPLACED S/N2: 00875"
+    assert d["datos_referencia"]
+
+
+def test_corrective_action_y_fecha_diferido_en_export_icam(tmp_path):
+    from dips_audit.cargador import completar_con_icam
+
+    lote = cargar_export(crear_export(tmp_path / "e.xlsx", [FILA]))
+    ruta = tmp_path / "icam.csv"
+    ruta.write_text("barcode,corrective_action,Defer Dt\n"
+                    "T40S0099FC1,REPLACED IAW AMM TASK 12-15-21-210-801,08-Jul-2026\n",
+                    encoding="utf-8")
+    completar_con_icam(lote, ruta)
+    d = lote.datos.iloc[0]
+    assert d["accion_correctiva"] == "REPLACED IAW AMM TASK 12-15-21-210-801"
+    assert d["defer_date"] == datetime(2026, 7, 8)

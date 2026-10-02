@@ -68,7 +68,7 @@ En palabras:
 
 1. **Carga.** `cargador.cargar_export` busca la fila de encabezados, reconoce las columnas por sus nombres posibles y arma un `Lote`: `original` (las columnas tal cual, para copiarlas a la salida) y `datos` (columnas estándar ya interpretadas: `barcode`, `nombre`, `intervalo`, `unidad`, `found_date`, `due_date`, `estado`...).
 2. **ICAM.** Con `--icam`, `extractor_icam.extraer` lee todos los barcodes y guarda el texto en `data/icam.json`. Después `completar_con_icam` interpreta ese texto (`icam.leer_ficha`) y agrega columnas al `Lote`: referencia técnica, attachments, intervalos del T/A, RIR, acción correctiva, notas de la descripción. La descripción, la referencia técnica, los attachments y los RIR de ICAM reemplazan a los del Excel (son más actuales); el intervalo y la fecha de cierre del Excel se mantienen, e ICAM solo los llena si faltan.
-3. **Referencias.** Al crear el `Auditor` se cargan la tabla y el catálogo (`Catalogo`, una `EntradaCatalogo` por ítem con sus variantes de TA, RIR y Parent Assy) y el índice de números de tarea (`IndiceReferencias`), además de `discrepancias.yaml`.
+3. **Referencias.** Al crear el `Auditor` se cargan la tabla y el catálogo (`Catalogo`, una `EntradaCatalogo` por ítem con sus variantes de TA, RIR y Parent Assy) y el índice de números de tarea (`IndiceReferencias`), además de `discrepancias.yaml`. La tabla puede ser XLSX o PDF de texto con las nueve columnas de `References`. Un enlace privado de SharePoint se descarga con la sesión del perfil de Edge de ICAM antes de cargarlo.
 4. **Asociación.** Para cada DIP, `Auditor._asociar` decide qué entrada del catálogo es: por el Fault Name, y si no alcanza, por la referencia técnica o la descripción. Devuelve una `Asociacion` con la entrada (o ninguna) y el método usado.
 5. **Reglas de lote.** Duplicados, S/N repetidos y Parent Assembly distinto de sus pares se buscan entre todos los DIPs del archivo, porque comparan un DIP con otros.
 6. **Reglas por DIP.** `reglas.auditar_dip` y los métodos del `Auditor` (`_referencia_tecnica`, `_rir`) y `reglas_descripcion.revisar_descripcion` agregan `Hallazgo`s a un `ResultadoReglas`. Cada `agregar` consulta `discrepancias.yaml`: si la regla está inactiva no se agrega, y si está activa toma de ahí su severidad y su tipo de discrepancia.
@@ -136,8 +136,9 @@ El programa busca, entre las primeras 20 filas de cada hoja, una fila que tenga 
 | Tipo de intervalo escrito de varias formas (`CDY`, `DAYS`, `HOURS`, `HRS`, `CYCLES`, `LANDINGS`) | Se lleva a cuatro unidades: días, horas de vuelo (FH), ciclos (FC) y meses |
 | Flota del avión | Sale del Task Parent Assy (`Boeing 737-8V3` -> NG-800, `737-9 MAX9` -> MAX). Si el DIP está en un motor, se toma la flota de otro DIP del mismo avión |
 | Columnas `Rir Barcode`, `Rir Name`, `Rir Driver Interval`, `Rir Driver Type` | Dan el RIR activo del DIP cuando no se lee ICAM |
+| Columna `Rir Driver Usage Rem` | Se conserva junto al intervalo y unidad del RIR aunque ICAM complete los datos. Un remanente menor que −max(5, intervalo) o mayor que intervalo + max(5, 10% del intervalo) se marca para verificar configuración. También se revisa el Remaining de Scheduling y Follow-on Tasks de ICAM, por unidad |
 | Columnas `Attachment Status` y `Attach Docs` | Cuántos attachments tenía el DIP al exportar el Excel (`PENDING` = ninguno). Se usan cuando no se lee ICAM |
-| Columna `Defer Dt` | Defer Date: el Start de un T/A en días puede ser esa fecha |
+| Columna `Defer Dt` | Fecha de diferimiento; ICAM prevalece si trae el evento. Decide si aplica el control de referencia técnica y attachments (antes del 9-jul-2026) |
 
 Las columnas de la auditoría manual (`DIP Open - RT Audit Completed`, `DIP Discrepancy Found`, etc.) no se usan para auditar, solo para comparar (sección 9).
 
@@ -161,7 +162,12 @@ Archivos: `dips_audit/extractor_icam.py` (cómo se lee) y `dips_audit/icam.py` (
 
 Además lee las RIR cerradas ("Show Historical Tasks") y la página de cada RIR vigente. En los DIPs de oxígeno descarga los PDF de Attachments y guarda los campos del formulario (`pdf` en `data/icam.json`, no el archivo): así se lee el inventario de generators.
 
-**Solo lectura.** Las únicas consultas son la búsqueda, la lectura de las pestañas y la descarga de los PDF adjuntos de los DIPs de oxígeno. El HTML se muestra en una página aislada, sin red y sin los scripts de ICAM. No se abre ningún formulario ni se pulsa ningún botón.
+En squibs consulta los enlaces de P/N de Task Execution y las tablas identificadas como
+Alternate/Analog/Interchangeable Parts, incluidas sus pestañas. Guarda `partes.<PN>.analogos`
+y `verificado`; una tabla desconocida o una lectura fallida dejan la verificación manual.
+Otros P/N de la página no se consideran equivalencias. No se compara el Batch No como S/N.
+
+**Solo lectura.** Las consultas son la búsqueda, las pestañas, las páginas de P/N de squibs y los PDF adjuntos de los DIPs de oxígeno. El HTML se muestra en una página aislada, sin red y sin los scripts de ICAM. No se abre ningún formulario ni se pulsa ningún botón.
 
 **Detalle importante.** ICAM entrega las pestañas y sus tablas ocultas y las muestra con sus scripts. Como aquí los scripts no corren, el programa las hace visibles antes de copiar el texto. Sin ese paso se perdían las referencias técnicas, los adjuntos y los intervalos.
 
@@ -334,7 +340,7 @@ Archivos: `dips_audit/reglas.py` y `dips_audit/auditor.py`. Se aplica a todo DIP
 | ATA y Deferral Reference | El ATA del DIP no es relevante: un Deferral Reference que no empieza con el ATA, o un ATA distinto del de la tabla, es observación |
 | Referencia técnica | Ver abajo |
 | S/N | Si la tabla lo pide, debe estar en la descripción. Un S/N repetido en otro DIP abierto del mismo avión es señal de un duplicado: observación. El S/N del Fault Name y la descripción debe ser el de las notas de la descripción en ICAM: se compara el número (P11101989 y 11101989 son el mismo S/N); si el número difiere (11101989 / 11101998) es posible discrepancia. Un S/N de más en uno de los dos textos no cuenta |
-| Attachments | Todo DIP debe tener attachments: sin ninguno es posible discrepancia, aunque la descripción cite el manual. Se cuentan en ICAM y, sin ICAM, en el Excel (`Attach Docs`) |
+| Attachments | En DIPs diferidos antes del 9-jul-2026, la falta de attachments es posible discrepancia. Se cuentan en ICAM y, sin ICAM, en el Excel (`Attach Docs`) |
 | RIR | Si la tabla pide RIR, debe existir en Follow-on Tasks con el intervalo correcto, en el mismo Parent Assembly y con el mismo inicio que el T/A (ver abajo) |
 | Duplicados | Mismo avión, mismo ítem, misma posición (FWD/AFT, LH/RH, #1/#2; también la de la descripción: el squib LEFT y el RIGHT de la misma botella no son duplicados), S/N compatibles (del nombre y la descripción), los mismos mensajes de mantenimiento si los citan (SHORT TIME 75-20451 y 75-10451 son dos fallas) y abiertos a la vez según la fecha de cierre. En una referencia con varias etapas, otro intervalo es otra etapa y no un duplicado (re-torque a los 60 días y a los 12 meses; cable ajustado a 6 meses y nuevo a 4). Un duplicado es un duplicado, no una discrepancia: observación |
 | Duplicado o creado por error | El técnico lo dice en la acción correctiva ("ENTERED BY MISTAKE", "DUPLICATED DIP") o en el nombre, la descripción o las notas de la descripción, referido al DIP ("DIP DUPLICADO"; "MASK DEPLOYED BY MISTAKE" es la falla). El DIP no se audita: el único hallazgo y el comentario son "DIP creado por error." o "DIP duplicado (ver T40S...).". Observación, esté abierto o cerrado |
@@ -345,7 +351,7 @@ Archivos: `dips_audit/reglas.py` y `dips_audit/auditor.py`. Se aplica a todo DIP
 2. una captura adjunta (Attachments);
 3. la referencia citada en la descripción.
 
-Si no hay ninguna, es posible discrepancia. Si la cita no trae la revisión o su fecha, se anota como observación. Este criterio se calibró con la auditoría del 23-sep-2026: 153 de 154 aperturas sin discrepancia tenían referencia cargada o captura adjunta. Sin datos de ICAM no se marca, porque no se sabe si hay captura: queda como verificación manual. Un DIP sin attachments ya es posible discrepancia por la regla de attachments.
+Para DIPs diferidos antes del 9-jul-2026, si no hay ninguna, es posible discrepancia. Si la cita no trae la revisión o su fecha, se anota como observación. En los COMPLETE también se considera la acción correctiva descargada de ICAM. Sin datos de ICAM no se marca, porque no se sabe si hay captura: queda como verificación manual.
 
 **Referencia no específica.** Si el DIP cita como su fuente un barcode de trabajo ("TO BE ACCOMPLISHED IN 500FH IAW BARCODE: TRF7N00900V4, STEP 63") y no cita una referencia del manual, es posible discrepancia (*Non-Specific Technical Reference*, como la anota el auditor). La task card JIC del Service Visit ("REF TASK CARD B737-05-1-0001-U-JIC STEP 3") sí se acepta: así se abren los DIPs de oxígeno, halon, FAK o fumigación, y los auditores no los marcan. Una task card JIC cargada en Technical References en lugar de la AMM de la tabla ya la marca la revisión contra la tabla.
 
@@ -384,7 +390,7 @@ Un T/A con otro intervalo es otro trabajo sobre el mismo ítem ("NLG STRUT COMPR
 | La RIR está en otro Parent Assembly (avión en vez de motor) | Posible discrepancia |
 | La RIR empieza en otra fecha que el T/A | Posible discrepancia |
 
-El intervalo de la RIR sale de su página en ICAM (Scheduling). Si no se pudo leer, se calcula como la diferencia entre la RIR vigente y la siguiente (594 -> 1394 CYCLES = 800 FC). Sin ICAM, se usa el RIR activo de las columnas `Rir …` del Excel. La columna `RIR EN ICAM` muestra cada RIR con su intervalo.
+El intervalo de la RIR sale de su página en ICAM (Scheduling). Si no se pudo leer, se calcula como la diferencia entre la RIR vigente y la siguiente (594 -> 1394 CYCLES = 800 FC). Sin ICAM, se usa el RIR activo de las columnas `Rir …` del Excel. La columna `RIR EN ICAM` muestra cada RIR con su intervalo. Un `Rir Driver Usage Rem` menor que el negativo de un intervalo completo, o mayor que el intervalo más 10 % (mínimo 5 unidades), indica un valor inverosímil que debe revisarse en ICAM.
 
 La tabla pide RIR en freno de parqueo (1 día), DPI (100 FH), VCD seal (1 día), mensajes long time (200 FH), short time, EGT (50 FH) y sellante de ventanas (2 días). Un RIR **más seguido** que el de la tabla (cada 1 día cuando pide 2) es más conservador: observación. Un Start del RIR que difiere del T/A solo por redondeo (50890.3 y 50890.29) no se marca.
 
@@ -399,7 +405,7 @@ La tabla pide RIR en freno de parqueo (1 día), DPI (100 FH), VCD seal (1 día),
 | Due date después del Exp. Date | Posible discrepancia (`due_date_posterior_a_vencimiento_item`) |
 | Due date antes del Exp. Date | Observación |
 | S/N del DIP que no está en el PDF | Posible discrepancia (`sn_fuera_de_inventario`) |
-| Sin PDF en los attachments (con ICAM) | Observación (`sin_inventario_generadores`); el vencimiento se toma de la descripción |
+| Sin PDF en los attachments (con ICAM) | En DIPs anteriores al 9-jul-2026, observación (`sin_inventario_generadores`); el vencimiento se toma de la descripción |
 | PDF sin formulario (escaneado) o que no se pudo leer; sin ICAM | Verificación manual; el vencimiento se toma de la descripción |
 
 **Otras reglas generales:**
@@ -559,6 +565,8 @@ Conviene ejecutarlo después de cualquier cambio en reglas, catálogo o configur
 | `cargador.py` | Lee el Excel de entrada y los datos de ICAM, y los deja en un formato común |
 | `extractor_icam.py` | Lee las páginas de ICAM (solo lectura) y las guarda todas en `data/icam.json` |
 | `icam.py` | Interpreta el texto de cada pestaña de ICAM |
+| `fuente_referencias.py` | Descarga XLSX/PDF de SharePoint con la sesión del Edge de ICAM |
+| `partes.py` | P/N de squibs y análogos confirmados en ICAM |
 | `texto.py` | Limpieza de texto, sinónimos, S/N, fechas y presiones |
 | `inventario.py` | Inventario de generators de oxígeno (PDF adjunto): S/N y Exp. Date |
 | `referencias.py` | Lee la tabla de referencias, interpreta el TA y carga el catálogo |

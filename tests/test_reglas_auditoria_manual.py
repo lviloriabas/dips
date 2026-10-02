@@ -25,6 +25,18 @@ def test_sin_attachments_es_discrepancia(catalogo, ctx):
     assert "sin_adjuntos" not in codigos(auditar(catalogo, ctx, "OXIGENO_TRIPULACION"))
 
 
+def test_corte_9_julio_para_adjuntos(catalogo, ctx):
+    for dia, exigible in [(8, True), (9, False), (10, False)]:
+        r = auditar(catalogo, ctx, "OXIGENO_TRIPULACION", defer_date=datetime(2026, 7, dia),
+                    adjuntos=[], estado="COMPLETE", accion_correctiva="BOTTLE REPLACED")
+        cod = codigos(r)
+        assert ("sin_adjuntos" in cod) is exigible
+        assert ("cierre_sin_adjuntos" in cod) is exigible
+        assert ("cierre_sin_referencia_tecnica" in cod) is exigible
+    sin_fecha = auditar(catalogo, ctx, "OXIGENO_TRIPULACION", defer_date=None, adjuntos=[])
+    assert "sin_adjuntos" not in codigos(sin_fecha)
+
+
 def test_sin_attachments_segun_el_excel(catalogo, ctx):
     """Sin ICAM se usa el Excel: Attachment Status PENDING = ningún attachment."""
     r = auditar(catalogo, ctx, "OXIGENO_TRIPULACION", adjuntos_excel=0)

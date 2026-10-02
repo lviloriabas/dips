@@ -10,6 +10,7 @@ from rapidfuzz.distance import Levenshtein
 
 from .discrepancias import Discrepancias
 from .inventario import cruzar
+from .partes import es_squib, verificar_squib
 from .referencias import EntradaCatalogo, Limite, Variante
 from .texto import clave_sn, extraer_fechas, extraer_psi, extraer_sn, normalizar, posiciones
 
@@ -124,6 +125,12 @@ def _como_fecha(d: datetime | date | None) -> date | None:
     if d is None:
         return None
     return d.date() if isinstance(d, datetime) else d
+
+
+def referencia_y_adjunto_exigibles(dip: dict) -> bool:
+    """Solo DIPs diferidos antes del 9-jul-2026 requieren este control."""
+    diferido = _como_fecha(dip.get("defer_date"))
+    return diferido is not None and diferido < date(2026, 7, 9)
 
 
 def _inicio_ta(dip: dict) -> date | None:
@@ -367,8 +374,9 @@ def regla_inventario(dip: dict, due: date, ctx: Contexto, r: ResultadoReglas) ->
                               f"({', '.join(inventario['archivos'])}): verificar el Exp. Date "
                               f"de cada S/N.")
         else:
-            r.agregar(ctx, "sin_inventario_generadores", "Missing Attachment",
-                      "Sin el PDF de inventario de generators en los attachments.")
+            if referencia_y_adjunto_exigibles(dip):
+                r.agregar(ctx, "sin_inventario_generadores", "Missing Attachment",
+                          "Sin el PDF de inventario de generators en los attachments.")
         return False
     cruce = cruzar(inventario["generadores"], dip["barcode"],
                    f"{dip['nombre']} {dip['descripcion']}")
@@ -458,7 +466,7 @@ def regla_fechas(dip: dict, entrada: EntradaCatalogo | None, ctx: Contexto,
                   f"DIP vencido: Usage Remaining {_fmt(dip['usage_remaining'])}.")
 
     if estado == "COMPLETE":
-        regla_cierre(dip, ctx, r)
+        regla_cierre(dip, ctx, r, entrada)
 
     # Usage Remaining mayor que el intervalo: el T/A de scheduling no coincide.
     rem = dip["usage_remaining"]
@@ -512,7 +520,8 @@ def dip_por_error(dip: dict) -> str | None:
     return mensaje + "."
 
 
-def regla_cierre(dip: dict, ctx: Contexto, r: ResultadoReglas) -> None:
+def regla_cierre(dip: dict, ctx: Contexto, r: ResultadoReglas,
+                 entrada: EntradaCatalogo | None = None) -> None:
     """Auditoría de cierre: fecha de cierre, acción correctiva y S/N removido."""
     completo, due = dip.get("complete_date"), dip["due_date"]
     original = dip.get("orig_due_date")
@@ -547,7 +556,7 @@ def regla_cierre(dip: dict, ctx: Contexto, r: ResultadoReglas) -> None:
     if cambios:
         r.manuales.append("Cambios de deadline en History: " + " | ".join(cambios))
 
-    if accion is not None:  # None = no se leyó ICAM
+    if accion is not None and referencia_y_adjunto_exigibles(dip):  # None = no se leyó ICAM
         from .referencia_tecnica import buscar_referencia, cita_mgm
 
         encontrada = buscar_referencia(texto)
@@ -572,16 +581,22 @@ def regla_cierre(dip: dict, ctx: Contexto, r: ResultadoReglas) -> None:
 
     # En un cambio (botella, generator) la descripción puede nombrar el que se quitó o el
     # que se puso: vale cualquiera de los dos de Part Requirements.
-    removidos = [sn for _, sn in dip.get("sn_removidos") or [] if clave_sn(sn)]
+    # ICAM mezcla Serial No y Batch No en una misma columna. Un lote BN no es un S/N.
+    def es_serie(sn: str) -> bool:
+        return bool(clave_sn(sn)) and not re.match(r"\s*(?:BN|BATCH\s*(?:NO|NUMBER)?)\b", sn, re.I)
+
+    removidos = [sn for _, sn in dip.get("sn_removidos") or [] if es_serie(sn)]
     cambiados = {clave_sn(sn) for _, sn in (dip.get("sn_removidos") or [])
-                 + (dip.get("sn_instalados") or [])} - {""}
+                 + (dip.get("sn_instalados") or []) if es_serie(sn)}
+    cambiados.update(clave_sn(sn) for sn in extraer_sn(texto))
     en_descripcion = extraer_sn(dip["nombre"] + " " + dip["descripcion"])
-    if removidos and en_descripcion and not cambiados & {clave_sn(s) for s in en_descripcion}:
+    if (not es_squib(dip, entrada) and removidos and en_descripcion
+            and not cambiados & {clave_sn(s) for s in en_descripcion}):
         r.agregar(ctx, "cierre_sn_distinto", "Incorrect S/N",
                   f"S/N removido {', '.join(sorted(set(removidos)))}; la descripción dice "
                   f"{', '.join(sorted(set(en_descripcion)))}.")
 
-    if cantidad_adjuntos(dip) == 0:
+    if referencia_y_adjunto_exigibles(dip) and cantidad_adjuntos(dip) == 0:
         r.agregar(ctx, "cierre_sin_adjuntos", "Missing Attachment",
                   f"DIP cerrado sin attachments{_sin_adjuntos(dip)}.")
 
@@ -677,10 +692,10 @@ def _sin_adjuntos(dip: dict) -> str:
 
 
 def regla_adjuntos(dip: dict, ctx: Contexto, r: ResultadoReglas) -> None:
-    """Todo DIP debe tener attachments (captura de la referencia, foto del componente...):
-    sin ninguno es posible discrepancia, aunque la descripción cite el manual. Un attachment
+    """En DIPs previos al corte, sin attachments es posible discrepancia,
+    aunque la descripción cite el manual. Un attachment
     con la matrícula de otro avión en el nombre puede ser de otro DIP."""
-    if cantidad_adjuntos(dip) == 0:
+    if referencia_y_adjunto_exigibles(dip) and cantidad_adjuntos(dip) == 0:
         r.agregar(ctx, "sin_adjuntos", "Missing Attachment", f"DIP sin attachments{_sin_adjuntos(dip)}.")
     avion = re.sub(r"\D", "", dip.get("avion") or "")
     for adjunto in dip.get("adjuntos") or []:
@@ -708,11 +723,15 @@ def _sn_parecidos(a: str, b: str) -> bool:
     return a in b or b in a or Levenshtein.distance(a, b) <= 1
 
 
-def regla_sn_consistente(dip: dict, ctx: Contexto, r: ResultadoReglas) -> None:
+def regla_sn_consistente(dip: dict, ctx: Contexto, r: ResultadoReglas,
+                         entrada: EntradaCatalogo | None = None) -> None:
     """El S/N del Fault Name y la descripción debe ser el de las notas de la descripción
     (ICAM). Si no coinciden, los auditores marcan "Incorrect Serial Number Referenced".
     Cuenta el número: P11101989 y 11101989 son el mismo S/N. Un S/N de más en uno de los
     textos (otro componente del mismo DIP) no cuenta."""
+    if es_squib(dip, entrada):
+        return
+
     def por_clave(texto: str) -> dict[str, str]:
         return {clave_sn(s): s for s in extraer_sn(texto) if clave_sn(s)}
 
@@ -798,10 +817,13 @@ def auditar_dip(dip: dict, entrada: EntradaCatalogo | None, ctx: Contexto) -> Re
     regla_inicio_ta(dip, entrada, ctx, r)
     regla_adjuntos(dip, ctx, r)
     regla_programado_despues_del_due(dip, ctx, r)
-    regla_sn_consistente(dip, ctx, r)
+    regla_sn_consistente(dip, ctx, r, entrada)
     regla_ata(dip, entrada, ctx, r)
     regla_severidad(dip, ctx, r)
-    r.manuales.append(VERIFICACION_GENERAL)
+    if referencia_y_adjunto_exigibles(dip):
+        r.manuales.append(VERIFICACION_GENERAL)
+    if es_squib(dip, entrada):
+        r.manuales.append(verificar_squib(dip))
     return r
 
 
@@ -909,7 +931,7 @@ def buscar_sn_repetidos(dips: list[dict]) -> dict[int, list[str]]:
     """
     por_sn: dict[tuple[str, str], list[int]] = {}
     for i, d in enumerate(dips):
-        if d["estado"] not in ACTIVOS or not d["avion"]:
+        if d["estado"] not in ACTIVOS or not d["avion"] or es_squib(d):
             continue
         for sn in set(extraer_sn(d["nombre"] + " " + d["descripcion"])):
             por_sn.setdefault((d["avion"], sn), []).append(i)

@@ -150,14 +150,78 @@ def _texto(v: object) -> str:
     return re.sub(r"\s+", " ", str(v)).strip()
 
 
+_COLUMNAS = ["TYPE", "AREA", "ATA", "FLEET", "DESCRIPTION", "PARENT ASSY",
+             "REFERENCES", "TA", "RIR"]
+
+
+def _filas_pdf(ruta: Path) -> list[tuple]:
+    """Lee un PDF de texto exportado con las nueve columnas de References visibles."""
+    from pypdf import PdfReader
+    from pypdf.errors import PdfReadError
+
+    filas: list[tuple] = [tuple(_COLUMNAS)]
+    try:
+        paginas = PdfReader(str(ruta)).pages
+    except PdfReadError as e:
+        raise ErrorCatalogo(f"No se pudo leer el PDF de referencias {ruta.name}: {e}") from e
+    for pagina in paginas:
+        lineas = (pagina.extract_text(extraction_mode="layout") or "").splitlines()
+        posiciones = None
+        actual: list[str] | None = None
+        for linea in lineas:
+            mayus = linea.upper()
+            if all(nombre in mayus for nombre in _COLUMNAS):
+                nuevas = []
+                desde = 0
+                for nombre in _COLUMNAS:
+                    pos = mayus.find(nombre, desde)
+                    if pos < 0:
+                        break
+                    nuevas.append(pos)
+                    desde = pos + len(nombre)
+                if len(nuevas) == len(_COLUMNAS):
+                    posiciones = nuevas
+                continue
+            if posiciones is None or not linea.strip() or re.search(r"\bPAGE\s+\d+\b", mayus):
+                continue
+            celdas = [linea[posiciones[i]:posiciones[i + 1]].strip()
+                      for i in range(len(posiciones) - 1)]
+            celdas.append(linea[posiciones[-1]:].strip())
+            tipo = celdas[0].upper()
+            if tipo in {"OTHERS", "POWERPLANT", "STRUCTURES"} and celdas[4]:
+                actual = celdas
+                filas.append(tuple(actual))
+            elif actual is not None and not celdas[0] and any(celdas[1:]):
+                for i, valor in enumerate(celdas[1:], 1):
+                    if valor:
+                        actual[i] = (actual[i] + " " + valor).strip()
+                filas[-1] = tuple(actual)
+    if len(filas) == 1:
+        raise ErrorCatalogo("El PDF no contiene la tabla References con texto seleccionable "
+                            "y las nueve columnas. Exporte la hoja completa a PDF o use el XLSX.")
+    return filas
+
+
 def cargar_referencias(ruta: Path, hoja: str = "References") -> list[FilaReferencia]:
-    wb = openpyxl.load_workbook(ruta, data_only=True, read_only=True)
-    ws = wb[hoja]
-    filas = list(ws.iter_rows(values_only=True))
-    wb.close()
+    ruta = Path(ruta)
+    if ruta.suffix.lower() == ".pdf":
+        filas = _filas_pdf(ruta)
+    elif ruta.suffix.lower() in {".xlsx", ".xlsm"}:
+        wb = openpyxl.load_workbook(ruta, data_only=True, read_only=True)
+        if hoja not in wb:
+            wb.close()
+            raise ErrorCatalogo(f"La hoja '{hoja}' no existe en {ruta.name}.")
+        filas = list(wb[hoja].iter_rows(values_only=True))
+        wb.close()
+    else:
+        raise ErrorCatalogo("La fuente de referencias debe ser un XLSX o PDF.")
+    if not filas:
+        raise ErrorCatalogo(f"La tabla de referencias de {ruta.name} está vacía.")
     encabezado = [_texto(c).upper() for c in filas[0]]
-    idx = {nombre: encabezado.index(nombre) for nombre in
-           ["TYPE", "AREA", "ATA", "FLEET", "DESCRIPTION", "PARENT ASSY", "REFERENCES", "TA", "RIR"]}
+    try:
+        idx = {nombre: encabezado.index(nombre) for nombre in _COLUMNAS}
+    except ValueError as e:
+        raise ErrorCatalogo(f"Falta una columna obligatoria en {ruta.name}: {e}") from e
     resultado = []
     for n, fila in enumerate(filas[1:], start=2):
         def col(nombre: str) -> object:
@@ -175,7 +239,8 @@ def cargar_referencias(ruta: Path, hoja: str = "References") -> list[FilaReferen
             fila=n,
             tipo=_texto(col("TYPE")).upper(),
             area=_texto(col("AREA")),
-            ata=int(ata) if isinstance(ata, (int, float)) else None,
+            ata=int(ata) if isinstance(ata, (int, float)) else (
+                int(ata) if str(ata).strip().isdigit() else None),
             flota=_texto(col("FLEET")),
             descripcion=descripcion,
             parent_assy=_texto(col("PARENT ASSY")).upper(),

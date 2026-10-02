@@ -186,6 +186,30 @@ def test_cierre_sn_cuenta_el_numero_y_el_instalado(catalogo, ctx):
     assert "cierre_sn_distinto" not in codigos(r)
 
 
+def test_lote_de_squib_no_se_compara_como_serial(catalogo, ctx):
+    r = auditar(catalogo, ctx, "SQUIB_MOTOR_APU", nombre="DIP - ENGINE SQUIB S/N2 00875",
+                descripcion="SQUIB #2 P/N2 33700002 S/N2 00875", estado="COMPLETE",
+                accion_correctiva="REPLACED SQUIB P/N M30903872 BATCH BN 335023",
+                sn_removidos=[("M30903872", "BN 335023")],
+                complete_date=datetime(2026, 8, 21, 10, 0))
+    assert "cierre_sn_distinto" not in codigos(r)
+
+
+def test_squib_con_seriales_ambiguos_y_pn_analogo(catalogo, ctx):
+    r = auditar(catalogo, ctx, "SQUIB_MOTOR_APU", nombre="SQUIB S/N2: 00875",
+                descripcion="SQUIB P/N2: M30903872A", notas_descripcion="S/N 99999",
+                estado="COMPLETE", accion_correctiva="REPLACED P/N M30903872",
+                sn_removidos=[("M30903872", "335023")],
+                analogos_pn={"M30903872": ["M30903872A"]})
+    assert not {"sn_inconsistente", "cierre_sn_distinto", "sin_sn_en_descripcion"} & codigos(r)
+    assert any("M30903872A (análogo de M30903872 en ICAM)" in m for m in r.manuales)
+
+
+def test_squib_sin_tabla_de_analogos_queda_para_verificar(catalogo, ctx):
+    r = auditar(catalogo, ctx, "SQUIB", nombre="SQUIB P/N2: M30903872A")
+    assert any("Verificar P/N y análogos: M30903872A" in m for m in r.manuales)
+
+
 def test_cierre_sin_accion_correctiva_es_observacion(catalogo, ctx):
     """Sin acción correctiva no es discrepancia (se cierra por la validación de QC o solo con
     partes): observación. Sin cita del manual, también."""

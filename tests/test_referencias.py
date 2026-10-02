@@ -95,3 +95,33 @@ def test_referencia_aircraft_specific_no_fija_numeros_de_tarea(catalogo):
 
 def test_ta_segun_mmel_es_revisar(catalogo):
     assert catalogo.por_id("AHM_TAILSKID").ta_segun_manual == "MMEL 32-71-01"
+
+
+def test_pdf_de_referencias_con_tabla_de_texto(tmp_path):
+    from pypdf import PdfWriter
+    from pypdf.generic import DecodedStreamObject, DictionaryObject, NameObject
+    from dips_audit.referencias import cargar_referencias
+
+    ancho = [12, 14, 6, 9, 28, 17, 35, 16]
+    def linea(valores):
+        return "".join(f"{v:<{n}}" for v, n in zip(valores, ancho)) + valores[-1]
+
+    cabecera = linea(["TYPE", "AREA", "ATA", "FLEET", "DESCRIPTION", "PARENT ASSY",
+                      "REFERENCES", "TA", "RIR"])
+    fila = linea(["OTHERS", "FDR", "31", "ALL", "FDR REPORT", "AIRCRAFT",
+                  "AMM 31-31-00-000-801", "30 DAYS", "7 DAYS"])
+    writer = PdfWriter()
+    page = writer.add_blank_page(width=1500, height=400)
+    font = DictionaryObject({NameObject("/Type"): NameObject("/Font"),
+                             NameObject("/Subtype"): NameObject("/Type1"),
+                             NameObject("/BaseFont"): NameObject("/Courier")})
+    page[NameObject("/Resources")] = DictionaryObject({NameObject("/Font"): DictionaryObject({
+        NameObject("/F1"): writer._add_object(font)})})
+    stream = DecodedStreamObject()
+    stream.set_data(f"BT /F1 8 Tf 20 350 Td ({cabecera}) Tj 0 -15 Td ({fila}) Tj ET".encode())
+    page[NameObject("/Contents")] = writer._add_object(stream)
+    ruta = tmp_path / "referencias.pdf"
+    writer.write(ruta)
+    [ref] = cargar_referencias(ruta)
+    assert (ref.tipo, ref.ata, ref.descripcion, ref.ta, ref.rir) == (
+        "OTHERS", 31, "FDR REPORT", "30 DAYS", "7 DAYS")

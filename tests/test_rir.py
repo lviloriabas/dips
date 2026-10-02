@@ -8,7 +8,37 @@ import pytest
 from dips_audit.auditor import Auditor
 from dips_audit.icam import FichaICAM, Intervalo, TareaSiguiente, leer_tareas_siguientes
 from dips_audit.rir import Limite, agrupar, requerido, revisar
-from tests.conftest import crear_export
+from dips_audit.reglas import ResultadoReglas
+from dips_audit.rir import RIR
+from tests.conftest import crear_export, hacer_dip
+
+
+def test_remanente_rir_inverosimil_del_excel(auditor, ctx):
+    for remanente, sospechoso in [(-2778.4, True), (5000, True), (-1, False), (40, False)]:
+        dip = hacer_dip(rirs=[RIR("RIR 50 FH", ["R1"], ["ACTV"],
+                                  [Limite(50, "FH", restante=remanente)])])
+        r = ResultadoReglas()
+        auditor._rir(dip, auditor._asociar(dip), ctx, r)
+        assert ("rir_restante_inverosimil" in {h.codigo for h in r.hallazgos}) is sospechoso
+
+
+def test_remanente_rir_compara_cada_unidad_y_conserva_excel(auditor, ctx):
+    excel = RIR("RIR", ["R1"], ["ACTV"], [Limite(50, "FH", restante=-2778.4)], "Excel")
+    icam = RIR("RIR", ["R1"], ["ACTV"], [Limite(10000, "FC", restante=5000),
+                                        Limite(50, "FH", restante=500)], "página del RIR")
+    dip = hacer_dip(rirs=[icam], rirs_excel=[excel])
+    r = ResultadoReglas()
+    auditor._rir(dip, auditor._asociar(dip), ctx, r)
+    mensajes = [h.mensaje for h in r.hallazgos if h.codigo == "rir_restante_inverosimil"]
+    assert len(mensajes) == 2
+    assert any("-2778.4 FH" in m and "Excel" in m for m in mensajes)
+    assert any("500 FH" in m and "página del RIR" in m for m in mensajes)
+
+
+def test_remanente_leido_de_scheduling_icam():
+    detalle = FichaICAM(intervalos=[Intervalo("HOURS", "HOUR", "", 50, "", "", "", "-2,778.4")])
+    rirs = agrupar([_t("RIR X", "A", "ACTV", "10 HOUR")], {"A": detalle})
+    assert rirs[0].limites[0].restante == -2778.4
 
 
 def _t(nombre, id_, estado, due, clase="ADHOC (Ad-Hoc Task)"):

@@ -94,7 +94,15 @@ def extraer_psi(texto: object) -> list[int]:
     return valores
 
 
-_SN_RE = re.compile(r"\bS\s*/\s*N?\s*[:#.]?\s*([A-Z0-9][A-Z0-9\-]{2,})|\bSN\s*[:#.]?\s*([A-Z0-9][A-Z0-9\-]{2,})")
+_SN_RE = re.compile(
+    r"\b(?:(?:S\s*/\s*N|SN)(?:\d(?=[\s:#.=]))?|SERIAL\s*(?:NO\.?|NUMBER)?)"
+    r"\s*[:#.=\-]?\s*"
+    r"([A-Z0-9][A-Z0-9\-]{2,})\b"
+)
+_PN_RE = re.compile(
+    r"\b(?:(?:P\s*/\s*N|PN)(?:\d(?=[\s:#.=]))?|PART\s*(?:NO\.?|NUMBER))"
+    r"\s*[:#.=]?\s*([A-Z0-9][A-Z0-9\-]{2,})\b"
+)
 _SN_NO_VALIDOS = {"DUE", "DATE", "INCORRECTO", "CORRECTO", "THE", "AND"}
 
 
@@ -103,7 +111,7 @@ def extraer_sn(texto: object) -> list[str]:
     t = sin_acentos(str(texto or "")).upper()
     encontrados = []
     for m in _SN_RE.finditer(t):
-        sn = (m.group(1) or m.group(2)).strip("-")
+        sn = m.group(1).strip("-")
         if sn not in _SN_NO_VALIDOS and any(c.isdigit() for c in sn):
             encontrados.append(sn)
     return encontrados
@@ -113,6 +121,13 @@ def clave_sn(sn: str) -> str:
     """Lo que identifica un S/N: sus dígitos. El mismo S/N se escribe con o sin letras y
     guiones (P11101989 / 11101989, 1234-AB / 1234)."""
     return re.sub(r"\D", "", str(sn or ""))
+
+
+def extraer_pn(texto: object) -> list[str]:
+    """P/N y P/N2 identifican partes, independientemente del S/N del componente."""
+    t = sin_acentos(str(texto or "")).upper()
+    return list(dict.fromkeys(m.group(1).strip("-") for m in _PN_RE.finditer(t)
+                             if any(c.isdigit() for c in m.group(1))))
 
 
 def _anio(valor: str) -> int:

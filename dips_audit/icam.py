@@ -58,7 +58,7 @@ class FichaICAM:
     titulo: str = ""
     descripcion: str = ""
     notas_descripcion: str = ""     # "Deferral Notes" del historial (parte de la apertura)
-    accion_correctiva: str = ""      # cierre: no se usa en la auditoría de apertura
+    accion_correctiva: str = ""      # evidencia de referencia y componentes en COMPLETE
     referencias_tecnicas: list[str] = field(default_factory=list)
     # Marcas que pone el auditor al terminar (tipo AUDITDIP o AUDITTR): no son referencias.
     marcas_auditoria: list[str] = field(default_factory=list)
@@ -248,9 +248,9 @@ def leer_ficha(secciones: dict, barcode: str = "", titulo: str = "") -> FichaICA
         pn = [i for i, c in enumerate(enc) if c == "Part No"]
         sn = [i for i, c in enumerate(enc) if c == "Serial No / Batch No"]
         for fila in filas:
-            if len(pn) > 0 and _celda(fila, sn[0]):
+            if len(pn) > 0 and (_celda(fila, pn[0]) or _celda(fila, sn[0])):
                 f.sn_removidos.append((_celda(fila, pn[0]), _celda(fila, sn[0])))
-            if len(pn) > 1 and len(sn) > 1 and _celda(fila, sn[1]):
+            if len(pn) > 1 and len(sn) > 1 and (_celda(fila, pn[1]) or _celda(fila, sn[1])):
                 f.sn_instalados.append((_celda(fila, pn[1]), _celda(fila, sn[1])))
 
     falla = texto("FaultInformation")

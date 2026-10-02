@@ -19,6 +19,7 @@ COLUMNAS = {
     "tipo": ["Type DIP", "Area"],
     "nombre": ["Fault Name"],
     "descripcion": ["Fault Description", "Description"],
+    "accion_correctiva": ["Corrective Action", "corrective_action", "Acción Correctiva"],
     "intervalo": ["DIP Interval"],
     "tipo_intervalo": ["Interval Type"],
     "estado": ["Fault Status"],
@@ -41,6 +42,7 @@ COLUMNAS = {
     "rir_nombre": ["Rir Name"],
     "rir_intervalo": ["Rir Driver Interval"],
     "rir_tipo": ["Rir Driver Type"],
+    "rir_restante": ["Rir Driver Usage Rem"],
     # Attachments del DIP al exportar el Excel: "OK"/"PENDING" y cuántos hay.
     "adjuntos_estado": ["Attachment Status"],
     "adjuntos_cantidad": ["Attach Docs"],
@@ -234,7 +236,7 @@ def _rirs_del_excel(v) -> list:
     rir = RIR(parse_texto(v("rir_nombre")), [barcode], ["ACTV"], fuente="Excel")
     valor, tipo = parse_numero(v("rir_intervalo")), parse_texto(v("rir_tipo"))
     if valor is not None and tipo:
-        rir.limites = [Limite(valor, unidad(tipo))]
+        rir.limites = [Limite(valor, unidad(tipo), restante=parse_numero(v("rir_restante")))]
     return [rir]
 
 
@@ -280,6 +282,7 @@ def normalizar_lote(original: pd.DataFrame) -> tuple[pd.DataFrame, list[str]]:
                 found = invertida
         parent = parse_texto(v("parent_assy"))
         ata = parse_numero(v("ata"))
+        rirs_excel = _rirs_del_excel(v) if "rir_barcode" in mapa else None
         registros.append({
             "fila": fila_excel,
             "barcode": parse_texto(v("barcode")),
@@ -310,21 +313,25 @@ def normalizar_lote(original: pd.DataFrame) -> tuple[pd.DataFrame, list[str]]:
             "correccion_fecha": correccion,
             # True si hay con qué revisar la referencia técnica (descripción o columna de
             # referencias en el Excel, o datos de ICAM).
-            "datos_referencia": "descripcion" in mapa or "referencia_tecnica" in mapa,
+            "datos_referencia": any(c in mapa for c in
+                                    ("descripcion", "referencia_tecnica", "accion_correctiva")),
             "intervalo_de_icam": False,
             "notas_descripcion": "",
             "adjuntos": None,          # lista de nombres si se leyó ICAM; None = sin dato
             "adjuntos_excel": _adjuntos_del_excel(v, mapa),  # cantidad según el Excel
             "uso_encontrado": None,    # ICAM: {"CYCLES": n, "HOURS": n} al encontrar la falla
             # RIR del DIP (columnas Rir del Excel o Follow-on Tasks de ICAM); None = sin dato
-            "rirs": _rirs_del_excel(v) if "rir_barcode" in mapa else None,
+            "rirs": rirs_excel,
+            "rirs_excel": rirs_excel,  # se conserva al completar con ICAM
             "historico_rir": False,    # se leyó Show Historical Tasks
             "icam_intervalos": None,   # T/A en Scheduling de ICAM (valor, parámetro, Start)
             "parent_icam": "",
             # Auditoría de cierre (datos de ICAM); None = no se leyó ICAM.
-            "accion_correctiva": None,
+            "accion_correctiva": (parse_texto(v("accion_correctiva"))
+                                   if "accion_correctiva" in mapa else None),
             "sn_removidos": None,
             "sn_instalados": None,
+            "analogos_pn": None,
             "cambios_deadline": None,
             "marcas_auditoria": None,
             "marcas_auditdip": None,   # marcas AUDITDIP: ya se auditó manualmente
@@ -382,8 +389,11 @@ def _dato_icam(r: dict, ficha=None) -> dict:
         "historico_rir": bool((secciones.get("FollowOnHistorico") or {}).get("text")),
         "parent_icam": ficha.parent_assembly,
         "accion_correctiva": ficha.accion_correctiva,
+        "defer_date": ficha.diferido,
         "sn_removidos": ficha.sn_removidos,
         "sn_instalados": ficha.sn_instalados,
+        "analogos_pn": {pn: d.get("analogos", []) for pn, d in (r.get("partes") or {}).items()
+                        if d.get("verificado")},
         "cambios_deadline": ficha.cambios_deadline,
         "marcas_auditoria": ficha.marcas_auditoria,
         "marcas_auditdip": ficha.marcas_auditdip,
@@ -412,7 +422,7 @@ def _registros_icam(ruta: Path) -> dict[str, dict]:
     Acepta el JSON que llena el extractor (`data/icam.json`, todos los DIPs juntos), otro
     JSON de extracción (`dips_dataset.json` o `icam_dips.json`), una carpeta con un JSON
     por DIP (formato anterior) o un CSV/Excel con las columnas
-    `barcode`, `technical_references` y, opcional, `description`. El texto de las
+    `barcode`, `technical_references`, `description` o `corrective_action`. El texto de las
     pestañas se interpreta con `icam.leer_ficha`.
     """
     import json
@@ -443,13 +453,21 @@ def _registros_icam(ruta: Path) -> dict[str, dict]:
     col_ref = next((columnas[a.lower()] for a in COLUMNAS["referencia_tecnica"]
                     if a.lower() in columnas), None)
     col_desc = columnas.get("description") or columnas.get("descripcion")
-    if not col_barcode or not col_ref:
-        raise ErrorCarga(f"El archivo de ICAM {ruta.name} debe tener las columnas 'barcode' y "
-                         "'technical_references'.")
-    return {parse_texto(r[col_barcode]): {"referencia_tecnica": parse_texto(r[col_ref]),
+    col_accion = next((columnas[a.lower()] for a in COLUMNAS["accion_correctiva"]
+                       if a.lower() in columnas), None)
+    col_diferido = next((columnas[a.lower()] for a in COLUMNAS["defer_date"]
+                         if a.lower() in columnas), None)
+    if not col_barcode or not any((col_ref, col_desc, col_accion)):
+        raise ErrorCarga(f"El archivo de ICAM {ruta.name} debe tener 'barcode' y al menos "
+                         "'technical_references', 'description' o 'corrective_action'.")
+    return {parse_texto(r[col_barcode]): {"referencia_tecnica": parse_texto(r[col_ref]) if col_ref else "",
                                           "descripcion": parse_texto(r[col_desc]) if col_desc else "",
                                           "notas_descripcion": "", "adjuntos": None,
-                                          "intervalos": []}
+                                          "intervalos": [],
+                                          **({"accion_correctiva": parse_texto(r[col_accion])}
+                                             if col_accion else {}),
+                                          **({"defer_date": parse_texto(r[col_diferido])}
+                                             if col_diferido else {})}
             for _, r in extra.iterrows()}
 
 
@@ -547,7 +565,11 @@ def completar_con_icam(lote: Lote, ruta: Path, registros: dict[str, dict] | None
         datos.at[i, "historico_rir"] = r.get("historico_rir", False)
         datos.at[i, "icam_intervalos"] = r["intervalos"]
         datos.at[i, "parent_icam"] = r.get("parent_icam", "")
-        for clave in ("accion_correctiva", "sn_removidos", "sn_instalados", "cambios_deadline",
+        if r.get("defer_date"):
+            fecha_icam = parse_fecha(r["defer_date"].replace(" UTC", ""))
+            if fecha_icam is not None:
+                datos.at[i, "defer_date"] = fecha_icam
+        for clave in ("accion_correctiva", "sn_removidos", "sn_instalados", "analogos_pn", "cambios_deadline",
                       "marcas_auditoria", "marcas_auditdip", "auditoria_manual", "uso_encontrado",
                       "inventario"):
             if clave in r:

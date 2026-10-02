@@ -597,6 +597,8 @@ def main(argv: list[str] | None = None) -> int:
     a = sub.add_parser("auditar", help="Audita un Excel de entrada")
     a.add_argument("archivo")
     a.add_argument("-j", "--hoja", help="Hoja a leer (por defecto, la primera con 'Fault Barcode')")
+    a.add_argument("--referencias", metavar="XLSX/PDF/URL",
+                   help="Tabla de referencias local (XLSX o PDF) o enlace HTTPS de SharePoint")
     a.add_argument("-p", "--prueba", action="store_true", help="Datos de prueba: usa pruebas/icam.json y pruebas/salidas y marca los resultados como PRUEBA (automático si el Excel está en pruebas/)")
     a.add_argument("-o", "--salida", help="Ruta del Excel de resultado")
     a.add_argument("-f", "--fecha", help="Fecha y hora de auditoría 'AAAA-MM-DD HH:MM' "
@@ -620,6 +622,8 @@ def main(argv: list[str] | None = None) -> int:
                                         "(apertura y cierre, a la fecha y hora de cada una)")
     c.add_argument("archivo")
     c.add_argument("-j", "--hoja", help="Hoja a leer")
+    c.add_argument("--referencias", metavar="XLSX/PDF/URL",
+                   help="Tabla de referencias local o enlace de SharePoint")
     c.add_argument("-p", "--prueba", action="store_true", help="Datos de prueba: usa pruebas/icam.json y pruebas/salidas y marca los resultados como PRUEBA (automático si el Excel está en pruebas/)")
     c.add_argument("-i", "--icam", action="store_true",
                    help="Leer antes en ICAM (solo lectura) todos los DIPs del archivo y usar esos "
@@ -629,7 +633,8 @@ def main(argv: list[str] | None = None) -> int:
     c.add_argument("--datos-icam", metavar="RUTA", help="Datos de ICAM ya extraídos (p. ej. data/icam.json)")
     _argumentos_categorias(c)
 
-    sub.add_parser("benchmark", help="Mide el programa con los DIPs ya auditados de benchmark/")
+    bm = sub.add_parser("benchmark", help="Mide el programa con los DIPs ya auditados de benchmark/")
+    bm.add_argument("--referencias", metavar="XLSX/PDF/URL")
 
     n = sub.add_parser("anonimizar", help="Crea el Excel del benchmark desde el histórico, "
                                           "sin nombres del personal")
@@ -659,6 +664,8 @@ def main(argv: list[str] | None = None) -> int:
     b.add_argument("-p", "--prueba", action="store_true", help="Datos de prueba: usa pruebas/icam.json")
     b.add_argument("--datos-icam", metavar="RUTA",
                    help="Usar datos de ICAM ya leídos (p. ej. data/icam.json), sin leer ICAM")
+    b.add_argument("--referencias", metavar="XLSX/PDF/URL",
+                   help="Tabla de referencias local o enlace de SharePoint")
     b.add_argument("-i", "--icam", action="store_true", help=argparse.SUPPRESS)  # siempre lee ICAM
     b.add_argument("--no-cache", action="store_true",
                    help="Leer en ICAM todos los DIPs, aunque se hayan leído hace menos de 1 hora")
@@ -667,7 +674,9 @@ def main(argv: list[str] | None = None) -> int:
     b.add_argument("-e", "--excluir-categorias", nargs="+", metavar="TIPO",
                    help="No revisar estos tipos de discrepancia")
 
-    sub.add_parser("referencias", help="Muestra cómo se interpretó la tabla de referencias")
+    ref = sub.add_parser("referencias", help="Muestra cómo se interpretó la tabla de referencias")
+    ref.add_argument("--referencias", metavar="XLSX/PDF/URL",
+                     help="Tabla de referencias local o enlace de SharePoint")
     sub.add_parser("categorias", help="Muestra los tipos de discrepancia y sus reglas "
                                       "(los nombres que acepta --categorias)")
     sub.add_parser("validar-reglas", help="Comprueba el archivo de reglas antes de auditar")
@@ -677,6 +686,12 @@ def main(argv: list[str] | None = None) -> int:
     try:
         config = cargar_configuracion(Path(args.config) if args.config else None)
         _modo_prueba(args, config)
+        if args.comando in {"auditar", "comparar", "barcode", "referencias", "benchmark"}:
+            from .fuente_referencias import preparar_referencias
+
+            config["referencias"] = preparar_referencias(
+                getattr(args, "referencias", None) or config["referencias"], config["icam"],
+                lambda mensaje: consola.print(f"[yellow]{mensaje}[/]"))
         return {"auditar": cmd_auditar, "comparar": cmd_comparar, "benchmark": cmd_benchmark, "anonimizar": cmd_anonimizar,
                 "barcode": cmd_barcode, "extraer-icam": cmd_extraer_icam, "abrir-icam": cmd_abrir_icam,
                 "referencias": cmd_referencias, "categorias": cmd_categorias,

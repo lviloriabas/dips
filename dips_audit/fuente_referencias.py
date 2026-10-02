@@ -1,0 +1,106 @@
+"""Descarga una tabla de referencias de SharePoint con la sesión del Edge de ICAM."""
+
+from __future__ import annotations
+
+import asyncio
+import hashlib
+import re
+import time
+from pathlib import Path
+from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
+
+from .referencias import ErrorCatalogo
+
+
+def es_sharepoint(valor: object) -> bool:
+    url = urlsplit(str(valor))
+    return url.scheme == "https" and bool(url.hostname) and url.hostname.endswith(".sharepoint.com")
+
+
+def _urls_descarga(enlace: str) -> list[str]:
+    url = urlsplit(enlace.replace("\\&", "&"))
+    query = dict(parse_qsl(url.query, keep_blank_values=True))
+    query.pop("action", None)
+    query["download"] = "1"
+    urls = [urlunsplit((url.scheme, url.netloc, url.path, urlencode(query), ""))]
+    if "sourcedoc" in query and "/_layouts/" in url.path:
+        sitio = re.sub(r"^/:[a-z]:/r", "", url.path.split("/_layouts/", 1)[0], flags=re.I)
+        consulta = urlencode({"UniqueId": query["sourcedoc"]})
+        urls.append(urlunsplit((url.scheme, url.netloc, sitio + "/_layouts/15/download.aspx",
+                               consulta, "")))
+        segmentos = sitio.strip("/").split("/")
+        if len(segmentos) >= 2 and segmentos[0] in {"teams", "sites"}:
+            sitio = "/" + "/".join(segmentos[:2])
+            urls.append(urlunsplit((url.scheme, url.netloc, sitio + "/_layouts/15/download.aspx",
+                                   consulta, "")))
+    return list(dict.fromkeys(urls))
+
+
+async def _descargar(enlace: str, config_icam: dict, avisar) -> bytes:
+    from .extractor_icam import ExtractorICAM
+
+    async with ExtractorICAM({**config_icam, "url": enlace}) as navegador:
+        paginas = navegador._contexto.pages
+        pagina = next((p for p in paginas if es_sharepoint(p.url)), None)
+        pagina = pagina or await navegador._contexto.new_page()
+        try:
+            await pagina.goto(enlace, wait_until="domcontentloaded", timeout=30000)
+        except Exception as e:
+            # Un enlace directo a XLSX inicia una descarga y cancela la navegación.
+            if "download is starting" not in str(e).lower():
+                raise ErrorCatalogo("No se pudo abrir SharePoint en Edge. Compruebe el enlace y "
+                                    "el acceso a la red corporativa.") from e
+        await pagina.bring_to_front()
+        avisado = False
+        minutos = float(config_icam.get("espera_sesion_minutos", 3))
+        limite = time.monotonic() + max(1, minutos * 60)
+        candidatos = _urls_descarga(enlace)
+        while time.monotonic() < limite:
+            if pagina.is_closed():
+                raise ErrorCatalogo("Se cerró SharePoint antes de descargar las referencias.")
+            for url in candidatos:
+                try:
+                    respuesta = await navegador._contexto.request.get(url, timeout=20000)
+                    if respuesta.ok:
+                        contenido = await respuesta.body()
+                        if contenido.startswith((b"PK\x03\x04", b"%PDF-")):
+                            return contenido
+                except Exception:
+                    pass  # puede estar esperando el inicio de sesión en la ventana
+            for p in list(navegador._contexto.pages):
+                error = p.locator(navegador.selector_error_sesion).filter(visible=True)
+                if await error.count():
+                    raise ErrorCatalogo("No se pudo iniciar sesión en SharePoint: "
+                                        + " ".join((await error.first.inner_text()).split()))
+            if not avisado:
+                avisar("Inicie sesión en SharePoint en la ventana de Edge; la descarga seguirá "
+                       "automáticamente cuando tenga acceso.")
+                avisado = True
+            await asyncio.sleep(2)
+    raise ErrorCatalogo("No se pudo descargar la referencia de SharePoint dentro del tiempo de espera. "
+                        "Compruebe el acceso o descargue el XLSX/PDF y use --referencias RUTA.")
+
+
+def preparar_referencias(fuente: str | Path, config_icam: dict, avisar=print) -> Path:
+    """Ruta local para XLSX/PDF; una URL privada se baja usando las cookies de Edge."""
+    texto = str(fuente).replace("\\&", "&")
+    if not texto.lower().startswith(("http://", "https://")):
+        return Path(fuente)
+    if not es_sharepoint(texto):
+        raise ErrorCatalogo("Solo se admiten enlaces HTTPS de SharePoint o archivos locales.")
+    query = dict(parse_qsl(urlsplit(texto.replace("\\&", "&")).query))
+    nombre = query.get("file") or Path(urlsplit(texto).path).name
+    extension = Path(nombre).suffix.lower()
+    if extension not in {".xlsx", ".pdf"}:
+        raise ErrorCatalogo("El enlace de SharePoint debe indicar un archivo XLSX o PDF.")
+    contenido = asyncio.run(_descargar(texto, config_icam, avisar))
+    if ((extension == ".pdf" and not contenido.startswith(b"%PDF-")) or
+            (extension == ".xlsx" and not contenido.startswith(b"PK\x03\x04"))):
+        raise ErrorCatalogo("SharePoint devolvió un formato distinto al archivo solicitado.")
+    destino = Path(config_icam["archivo"]).parent / (
+        "referencias_sharepoint_" + hashlib.sha256(texto.encode()).hexdigest()[:12] + extension)
+    destino.parent.mkdir(parents=True, exist_ok=True)
+    temporal = destino.with_suffix(extension + ".tmp")
+    temporal.write_bytes(contenido)
+    temporal.replace(destino)
+    return destino

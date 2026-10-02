@@ -11,13 +11,14 @@ Por cada barcode hace, con la sesión de Edge, las mismas consultas que el naveg
   2. GET de cada pestaña (Fault Information, Task Information, Scheduling, History).
   3. En los DIPs de oxígeno, GET de cada PDF de Attachments (el inventario de generators):
      se guardan los campos del formulario (`pdf.<nombre>.campos`), no el archivo.
+  4. En squibs, GET de la página del P/N y sus tablas de partes análogas.
 El HTML se muestra en una página aislada (sin red y sin los scripts de ICAM) y se copia el
 texto visible de cada pestaña (`#idTab<Pestaña>`). Todos los DIPs se guardan juntos en un solo
 JSON (`data/icam.json`, `{"records": [...]}`), un registro por barcode con el formato de la
 extracción manual (`sections.<pestaña>.text`); `icam.py` lo interpreta.
 
-Solo lectura: las únicas consultas a ICAM son la búsqueda, los GET de las pestañas y los de
-los PDF adjuntos. No se abre ningún formulario de edición ni se ejecuta código de ICAM.
+Solo lectura: las consultas a ICAM son la búsqueda, los GET de las pestañas, las páginas de
+P/N y los PDF adjuntos. No se abre ningún formulario de edición ni se ejecuta código de ICAM.
 Rapidez: no se dibujan páginas ni se descargan imágenes; varios DIPs a la vez y las
 pestañas de cada DIP en paralelo; un DIP leído hace menos de 1 hora no se vuelve a leer.
 Sin errores: cada respuesta se valida (página del DIP, barcode correcto, contenido de la
@@ -43,6 +44,7 @@ from urllib.parse import urljoin, urlparse
 
 from .icam import PESTANAS, leer_tareas_siguientes
 from .inventario import leer_campos_pdf
+from .partes import es_squib
 from .texto import normalizar
 
 _RUTA_DIP = "/maintenix/web/task/TaskDetails.jsp"
@@ -85,10 +87,41 @@ _LEER = """(pestana) => {
             nombre: (tr.querySelector('td.longString')?.textContent || '').trim(),
             href: tr.querySelector('a[href*="ViewAttachment"]')?.getAttribute('href') || null,
         })).filter(a => a.nombre && a.href),
+        partes: Array.from((nodo || document).querySelectorAll('a[href*="PartDetails.jsp"]'))
+            .map(a => ({pn: a.textContent.trim(), href: a.getAttribute('href')}))
+            .filter(a => /^[A-Z0-9][A-Z0-9.-]*$/i.test(a.pn)),
         historico: (Array.from(document.querySelectorAll('a'))
             .find(a => /historical tasks/i.test(a.textContent)) || {getAttribute: () => null})
             .getAttribute('href'),
     };
+}"""
+
+# Solo se aceptan tablas identificadas como análogos/alternativas, con columna de P/N.
+# Otros P/N de la página pueden ser componentes distintos y no prueban equivalencia.
+_LEER_PARTE = r"""() => {
+    const alternativo = /alternat|analog|interchangeable/i;
+    let reconocida = false;
+    const analogos = [];
+    for (const tabla of document.querySelectorAll('table')) {
+        const filas = Array.from(tabla.rows);
+        const nombre = tabla.id + ' ' + (tabla.caption?.textContent || '') + ' ' +
+            (tabla.previousElementSibling?.textContent?.slice(0, 200) || '');
+        const indice = filas.findIndex(tr => Array.from(tr.cells).some(c =>
+            /^(?:alternate\s+)?part\s*(?:no\.?|number)$/i.test(c.textContent.trim())));
+        if (indice < 0) continue;
+        const cabecera = Array.from(filas[indice].cells).map(c => c.textContent.trim());
+        if (!alternativo.test(nombre + ' ' + cabecera.join(' '))) continue;
+        reconocida = true;
+        const col = cabecera.findIndex(c => /^(?:alternate\s+)?part\s*(?:no\.?|number)$/i.test(c));
+        for (const fila of filas.slice(indice + 1)) {
+            const pn = fila.cells[col]?.textContent.trim() || '';
+            if (/^[A-Z0-9][A-Z0-9.-]*$/i.test(pn) && /\d/.test(pn)) analogos.push(pn);
+        }
+    }
+    return {titulo: document.title, reconocida, analogos: [...new Set(analogos)],
+        enlaces: Array.from(document.querySelectorAll('a[id^="idTab"][href*="PartDetails.jsp"]'))
+            .filter(a => alternativo.test(a.textContent))
+            .map(a => a.getAttribute('href'))};
 }"""
 
 
@@ -499,6 +532,40 @@ class ExtractorICAM:
             raise ErrorExtraccion(f"respuesta {r.status}, no es un PDF")
         return {"campos": await asyncio.to_thread(leer_campos_pdf, cuerpo)}
 
+    async def _leer_parte(self, url: str, pn: str) -> dict:
+        """P/N análogos en Part Details; sin tabla reconocible queda sin verificar."""
+        aislada = await self.pagina_aislada()
+        try:
+            async def leer(destino):
+                if (urlparse(destino).netloc != urlparse(self.origen).netloc or
+                        not urlparse(destino).path.endswith('/PartDetails.jsp')):
+                    raise ErrorExtraccion("El enlace de P/N no es una página de parte en ICAM.")
+                r = await self._contexto.request.get(destino, timeout=self.espera_ms)
+                if urlparse(r.url).netloc != urlparse(self.origen).netloc or 'login' in r.url.lower():
+                    raise ErrorSesion("La sesión de ICAM venció al leer el P/N.")
+                if not r.ok or not urlparse(r.url).path.endswith('/PartDetails.jsp'):
+                    raise ErrorExtraccion(f"No se pudo leer el P/N {pn}: respuesta {r.status}.")
+                await aislada.set_content(_sin_scripts(await r.text()))
+                d = await aislada.evaluate(_LEER_PARTE)
+                if not re.search(r'(?<![A-Z0-9])' + re.escape(pn) + r'(?![A-Z0-9])', d['titulo'], re.I):
+                    raise ErrorExtraccion(f"La página de parte no confirma el P/N {pn}.")
+                return d
+
+            datos = await leer(url)
+            analogos = list(datos['analogos'])
+            reconocida = datos['reconocida']
+            for href in dict.fromkeys(datos['enlaces']):
+                destino = urljoin(url, href)
+                if destino == url:
+                    continue
+                otra = await leer(destino)
+                analogos.extend(otra['analogos'])
+                reconocida = reconocida or otra['reconocida']
+            return {"analogos": list(dict.fromkeys(analogos)), "verificado": reconocida,
+                    "page_url": url}
+        finally:
+            await aislada.close()
+
     async def leer(self, barcode: str) -> dict:
         """Búsqueda, pestañas en paralelo y RIR. Cada consulta se reintenta sola."""
         url_dip, primera = await self._reintentar(lambda: self._buscar(barcode), "búsqueda")
@@ -512,6 +579,24 @@ class ExtractorICAM:
         registro = {"barcode": barcode, "captured_at_utc": datetime.now(timezone.utc).isoformat(),
                     "page_title": primera["titulo"], "page_url": url_dip, "sections": secciones}
         por_pestana = dict(zip(otras, datos))
+
+        if es_squib({"nombre": primera["titulo"]}):
+            partes, errores_partes = {}, {}
+            for parte in primera.get("partes") or []:
+                pn = parte["pn"]
+                if pn in partes:
+                    continue
+                try:
+                    partes[pn] = await self._reintentar(
+                        lambda p=parte: self._leer_parte(urljoin(url_dip, p["href"]), p["pn"]),
+                        f"P/N {pn}")
+                except ErrorSesion:
+                    raise
+                except Exception as e:
+                    errores_partes[pn] = str(e)
+            registro["partes"] = partes
+            if errores_partes:
+                registro["partes_errores"] = errores_partes
 
         # DIPs de oxígeno: PDF adjuntos (inventario de generators). "pdf" presente = revisado.
         if _PDF_DE.search(normalizar(primera["titulo"] + " " + primera["texto"])):
