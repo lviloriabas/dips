@@ -136,21 +136,27 @@ def test_cli_prefiere_sharepoint_y_respeta_fuente_explicita(monkeypatch, tmp_pat
     assert descargados == [ENLACE] and usadas[1] == config["referencias"]
 
 
-def test_abrir_edge_actualiza_referencias_y_deja_el_navegador_abierto(monkeypatch, config):
+@pytest.mark.parametrize("sharepoint, falla", [(True, False), (True, True), (False, False)])
+def test_abrir_edge_actualiza_referencias_y_cierra_siempre(monkeypatch, config, sharepoint, falla):
     from dips_audit import __main__ as cli
 
-    config = {**config, "referencias_sharepoint": ENLACE}
+    config = {**config, "referencias_sharepoint": ENLACE if sharepoint else ""}
     monkeypatch.setattr(cli, "cargar_configuracion", lambda _: config)
     monkeypatch.setattr("dips_audit.extractor_icam.edge_activo", lambda _: True)
     monkeypatch.setattr("dips_audit.extractor_icam.abrir_edge", lambda _: None)
+    cerrados = []
+    monkeypatch.setattr("dips_audit.extractor_icam.cerrar_edge", lambda p: cerrados.append(p) or 1)
     llamadas = []
     def preparar(fuente, icam, avisar, **opciones):
         llamadas.append((fuente, opciones))
+        if falla:
+            raise ErrorCatalogo("No se pudo actualizar ni usar un respaldo.")
         return config["referencias"]
     monkeypatch.setattr("dips_audit.fuente_referencias.preparar_referencias", preparar)
-    assert cli.main(["abrir-icam"]) == 0
-    assert llamadas == [(ENLACE, {"respaldo": config["referencias"], "hoja": "References",
-                                 "mantener_abierto": True})]
+    assert cli.main(["abrir-icam"]) == (1 if falla else 0)
+    assert llamadas == ([(ENLACE, {"respaldo": config["referencias"], "hoja": "References"})]
+                        if sharepoint else [])
+    assert cerrados == [config["icam"]["perfil"]]
 
 
 @pytest.mark.parametrize("descarga_directa", [False, True])

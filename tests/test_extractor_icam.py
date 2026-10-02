@@ -279,13 +279,30 @@ def test_squib_lee_analogos_del_pn_y_excluye_otras_partes(icam, tmp_path):
     assert _ICAMSimulado.envios == [ESCANEO, ESCANEO]
 
 
-def test_lectura_para_abrir_icam_conserva_edge_y_su_sesion(icam):
+@pytest.mark.parametrize("fallo", [False, True])
+def test_lectura_cierra_edge_al_terminar_y_ante_error(icam, fallo):
     async def leer():
-        async with ExtractorICAM({**icam, "mantener_abierto": True}) as navegador:
+        async with ExtractorICAM(icam) as navegador:
             await navegador.verificar_sesion()
-    asyncio.run(leer())
-    assert edge_activo(icam["puerto"])
-    assert procesos_edge(icam["perfil"])
+            if fallo:
+                raise RuntimeError("Fallo durante la lectura")
+    if fallo:
+        with pytest.raises(RuntimeError, match="Fallo durante la lectura"):
+            asyncio.run(leer())
+    else:
+        asyncio.run(leer())
+    assert not edge_activo(icam["puerto"])
+    assert procesos_edge(icam["perfil"]) == []
+
+
+def test_referencias_no_disponibles_tambien_cierran_edge(icam):
+    from dips_audit.fuente_referencias import _descargar
+    from dips_audit.referencias import ErrorCatalogo
+
+    with pytest.raises(ErrorCatalogo, match="No se pudo descargar"):
+        asyncio.run(_descargar(icam["url"], {**icam, "espera_sesion_minutos": 0}, lambda _: None))
+    assert not edge_activo(icam["puerto"])
+    assert procesos_edge(icam["perfil"]) == []
 
 
 def test_sin_sesion_avisa_y_no_se_queda_en_el_login(icam, tmp_path):

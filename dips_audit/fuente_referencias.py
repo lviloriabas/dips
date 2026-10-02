@@ -83,8 +83,7 @@ async def _descargar(enlace: str, config_icam: dict, avisar) -> bytes:
 
 
 def preparar_referencias(fuente: str | Path, config_icam: dict, avisar=print, *,
-                         respaldo: str | Path | None = None, hoja: str = "References",
-                         mantener_abierto: bool = False) -> Path:
+                         respaldo: str | Path | None = None, hoja: str = "References") -> Path:
     """Actualiza la copia local; si SharePoint falla, usa el último respaldo válido y avisa."""
     texto = str(fuente).replace("\\&", "&")
     if not texto.lower().startswith(("http://", "https://")):
@@ -100,8 +99,7 @@ def preparar_referencias(fuente: str | Path, config_icam: dict, avisar=print, *,
         "referencias_sharepoint_" + hashlib.sha256(texto.encode()).hexdigest()[:12] + extension)
     temporal = destino.with_name(destino.stem + ".tmp" + extension)
     try:
-        navegador = {**config_icam, "mantener_abierto": mantener_abierto}
-        contenido = asyncio.run(_descargar(texto, navegador, avisar))
+        contenido = asyncio.run(_descargar(texto, config_icam, avisar))
         if ((extension == ".pdf" and not contenido.startswith(b"%PDF-")) or
                 (extension == ".xlsx" and not contenido.startswith(b"PK\x03\x04"))):
             raise ErrorCatalogo("SharePoint devolvió un formato distinto al archivo solicitado.")

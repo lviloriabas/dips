@@ -296,8 +296,7 @@ def cmd_abrir_icam(args, config) -> int:
         preparar_referencias(config["referencias_sharepoint"], config["icam"],
                              lambda mensaje: consola.print(mensaje, markup=False),
                              respaldo=config["referencias"],
-                             hoja=config.get("hoja_referencias", "References"),
-                             mantener_abierto=True)
+                             hoja=config.get("hoja_referencias", "References"))
     return 0
 
 
@@ -653,7 +652,7 @@ def main(argv: list[str] | None = None) -> int:
     n.add_argument("--semilla", type=int, default=SEMILLA_BENCHMARK,
                    help="Cambia la muestra; la misma semilla da los mismos DIPs")
 
-    sub.add_parser("abrir-icam", help="Abre el Edge de ICAM del programa para iniciar sesión")
+    sub.add_parser("abrir-icam", help="Abre Edge, actualiza las referencias y cierra el navegador")
     x = sub.add_parser("extraer-icam", help="Lee en ICAM (solo lectura) los DIPs de un Excel de "
                                              "entrada y los guarda en data/icam.json")
     x.add_argument("archivo", nargs="?", help="Excel de entrada (o use --barcode)")
@@ -717,17 +716,17 @@ def main(argv: list[str] | None = None) -> int:
         consola.print(f"[bold red]Error:[/] {ex}")
         return 1
     finally:
-        if config is not None and args.comando != "abrir-icam":
+        if config is not None:
             _cerrar_edge_pendiente(config)
 
 
 def _cerrar_edge_pendiente(config) -> None:
     """Si una corrida anterior dejó abierto el Edge de ICAM del programa (o esta no pudo
     cerrarlo), se cierra al terminar. El Edge de uso diario no se toca."""
-    from .extractor_icam import cerrar_edge, edge_abierto
+    from .extractor_icam import cerrar_edge
 
     perfil = config.get("icam", {}).get("perfil")
-    if perfil and edge_abierto(perfil):
+    if perfil:
         cerrados = cerrar_edge(perfil)
         if cerrados:
             consola.print(f"[dim]Se cerró el Edge de ICAM que había quedado abierto "

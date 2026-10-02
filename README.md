@@ -62,7 +62,8 @@ comparar.bat "DIPs Audit (23SEP2026).xlsx" -i -e RIR
 SharePoint es la fuente preferida configurada en `referencias_sharepoint`. El programa
 abre el mismo perfil de Edge que usa ICAM; si Microsoft pide iniciar sesión, la persona
 lo hace en esa ventana. `abrir-icam` abre también las referencias y actualiza la copia
-local, dejando Edge abierto. La sesión queda en `.icam_perfil/`.
+local. Al terminar, incluso si la actualización falla, se cierran las ventanas y los
+procesos de Edge del programa. La sesión queda guardada en `.icam_perfil/`.
 
 Cada descarga se valida antes de sustituir la última copia válida guardada en `data/`.
 Si SharePoint no está disponible, se usa esa copia; si aún no existe, se usa
@@ -91,7 +92,7 @@ Otros comandos (`.venv\Scripts\python -m dips_audit ...`):
 | `validar-reglas` | Comprueba el archivo de reglas y detecta códigos mal escritos |
 | `referencias` | Muestra cómo se interpretó la tabla de referencias |
 | `extraer-icam archivo.xlsx` / `--barcode X` | Solo leer ICAM |
-| `abrir-icam` | Abrir el Edge de ICAM para iniciar sesión |
+| `abrir-icam` | Abrir Edge, actualizar las referencias y cerrar el navegador |
 | `benchmark` | Medir contra los DIPs ya auditados ([ver](docs/tecnico.md#10-benchmark)) |
 
 Pruebas: `.venv\Scripts\python -m pytest`
