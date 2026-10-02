@@ -7,6 +7,7 @@ un onload que intenta enviar datos y una imagen.
 """
 
 import http.server
+import asyncio
 import json
 import os
 import socket
@@ -23,6 +24,7 @@ pytest.importorskip("playwright")
 from dips_audit.extractor_icam import (  # noqa: E402
     ErrorExtraccion, ErrorSesion, _usa_perfil, cerrar_edge, extraer, leer_registro, procesos_edge,
     ruta_edge)
+from dips_audit.extractor_icam import ExtractorICAM, edge_activo
 from dips_audit.icam import PESTANAS, leer_ficha  # noqa: E402
 
 TEXTOS = {
@@ -275,6 +277,15 @@ def test_squib_lee_analogos_del_pn_y_excluye_otras_partes(icam, tmp_path):
     assert registro["partes"]["M30903872"]["analogos"] == ["M30903872A"]
     assert "partes_errores" not in registro
     assert _ICAMSimulado.envios == [ESCANEO, ESCANEO]
+
+
+def test_lectura_para_abrir_icam_conserva_edge_y_su_sesion(icam):
+    async def leer():
+        async with ExtractorICAM({**icam, "mantener_abierto": True}) as navegador:
+            await navegador.verificar_sesion()
+    asyncio.run(leer())
+    assert edge_activo(icam["puerto"])
+    assert procesos_edge(icam["perfil"])
 
 
 def test_sin_sesion_avisa_y_no_se_queda_en_el_login(icam, tmp_path):

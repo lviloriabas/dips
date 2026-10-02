@@ -15,7 +15,21 @@ HISTORICO = RAIZ / "02 - HISTORY - DIPs AUDIT (From 09Jul 15_45).xlsx"
 
 @pytest.fixture(scope="session")
 def config():
-    return cargar_configuracion()
+    configuracion = cargar_configuracion()
+    configuracion["referencias_sharepoint"] = ""  # las pruebas no consultan servicios corporativos
+    return configuracion
+
+
+@pytest.fixture(autouse=True)
+def cli_sin_sharepoint_real(monkeypatch):
+    from dips_audit import __main__ as cli
+
+    cargar = cli.cargar_configuracion
+    def sin_red(ruta=None):
+        configuracion = cargar(ruta)
+        configuracion["referencias_sharepoint"] = ""
+        return configuracion
+    monkeypatch.setattr(cli, "cargar_configuracion", sin_red)
 
 
 @pytest.fixture(scope="session")

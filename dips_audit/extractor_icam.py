@@ -340,6 +340,16 @@ class ExtractorICAM:
     async def __aexit__(self, *exc) -> None:
         """Terminada la lectura (o interrumpida), cierra el Edge de ICAM y todos los procesos
         de su perfil, también los que haya dejado abiertos una corrida anterior."""
+        if self.config.get("mantener_abierto") and self._contexto is not None:
+            # abrir-icam deja las ventanas listas para el usuario; solo desconecta el lector.
+            if self._pw:
+                try:
+                    await self._pw.stop()
+                except Exception:
+                    pass
+            _ABIERTOS.discard(Path(self.config["perfil"]).resolve())
+            self._pw = self._navegador = self._contexto = self._proceso = None
+            return
         if self._navegador:
             try:
                 sesion = await self._navegador.new_browser_cdp_session()

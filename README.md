@@ -59,11 +59,18 @@ comparar.bat "DIPs Audit (23SEP2026).xlsx" -i -e RIR
 | `-p`, `--prueba` | Forzar modo prueba |
 | `-o`, `--salida RUTA` | Excel de resultado (solo `auditar`) |
 
-Para SharePoint, el programa abre el mismo perfil de Edge que usa ICAM. Si Microsoft pide
-inicio de sesión, la persona lo hace en esa ventana; el programa descarga el archivo con
-esa sesión y lo valida antes de auditar. La sesión queda en `.icam_perfil/`. Si el enlace
-no permite descarga automática, descargue el XLSX o PDF en Edge y pase su ruta con
-`--referencias`. También puede dejar esa ruta o enlace en `config/config.yaml`.
+SharePoint es la fuente preferida configurada en `referencias_sharepoint`. El programa
+abre el mismo perfil de Edge que usa ICAM; si Microsoft pide iniciar sesión, la persona
+lo hace en esa ventana. `abrir-icam` abre también las referencias y actualiza la copia
+local, dejando Edge abierto. La sesión queda en `.icam_perfil/`.
+
+Cada descarga se valida antes de sustituir la última copia válida guardada en `data/`.
+Si SharePoint no está disponible, se usa esa copia; si aún no existe, se usa
+`DIPs References.xlsx`. La consola avisa del fallo, de la copia utilizada y de su fecha.
+Si ninguna copia es válida, la auditoría se detiene con un mensaje. `--referencias`
+permite elegir un XLSX/PDF local o un enlace distinto; para trabajar siempre con un
+archivo local, deje `referencias_sharepoint` vacío. El modo prueba y el benchmark usan
+la referencia local, salvo que se indique otra con `--referencias`.
 
 La revisión de referencia técnica y la exigencia de attachments aplican a los DIPs
 diferidos **antes del 9 de julio de 2026**. Si falta la fecha de diferimiento, esos

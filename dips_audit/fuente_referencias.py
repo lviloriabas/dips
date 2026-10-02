@@ -6,10 +6,11 @@ import asyncio
 import hashlib
 import re
 import time
+from datetime import datetime
 from pathlib import Path
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
-from .referencias import ErrorCatalogo
+from .referencias import ErrorCatalogo, cargar_referencias
 
 
 def es_sharepoint(valor: object) -> bool:
@@ -81,8 +82,10 @@ async def _descargar(enlace: str, config_icam: dict, avisar) -> bytes:
                         "Compruebe el acceso o descargue el XLSX/PDF y use --referencias RUTA.")
 
 
-def preparar_referencias(fuente: str | Path, config_icam: dict, avisar=print) -> Path:
-    """Ruta local para XLSX/PDF; una URL privada se baja usando las cookies de Edge."""
+def preparar_referencias(fuente: str | Path, config_icam: dict, avisar=print, *,
+                         respaldo: str | Path | None = None, hoja: str = "References",
+                         mantener_abierto: bool = False) -> Path:
+    """Actualiza la copia local; si SharePoint falla, usa el último respaldo válido y avisa."""
     texto = str(fuente).replace("\\&", "&")
     if not texto.lower().startswith(("http://", "https://")):
         return Path(fuente)
@@ -93,14 +96,40 @@ def preparar_referencias(fuente: str | Path, config_icam: dict, avisar=print) ->
     extension = Path(nombre).suffix.lower()
     if extension not in {".xlsx", ".pdf"}:
         raise ErrorCatalogo("El enlace de SharePoint debe indicar un archivo XLSX o PDF.")
-    contenido = asyncio.run(_descargar(texto, config_icam, avisar))
-    if ((extension == ".pdf" and not contenido.startswith(b"%PDF-")) or
-            (extension == ".xlsx" and not contenido.startswith(b"PK\x03\x04"))):
-        raise ErrorCatalogo("SharePoint devolvió un formato distinto al archivo solicitado.")
     destino = Path(config_icam["archivo"]).parent / (
         "referencias_sharepoint_" + hashlib.sha256(texto.encode()).hexdigest()[:12] + extension)
-    destino.parent.mkdir(parents=True, exist_ok=True)
-    temporal = destino.with_suffix(extension + ".tmp")
-    temporal.write_bytes(contenido)
-    temporal.replace(destino)
+    temporal = destino.with_name(destino.stem + ".tmp" + extension)
+    try:
+        navegador = {**config_icam, "mantener_abierto": mantener_abierto}
+        contenido = asyncio.run(_descargar(texto, navegador, avisar))
+        if ((extension == ".pdf" and not contenido.startswith(b"%PDF-")) or
+                (extension == ".xlsx" and not contenido.startswith(b"PK\x03\x04"))):
+            raise ErrorCatalogo("SharePoint devolvió un formato distinto al archivo solicitado.")
+        destino.parent.mkdir(parents=True, exist_ok=True)
+        temporal.write_bytes(contenido)
+        if not cargar_referencias(temporal, hoja):
+            raise ErrorCatalogo("La tabla descargada de SharePoint está vacía.")
+        temporal.replace(destino)
+    except Exception as error:
+        # Una respuesta de login, archivo corrupto o fallo de escritura no reemplaza el respaldo.
+        for copia in dict.fromkeys([destino, *([Path(respaldo)] if respaldo else [])]):
+            try:
+                if not copia.is_file() or not cargar_referencias(copia, hoja):
+                    continue
+                fecha = datetime.fromtimestamp(copia.stat().st_mtime).strftime("%Y-%m-%d %H:%M")
+            except Exception:
+                continue
+            motivo = str(error).rstrip(". ")
+            avisar(f"Aviso: no se pudieron actualizar las referencias de SharePoint: {motivo}. "
+                   f"Se usará la copia local {copia} (guardada el {fecha}); "
+                   "puede estar desactualizada.")
+            return copia
+        raise ErrorCatalogo(f"No se pudieron actualizar las referencias de SharePoint y no hay "
+                            f"una copia local válida. Motivo: {error}") from error
+    finally:
+        try:
+            temporal.unlink(missing_ok=True)
+        except OSError:
+            pass  # un temporal bloqueado no impide utilizar el respaldo válido
+    avisar(f"Referencias actualizadas desde SharePoint. Copia local: {destino}")
     return destino

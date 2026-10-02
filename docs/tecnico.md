@@ -69,6 +69,14 @@ En palabras:
 1. **Carga.** `cargador.cargar_export` busca la fila de encabezados, reconoce las columnas por sus nombres posibles y arma un `Lote`: `original` (las columnas tal cual, para copiarlas a la salida) y `datos` (columnas estándar ya interpretadas: `barcode`, `nombre`, `intervalo`, `unidad`, `found_date`, `due_date`, `estado`...).
 2. **ICAM.** Con `--icam`, `extractor_icam.extraer` lee todos los barcodes y guarda el texto en `data/icam.json`. Después `completar_con_icam` interpreta ese texto (`icam.leer_ficha`) y agrega columnas al `Lote`: referencia técnica, attachments, intervalos del T/A, RIR, acción correctiva, notas de la descripción. La descripción, la referencia técnica, los attachments y los RIR de ICAM reemplazan a los del Excel (son más actuales); el intervalo y la fecha de cierre del Excel se mantienen, e ICAM solo los llena si faltan.
 3. **Referencias.** Al crear el `Auditor` se cargan la tabla y el catálogo (`Catalogo`, una `EntradaCatalogo` por ítem con sus variantes de TA, RIR y Parent Assy) y el índice de números de tarea (`IndiceReferencias`), además de `discrepancias.yaml`. La tabla puede ser XLSX o PDF de texto con las nueve columnas de `References`. Un enlace privado de SharePoint se descarga con la sesión del perfil de Edge de ICAM antes de cargarlo.
+
+   En la consola, `referencias_sharepoint` es la fuente preferida. Se valida el archivo
+   temporal antes de reemplazar atómicamente `data/referencias_sharepoint_<hash>.<ext>`.
+   Si falla el acceso, la descarga o la validación, se conserva la última copia válida;
+   si no existe, se usa el archivo inicial de `referencias`. Siempre se avisa al usar el
+   respaldo, indicando motivo, ruta y fecha. Sin copia válida se detiene la auditoría.
+   `abrir-icam` sincroniza las referencias y deja Edge abierto. El modo prueba y benchmark
+   trabajan con la tabla local; `--referencias` tiene prioridad sobre la fuente configurada.
 4. **Asociación.** Para cada DIP, `Auditor._asociar` decide qué entrada del catálogo es: por el Fault Name, y si no alcanza, por la referencia técnica o la descripción. Devuelve una `Asociacion` con la entrada (o ninguna) y el método usado.
 5. **Reglas de lote.** Duplicados, S/N repetidos y Parent Assembly distinto de sus pares se buscan entre todos los DIPs del archivo, porque comparan un DIP con otros.
 6. **Reglas por DIP.** `reglas.auditar_dip` y los métodos del `Auditor` (`_referencia_tecnica`, `_rir`) y `reglas_descripcion.revisar_descripcion` agregan `Hallazgo`s a un `ResultadoReglas`. Cada `agregar` consulta `discrepancias.yaml`: si la regla está inactiva no se agrega, y si está activa toma de ahí su severidad y su tipo de discrepancia.

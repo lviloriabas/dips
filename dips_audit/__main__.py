@@ -290,6 +290,14 @@ def cmd_abrir_icam(args, config) -> int:
     abrir_edge(config["icam"])
     consola.print("Edge de ICAM " + ("ya estaba abierto." if ya_abierto else "abierto.")
                   + " Inicie sesión en ICAM en esa ventana.")
+    if config.get("referencias_sharepoint"):
+        from .fuente_referencias import preparar_referencias
+
+        preparar_referencias(config["referencias_sharepoint"], config["icam"],
+                             lambda mensaje: consola.print(mensaje, markup=False),
+                             respaldo=config["referencias"],
+                             hoja=config.get("hoja_referencias", "References"),
+                             mantener_abierto=True)
     return 0
 
 
@@ -685,13 +693,19 @@ def main(argv: list[str] | None = None) -> int:
     config = None
     try:
         config = cargar_configuracion(Path(args.config) if args.config else None)
-        _modo_prueba(args, config)
+        prueba = _modo_prueba(args, config)
         if args.comando in {"auditar", "comparar", "barcode", "referencias", "benchmark"}:
             from .fuente_referencias import preparar_referencias
 
+            fuente_explicita = getattr(args, "referencias", None)
+            fuente = (fuente_explicita or
+                      (config.get("referencias_sharepoint")
+                       if not prueba and args.comando != "benchmark" else None) or
+                      config["referencias"])
             config["referencias"] = preparar_referencias(
-                getattr(args, "referencias", None) or config["referencias"], config["icam"],
-                lambda mensaje: consola.print(f"[yellow]{mensaje}[/]"))
+                fuente, config["icam"], lambda mensaje: consola.print(mensaje, markup=False),
+                respaldo=config["referencias"] if fuente == config.get("referencias_sharepoint") else None,
+                hoja=config.get("hoja_referencias", "References"))
         return {"auditar": cmd_auditar, "comparar": cmd_comparar, "benchmark": cmd_benchmark, "anonimizar": cmd_anonimizar,
                 "barcode": cmd_barcode, "extraer-icam": cmd_extraer_icam, "abrir-icam": cmd_abrir_icam,
                 "referencias": cmd_referencias, "categorias": cmd_categorias,
