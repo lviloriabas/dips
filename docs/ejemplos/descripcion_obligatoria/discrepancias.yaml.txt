@@ -1,5 +1,0 @@
-# EJEMPLO: integrar debajo de tipos: en config/discrepancias.yaml.
-# Si el tipo ya existe, agregar solo el código debajo de sus reglas:.
-  "Datos requeridos":
-    reglas:
-      "descripcion_obligatoria": OBSERVACION
