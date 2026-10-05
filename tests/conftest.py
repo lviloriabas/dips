@@ -63,8 +63,8 @@ def hacer_dip(**cambios) -> dict:
         "parent_assy": "Boeing 737-9 MAX9 - HP-9901CMP", "parent_tipo": "AIRCRAFT",
         "severidad": "DIP", "deferral_ref": "35-DIP",
         "found_date": datetime(2026, 8, 18, 10, 0), "due_date": datetime(2026, 8, 21, 23, 59),
-        # Las pruebas históricas de referencia/adjuntos corresponden a DIPs previos al corte.
-        "defer_date": datetime(2026, 7, 8, 10, 0),
+        # Las pruebas generales de referencia/adjuntos corresponden a DIPs desde el corte.
+        "defer_date": datetime(2026, 7, 9, 10, 0),
         "scheduled_date": None, "usage_remaining": 2.0, "complete_date": None,
         "correccion_fecha": "", "flota": "MAX",
     }

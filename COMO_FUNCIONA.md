@@ -316,7 +316,7 @@ A cada DIP en alcance se le aplican, en este orden:
 5. Lo que salió de comparar con los demás DIPs, el aviso de intervalo tomado de ICAM y las observaciones de la asociación.
 6. Si el técnico declaró que el DIP se creó por error o es un duplicado, se borra todo lo anterior y queda solo ese hallazgo.
 
-A todos se les agrega en `VERIFICACIÓN MANUAL` el recordatorio "Verificar attachments: captura de referencia técnica y EC/RA adjunta.". Si el DIP tiene marcas AUDITDIP, esa columna empieza con "Ya se había auditado manualmente" y lo que anotó el auditor en cada marca, por ejemplo "Apertura: DISCREPANCIA (MISSING RIR INTERVAL); Cierre: sin discrepancia".
+A los DIPs con `Defer Dt` desde el 9 de julio de 2026 se les agrega en `VERIFICACIÓN MANUAL` el recordatorio "Verificar attachments: captura de referencia técnica y EC/RA adjunta.". Si el DIP tiene marcas AUDITDIP, esa columna empieza con "Ya se había auditado manualmente" y lo que anotó el auditor en cada marca, por ejemplo "Apertura: DISCREPANCIA (MISSING RIR INTERVAL); Cierre: sin discrepancia".
 
 Las reglas están en `reglas.py`, salvo la referencia técnica y la RIR (`Auditor._referencia_tecnica` y `Auditor._rir`) y las de los DIPs SIN FUENTE (`reglas_descripcion.py`). Lo que sigue es qué revisa cada una.
 
@@ -378,7 +378,7 @@ Un TA que empieza en otro momento (antes de la apertura, o en la apertura cuando
 
 #### Attachments y paquete programado
 
-Todo DIP tiene que tener attachments. Si no tiene ninguno (según ICAM o, sin ICAM, según `Attach Docs` o `Attachment Status` PENDING), es posible discrepancia, aunque la descripción cite el manual. Si no hay ningún dato, no se revisa. Un attachment con la matrícula de otro avión en el nombre ("... HP1830.png" en un DIP del HP-1836) queda como observación.
+Los DIPs con `Defer Dt` desde el 9 de julio de 2026 tienen que tener attachments. Los diferidos antes quedan exentos. Si no tiene ninguno (según ICAM o, sin ICAM, según `Attach Docs` o `Attachment Status` PENDING), es posible discrepancia, aunque la descripción cite el manual. Si falta la fecha de diferimiento o no hay ningún dato de adjuntos, no se revisa. Un attachment con la matrícula de otro avión en el nombre ("... HP1830.png" en un DIP del HP-1836) queda como observación.
 
 Si un DIP activo tiene su paquete programado (`Scheduled Date`) después del due date (final del día más 5 horas), va a vencer si no se reprograma. Es posible discrepancia.
 
@@ -398,7 +398,7 @@ El tipo de Parent Assy del DIP (AIRCRAFT, ENGINE o APU) tiene que ser el de la t
 
 #### Referencia técnica
 
-Se revisa solo si hay con qué: una descripción, una columna de referencias en el Excel o datos de ICAM.
+Se revisa en DIPs con `Defer Dt` desde el 9 de julio de 2026, solo si hay con qué: una descripción, una columna de referencias en el Excel o datos de ICAM.
 
 Primero, si el DIP tiene referencia. Como lo acepta el auditor, vale cualquiera de tres evidencias: una referencia cargada en ICAM (sin contar "REFERENCE REQUIRED", las marcas "RT AUDIT COMPLETED", el MGM ni notas sin números), una captura adjunta (cualquier attachment) o una cita en la descripción, las notas o el nombre (AMM, SRM, FIM, IPC, CMM, EC, ECRA, EC/RA, EA, FCD, SB, AD, JIC, task card...).
 
@@ -457,7 +457,7 @@ Si el due date es posterior al original (`Orig Fault Due Date`) y el cierre fue 
 
 La acción correctiva se revisa solo con ICAM. Vacía no es discrepancia (queda así cuando se cierra por la validación de QC o solo con partes): observación. Sin cita del manual también es observación, salvo que remita a otra tarea o que no haya habido trabajo ("BY MISTAKE", "PREVIOUSLY ACCOMPLISHED", "NO FURTHER ACTION"), en cuyo caso queda para verificación manual. Una cita sin REV o sin fecha es observación. Si ni el S/N removido ni el instalado coinciden con el de la descripción, también es observación.
 
-Un DIP cerrado sin attachments es posible discrepancia de cierre.
+Un DIP cerrado sin attachments es posible discrepancia de cierre si su `Defer Dt` es del 9 de julio de 2026 o posterior. Los diferidos antes quedan exentos.
 
 #### DIP creado por error o declarado duplicado
 

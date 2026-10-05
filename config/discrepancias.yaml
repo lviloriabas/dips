@@ -128,7 +128,7 @@ tipos:
     reglas:
       fault_severity:                    OBSERVACION # Fault Severity distinto de DIP
 
-  # Solo para DIPs diferidos antes del 9-jul-2026. Apertura: sirve la referencia cargada
+  # Solo para DIPs diferidos desde el 9-jul-2026. Apertura: sirve la referencia cargada
   # en ICAM (Technical References), una captura
   # adjunta o la cita en la descripción, como la acepta el auditor (calibrado con la
   # auditoría del 23-sep-2026). Sin datos de ICAM no se marca: queda para verificar.
@@ -185,7 +185,7 @@ tipos:
       completado_fuera_de_plazo:         CRITICA     # cerrado después del due date
       cierre_deadline_extendido:         REVISAR     # después del due original, con extensión
 
-  # Para DIPs diferidos antes del 9-jul-2026 se exigen attachments. Se cuentan en ICAM y,
+  # Para DIPs diferidos desde el 9-jul-2026 se exigen attachments. Se cuentan en ICAM y,
   # sin ICAM, en el Excel (Attach Docs, Attachment Status PENDING = ninguno).
   Missing Attachment:
     reglas:

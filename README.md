@@ -74,7 +74,8 @@ archivo local, deje `referencias_sharepoint` vacío. El modo prueba y el benchma
 la referencia local, salvo que se indique otra con `--referencias`.
 
 La revisión de referencia técnica y la exigencia de attachments aplican a los DIPs
-diferidos **antes del 9 de julio de 2026**. Si falta la fecha de diferimiento, esos
+diferidos **desde el 9 de julio de 2026**, según `Defer Dt`. Los anteriores quedan exentos
+de esos controles. Si falta la fecha de diferimiento, esos
 hallazgos no se infieren. En DIPs COMPLETE, se lee la acción correctiva de ICAM para
 contrastar la referencia y los S/N citados.
 

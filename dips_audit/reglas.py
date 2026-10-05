@@ -128,9 +128,9 @@ def _como_fecha(d: datetime | date | None) -> date | None:
 
 
 def referencia_y_adjunto_exigibles(dip: dict) -> bool:
-    """Solo DIPs diferidos antes del 9-jul-2026 requieren este control."""
+    """Solo DIPs diferidos desde el 9-jul-2026 requieren este control."""
     diferido = _como_fecha(dip.get("defer_date"))
-    return diferido is not None and diferido < date(2026, 7, 9)
+    return diferido is not None and diferido >= date(2026, 7, 9)
 
 
 def _inicio_ta(dip: dict) -> date | None:
@@ -692,7 +692,7 @@ def _sin_adjuntos(dip: dict) -> str:
 
 
 def regla_adjuntos(dip: dict, ctx: Contexto, r: ResultadoReglas) -> None:
-    """En DIPs previos al corte, sin attachments es posible discrepancia,
+    """En DIPs diferidos desde el corte, sin attachments es posible discrepancia,
     aunque la descripción cite el manual. Un attachment
     con la matrícula de otro avión en el nombre puede ser de otro DIP."""
     if referencia_y_adjunto_exigibles(dip) and cantidad_adjuntos(dip) == 0:

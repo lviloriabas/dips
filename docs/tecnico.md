@@ -146,7 +146,7 @@ El programa busca, entre las primeras 20 filas de cada hoja, una fila que tenga 
 | Columnas `Rir Barcode`, `Rir Name`, `Rir Driver Interval`, `Rir Driver Type` | Dan el RIR activo del DIP cuando no se lee ICAM |
 | Columna `Rir Driver Usage Rem` | Se conserva junto al intervalo y unidad del RIR aunque ICAM complete los datos. Un remanente menor que −max(5, intervalo) o mayor que intervalo + max(5, 10% del intervalo) se marca para verificar configuración. También se revisa el Remaining de Scheduling y Follow-on Tasks de ICAM, por unidad |
 | Columnas `Attachment Status` y `Attach Docs` | Cuántos attachments tenía el DIP al exportar el Excel (`PENDING` = ninguno). Se usan cuando no se lee ICAM |
-| Columna `Defer Dt` | Fecha de diferimiento; ICAM prevalece si trae el evento. Decide si aplica el control de referencia técnica y attachments (antes del 9-jul-2026) |
+| Columna `Defer Dt` | Fecha de diferimiento; ICAM prevalece si trae el evento. Decide si aplica el control de referencia técnica y attachments (desde el 9-jul-2026) |
 
 Las columnas de la auditoría manual (`DIP Open - RT Audit Completed`, `DIP Discrepancy Found`, etc.) no se usan para auditar, solo para comparar (sección 9).
 
@@ -348,7 +348,7 @@ Archivos: `dips_audit/reglas.py` y `dips_audit/auditor.py`. Se aplica a todo DIP
 | ATA y Deferral Reference | El ATA del DIP no es relevante: un Deferral Reference que no empieza con el ATA, o un ATA distinto del de la tabla, es observación |
 | Referencia técnica | Ver abajo |
 | S/N | Si la tabla lo pide, debe estar en la descripción. Un S/N repetido en otro DIP abierto del mismo avión es señal de un duplicado: observación. El S/N del Fault Name y la descripción debe ser el de las notas de la descripción en ICAM: se compara el número (P11101989 y 11101989 son el mismo S/N); si el número difiere (11101989 / 11101998) es posible discrepancia. Un S/N de más en uno de los dos textos no cuenta |
-| Attachments | En DIPs diferidos antes del 9-jul-2026, la falta de attachments es posible discrepancia. Se cuentan en ICAM y, sin ICAM, en el Excel (`Attach Docs`) |
+| Attachments | En DIPs diferidos desde el 9-jul-2026, la falta de attachments es posible discrepancia. Los anteriores quedan exentos. Se cuentan en ICAM y, sin ICAM, en el Excel (`Attach Docs`) |
 | RIR | Si la tabla pide RIR, debe existir en Follow-on Tasks con el intervalo correcto, en el mismo Parent Assembly y con el mismo inicio que el T/A (ver abajo) |
 | Duplicados | Mismo avión, mismo ítem, misma posición (FWD/AFT, LH/RH, #1/#2; también la de la descripción: el squib LEFT y el RIGHT de la misma botella no son duplicados), S/N compatibles (del nombre y la descripción), los mismos mensajes de mantenimiento si los citan (SHORT TIME 75-20451 y 75-10451 son dos fallas) y abiertos a la vez según la fecha de cierre. En una referencia con varias etapas, otro intervalo es otra etapa y no un duplicado (re-torque a los 60 días y a los 12 meses; cable ajustado a 6 meses y nuevo a 4). Un duplicado es un duplicado, no una discrepancia: observación |
 | Duplicado o creado por error | El técnico lo dice en la acción correctiva ("ENTERED BY MISTAKE", "DUPLICATED DIP") o en el nombre, la descripción o las notas de la descripción, referido al DIP ("DIP DUPLICADO"; "MASK DEPLOYED BY MISTAKE" es la falla). El DIP no se audita: el único hallazgo y el comentario son "DIP creado por error." o "DIP duplicado (ver T40S...).". Observación, esté abierto o cerrado |
@@ -359,7 +359,7 @@ Archivos: `dips_audit/reglas.py` y `dips_audit/auditor.py`. Se aplica a todo DIP
 2. una captura adjunta (Attachments);
 3. la referencia citada en la descripción.
 
-Para DIPs diferidos antes del 9-jul-2026, si no hay ninguna, es posible discrepancia. Si la cita no trae la revisión o su fecha, se anota como observación. En los COMPLETE también se considera la acción correctiva descargada de ICAM. Sin datos de ICAM no se marca, porque no se sabe si hay captura: queda como verificación manual.
+Para DIPs diferidos desde el 9-jul-2026, si no hay ninguna, es posible discrepancia. Si la cita no trae la revisión o su fecha, se anota como observación. En los COMPLETE también se considera la acción correctiva descargada de ICAM. Sin datos de ICAM no se marca, porque no se sabe si hay captura: queda como verificación manual.
 
 **Referencia no específica.** Si el DIP cita como su fuente un barcode de trabajo ("TO BE ACCOMPLISHED IN 500FH IAW BARCODE: TRF7N00900V4, STEP 63") y no cita una referencia del manual, es posible discrepancia (*Non-Specific Technical Reference*, como la anota el auditor). La task card JIC del Service Visit ("REF TASK CARD B737-05-1-0001-U-JIC STEP 3") sí se acepta: así se abren los DIPs de oxígeno, halon, FAK o fumigación, y los auditores no los marcan. Una task card JIC cargada en Technical References en lugar de la AMM de la tabla ya la marca la revisión contra la tabla.
 
@@ -413,7 +413,7 @@ La tabla pide RIR en freno de parqueo (1 día), DPI (100 FH), VCD seal (1 día),
 | Due date después del Exp. Date | Posible discrepancia (`due_date_posterior_a_vencimiento_item`) |
 | Due date antes del Exp. Date | Observación |
 | S/N del DIP que no está en el PDF | Posible discrepancia (`sn_fuera_de_inventario`) |
-| Sin PDF en los attachments (con ICAM) | En DIPs anteriores al 9-jul-2026, observación (`sin_inventario_generadores`); el vencimiento se toma de la descripción |
+| Sin PDF en los attachments (con ICAM) | En DIPs diferidos desde el 9-jul-2026, observación (`sin_inventario_generadores`); el vencimiento se toma de la descripción |
 | PDF sin formulario (escaneado) o que no se pudo leer; sin ICAM | Verificación manual; el vencimiento se toma de la descripción |
 
 **Otras reglas generales:**
@@ -437,7 +437,7 @@ Se aplica además a los DIPs COMPLETE.
 | Deadline extendido | Si el due date es posterior al original (`Orig Fault Due Date`) y el DIP cerró después del original, queda en posible discrepancia para verificar el sustento de la extensión |
 | Acción correctiva | Sin acción correctiva no es discrepancia (en ICAM queda vacía si se cerró por la validación de QC o solo con partes): observación. Si no cita el manual, se anota como observación (el 23-sep-2026 los auditores lo aceptaron). No se anota si la acción remite a otra tarea ("CLOSED IN REFERENCE BARCODE T40S009H0DK"): la referencia está en esa tarea. Tampoco si no hubo trabajo ("OPEN BY MISTAKE", "PREVIOUSLY ACCOMPLISHED", "NO FURTHER ACTION REQUIRED"). En ambos casos queda una nota para verificar |
 | S/N removido | Si el número no es el de la descripción, observación. En un cambio (botella, generator) vale el S/N removido o el instalado de Part Requirements |
-| Attachments | Sin adjuntos es posible discrepancia (en ICAM o, sin ICAM, en el Excel). La mayoría de los DIPs cerrados sin attachments se abrió antes de la auditoría manual y el auditor solo revisó el cierre |
+| Attachments | Sin adjuntos es posible discrepancia si `Defer Dt` es del 9-jul-2026 o posterior (en ICAM o, sin ICAM, en el Excel). La mayoría de los DIPs cerrados sin attachments se abrió antes de la auditoría manual y el auditor solo revisó el cierre |
 | Cambios de deadline | Si el historial muestra cambios, se listan para verificar |
 
 ---

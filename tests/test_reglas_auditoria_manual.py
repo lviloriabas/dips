@@ -1,7 +1,9 @@
 """Reglas calibradas con los motivos que anotan los auditores en ICAM ("DIP DISCREPANCY
 FOUND: ...") en la auditoría del 25-ago al 23-sep-2026. Cada caso es un DIP real."""
 
-from datetime import datetime
+from datetime import date, datetime
+
+import pytest
 
 from dips_audit.asociacion import asociar
 from dips_audit.cargador import cargar_export
@@ -25,16 +27,34 @@ def test_sin_attachments_es_discrepancia(catalogo, ctx):
     assert "sin_adjuntos" not in codigos(auditar(catalogo, ctx, "OXIGENO_TRIPULACION"))
 
 
-def test_corte_9_julio_para_adjuntos(catalogo, ctx):
-    for dia, exigible in [(8, True), (9, False), (10, False)]:
-        r = auditar(catalogo, ctx, "OXIGENO_TRIPULACION", defer_date=datetime(2026, 7, dia),
-                    adjuntos=[], estado="COMPLETE", accion_correctiva="BOTTLE REPLACED")
-        cod = codigos(r)
-        assert ("sin_adjuntos" in cod) is exigible
-        assert ("cierre_sin_adjuntos" in cod) is exigible
-        assert ("cierre_sin_referencia_tecnica" in cod) is exigible
-    sin_fecha = auditar(catalogo, ctx, "OXIGENO_TRIPULACION", defer_date=None, adjuntos=[])
-    assert "sin_adjuntos" not in codigos(sin_fecha)
+@pytest.mark.parametrize("defer_date, exigible", [
+    (datetime(2026, 7, 8, 23, 59), False),
+    (datetime(2026, 7, 9), True),
+    (datetime(2026, 7, 10), True),
+    (date(2026, 7, 9), True),
+    (None, False),
+])
+@pytest.mark.parametrize("adjuntos", [{"adjuntos": []}, {"adjuntos_excel": 0}])
+def test_corte_9_julio_para_adjuntos(catalogo, ctx, defer_date, exigible, adjuntos):
+    r = auditar(catalogo, ctx, "OXIGENO_TRIPULACION", defer_date=defer_date,
+                estado="COMPLETE", accion_correctiva="BOTTLE REPLACED", **adjuntos)
+    cod = codigos(r)
+    assert ("sin_adjuntos" in cod) is exigible
+    assert ("cierre_sin_adjuntos" in cod) is exigible
+    assert ("cierre_sin_referencia_tecnica" in cod) is exigible
+
+
+@pytest.mark.parametrize("dia, exigible", [(8, False), (9, True), (10, True)])
+def test_corte_adjuntos_usa_defer_dt_del_excel(auditor, tmp_path, dia, exigible):
+    encabezado = ["Fault Barcode", "Area", "Fault Name", "DIP Interval", "Interval Type",
+                  "Fault Status", "Aircraft", "Attach Docs", "Defer Dt", "Fault Found on Date",
+                  "Complete Dt"]
+    fila = ["T1", "Others", "FAK", 30, "DAY", "COMPLETE", "HP-1830CMP", 0,
+            datetime(2026, 7, dia), datetime(2026, 7, 7), datetime(2026, 7, 20)]
+    ruta = crear_export(tmp_path / "e.xlsx", [fila], encabezado=encabezado)
+    hallazgos = auditor.auditar_archivo(ruta).filas.iloc[0]["HALLAZGOS"]
+    assert ("DIP sin attachments" in hallazgos) is exigible
+    assert ("DIP cerrado sin attachments" in hallazgos) is exigible
 
 
 def test_sin_attachments_segun_el_excel(catalogo, ctx):
