@@ -2,24 +2,24 @@
 
 ## Ejecutar el programa
 
-Abra **Símbolo del sistema (CMD)** en la carpeta DIPS. En los ejemplos, `>` indica la consola: escriba solo lo que aparece después. Cambie `entrada.xlsx` por el nombre o la ruta de su Excel, entre comillas.
+Abra una **terminal (CMD o PowerShell)** en la carpeta DIPS. En esta guía, `$` indica un comando y se omite al escribirlo. Cambie `entrada.xlsx` por el nombre o la ruta de su Excel, entre comillas. Conserve `.\` delante del comando para ejecutarlo desde esa carpeta.
 
 **Primera instalación:** ejecute una vez:
 
-```console
-> setup.bat
+```terminal
+$ .\setup.bat
 ```
 
 **Auditar con el Excel:** también puede arrastrarlo sobre `auditar.bat`.
 
-```console
-> auditar.bat "entrada.xlsx"
+```terminal
+$ .\auditar.bat "entrada.xlsx"
 ```
 
 **Auditar con ICAM y solo los pendientes:**
 
-```console
-> auditar.bat "entrada.xlsx" --icam --pendientes
+```terminal
+$ .\auditar.bat "entrada.xlsx" --icam --pendientes
 ```
 
 - `--icam`: consulta los DIPs en ICAM y permite más chequeos. Si Edge pide sesión, iníciela allí. Puede reutilizar lecturas de la última hora; agregue `--no-cache` para volver a leer todo.
@@ -27,10 +27,10 @@ Abra **Símbolo del sistema (CMD)** en la carpeta DIPS. En los ejemplos, `>` ind
 
 **Otras funciones útiles:**
 
-```console
-> auditar.bat T40S0099V9C
-> filtrar.bat "entrada.xlsx"
-> comparar.bat "entrada.xlsx" --icam
+```terminal
+$ .\auditar.bat T40S0099V9C
+$ .\filtrar.bat "entrada.xlsx"
+$ .\comparar.bat "entrada.xlsx" --icam
 ```
 
 La primera consulta un barcode real en ICAM y muestra el resultado en consola. La segunda crea solo el Excel de pendientes. La tercera compara con la auditoría manual y genera un Excel de comparación.
@@ -72,8 +72,8 @@ Prevalece el hallazgo de mayor severidad. Para crear otro tipo, mueva allí regl
 
 Si quiere comprobar el archivo antes de auditar:
 
-```console
-> .venv\Scripts\python -m dips_audit validar-reglas
+```terminal
+$ .\.venv\Scripts\python -m dips_audit validar-reglas
 ```
 
 ## Usar y actualizar las referencias
@@ -90,8 +90,8 @@ La auditoría intenta actualizar desde SharePoint. Si pide sesión, iníciela en
 
 Para usar expresamente el archivo local en una auditoría:
 
-```console
-> auditar.bat "entrada.xlsx" --referencias "DIPs References.xlsx"
+```terminal
+$ .\auditar.bat "entrada.xlsx" --referencias "DIPs References.xlsx"
 ```
 
 Para trabajar siempre con el archivo local, guarde `referencias_sharepoint: ""` en `config/config.yaml`.
