@@ -1,5 +1,9 @@
 # Configurar las reglas
 
+Para **agregar chequeos nuevos**, generar ejemplos y mantener las referencias
+locales o de SharePoint, vea [la guía de reglas y referencias](Guia_DIPS_reglas_referencias.md).
+La misma guía está en PowerPoint y PDF en esta carpeta.
+
 Las reglas deciden qué hallazgos aparecen y cómo se clasifica cada DIP. Sus criterios de detección están en Python; `config/discrepancias.yaml` decide si se informa cada hallazgo y qué resultado produce. Para cambiar un criterio de detección o crear una regla nueva hace falta modificar el código y sus pruebas.
 
 ## Cambiar una regla existente

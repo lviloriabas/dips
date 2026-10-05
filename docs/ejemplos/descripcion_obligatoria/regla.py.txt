@@ -1,0 +1,12 @@
+# EJEMPLO: revisar el criterio con el auditor antes de integrarlo.
+from dips_audit.reglas import ACTIVOS
+
+def regla_descripcion_obligatoria(dip, ctx, r):
+    if dip.get("estado") not in ACTIVOS:
+        return
+    if 'descripcion' not in dip:
+        r.manuales.append("Verificar Descripción del DIP: dato no disponible para esta regla.")
+        return
+    valor = str(dip.get('descripcion') or "").strip()
+    if not valor:
+        r.agregar(ctx, 'descripcion_obligatoria', 'Datos requeridos', 'La descripción del DIP está vacía.')
