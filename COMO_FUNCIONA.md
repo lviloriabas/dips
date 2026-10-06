@@ -48,11 +48,11 @@ El programa lee:
 Y escribe:
 
 - `data/icam.json`, todo lo leído en ICAM, un registro por barcode;
-- `salidas/`, los Excel de resultado y de comparación;
+- `salida/`, los Excel de resultado y de comparación;
 - `... FILTERED.xlsx`, junto al original, cuando se filtran los pendientes;
 - `.icam_perfil/`, el perfil del Edge que usa para ICAM (ahí queda guardada la sesión).
 
-`pruebas/` guarda las corridas del modo prueba y `benchmark/` la muestra anónima con que se mide el programa. `tools/` tiene los scripts de la primera extracción de ICAM; el programa no los usa. El Excel de entrada, `data/`, `pruebas/` y `salidas/` tienen nombres del personal o datos operativos, así que están en `.gitignore` y nunca se suben.
+`pruebas/` guarda las corridas del modo prueba y `benchmark/` la muestra anónima con que se mide el programa. `tools/` tiene los scripts de la primera extracción de ICAM; el programa no los usa. El Excel de entrada, `data/`, `pruebas/` y `salida/` tienen nombres del personal o datos operativos, así que están en `.gitignore` y nunca se suben.
 
 ## Instalación y actualización
 
@@ -152,7 +152,7 @@ Esto es lo que pasa con `auditar.bat "DIPs Audit (29SEP2026).xlsx" --icam`. El r
 
 ### Arranque
 
-Se lee `config/config.yaml` y se decide si la corrida es de prueba: lo es si el Excel está dentro de `pruebas/` o si se pasó `--prueba`. En ese caso lo leído en ICAM va a `pruebas/icam.json`, el resultado va a `pruebas/salidas/` con el prefijo `PRUEBA_`, el Excel lleva el aviso "PRUEBA: datos de prueba, no es una auditoría real." y la consola muestra un recuadro amarillo. Así una prueba nunca se confunde con una auditoría real.
+Se lee `config/config.yaml` y se decide si la corrida es de prueba: lo es si el Excel está dentro de `pruebas/` o si se pasó `--prueba`. En ese caso lo leído en ICAM va a `pruebas/icam.json`, el resultado va a `pruebas/salida/` con el prefijo `PRUEBA_`, el Excel lleva el aviso "PRUEBA: datos de prueba, no es una auditoría real." y la consola muestra un recuadro amarillo. Así una prueba nunca se confunde con una auditoría real.
 
 Con `--pendientes`, antes de seguir se crea la copia FILTERED (ver [Filtrar los pendientes](#filtrar-los-pendientes)) y el resto de la corrida trabaja sobre ella.
 
@@ -492,7 +492,7 @@ Al terminar muestra el archivo y la fecha de auditoría, una tabla con hasta 40 
 
 ### Excel de salida
 
-Se guarda en `salidas/<nombre del Excel>_AUDITORIA_<AAAAMMDD_HHMMSS>.xlsx`, con `PRUEBA_` delante en modo prueba. Si hay un archivo con ese nombre abierto en Excel, falla con "Permission denied". Lo escribe `dips_audit/reporte.py` y tiene cuatro hojas:
+Se guarda en `salida/<nombre del Excel>_AUDITORIA_<AAAAMMDD_HHMMSS>.xlsx`, con `PRUEBA_` delante en modo prueba. Si hay un archivo con ese nombre abierto en Excel, falla con "Permission denied". Lo escribe `dips_audit/reporte.py` y tiene cuatro hojas:
 
 - Dashboard: indicadores por resultado y gráficos por resultado, apertura y cierre, tipo de DIP, flota (MAX 8, MAX 9, 700, 800 o "Sin flota") y las 10 referencias y los 10 aviones con más posibles discrepancias. Los datos de los gráficos están a la derecha, desde la columna T. Se imprime en una página.
 - Resumen: archivo, hoja, fecha, cantidad de DIPs, tiempo, conteo por resultado y las notas de la carga.
@@ -544,7 +544,7 @@ El archivo se audita dos veces: una con la fecha y hora en que el auditor hizo l
 | Con discrepancia | OK | El programa no la detecta |
 | Cualquiera | SIN FUENTE o REVISAR | No cuenta ni como acierto ni como error |
 
-El resultado va a `salidas/<nombre>_COMPARACION_<fecha>.xlsx`, con tres hojas: Resumen (una tabla por pregunta: si coinciden, qué dijo el programa de cada grupo, por qué marca DIPs que el auditor dio OK...), Detalle por DIP (la auditoría manual y la del programa lado a lado) y Hallazgos del programa (uno por fila, con el motivo en palabras simples).
+El resultado va a `salida/<nombre>_COMPARACION_<fecha>.xlsx`, con tres hojas: Resumen (una tabla por pregunta: si coinciden, qué dijo el programa de cada grupo, por qué marca DIPs que el auditor dio OK...), Detalle por DIP (la auditoría manual y la del programa lado a lado) y Hallazgos del programa (uno por fila, con el motivo en palabras simples).
 
 La comparación tiene un límite: ICAM muestra el DIP como está hoy, no como lo vio el auditor. Un attachment que se agregó después cuenta como si siempre hubiera estado.
 
@@ -584,7 +584,7 @@ El criterio de la auditoría está fuera del código Python: se puede ajustar si
 | --- | --- |
 | `referencias`, `hoja_referencias` | Tabla de referencias y su hoja (`References`) |
 | `catalogo`, `discrepancias` | Rutas del catálogo y de las reglas |
-| `carpeta_salida`, `carpeta_pruebas` | `salidas` y `pruebas` |
+| `carpeta_salida`, `carpeta_pruebas` | `salida` y `pruebas` |
 | `tipos_auditados` | Tipos de DIP a auditar por defecto (`[]` es todos) |
 | `tolerancias.dias` | Diferencia aceptada en días (1) |
 | `tolerancias.meses_min`, `meses_max` | Un mes es entre 30 y 31 días |

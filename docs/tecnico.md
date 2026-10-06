@@ -15,7 +15,7 @@ El programa hace lo mismo que un auditor, en este orden:
 3. **Reconoce qué ítem es cada DIP** y busca su fila en la tabla de referencias (`DIPs References.xlsx`).
 4. **Aplica las reglas de apertura** y, si el DIP está cerrado, **las de cierre**.
 5. **Da un resultado** por DIP (POSIBLE DISCREPANCIA, REVISAR, SIN FUENTE u OK) con los motivos.
-6. **Escribe un Excel nuevo** en `salidas/`. El de entrada no se toca.
+6. **Escribe un Excel nuevo** en `salida/`. El de entrada no se toca.
 
 **¿Usa inteligencia artificial?** No. Todo lo deciden reglas escritas en el código y en los archivos de configuración, y cada hallazgo dice qué dato lo produjo. Hubo un agente opcional (un modelo de lenguaje local) para sugerir la referencia de los DIPs que no se reconocen; no mejoró el resultado y se eliminó ([comparacion_modos.md](comparacion_modos.md)).
 
@@ -32,7 +32,7 @@ El programa hace lo mismo que un auditor, en este orden:
 | **La fecha de auditoría es un parámetro** | `Contexto.fecha_referencia` dice "auditar como si fuera tal día y hora". Con eso `comparar` audita cada DIP a la hora en que lo auditó la persona, y se puede calibrar contra la auditoría manual |
 | **Severidad interna ≠ resultado mostrado** | Cada regla guarda una severidad (CRITICA, NO CRITICA...), pero hoy el auditor solo ve POSIBLE DISCREPANCIA. Los niveles se conservan para cuando se definan con los auditores |
 | **Benchmark con línea base** | Cambiar una regla puede arreglar un caso y romper diez. `benchmark` mide contra DIPs ya auditados y falla si algún indicador empeora |
-| **Datos sensibles fuera de Git** | El Excel de entrada, `data/`, `pruebas/` y `salidas/` tienen nombres del personal y datos operativos: están en `.gitignore`. El benchmark usa una copia sin nombres (`anonimizar.py`) |
+| **Datos sensibles fuera de Git** | El Excel de entrada, `data/`, `pruebas/` y `salida/` tienen nombres del personal y datos operativos: están en `.gitignore`. El benchmark usa una copia sin nombres (`anonimizar.py`) |
 
 ### Flujo de datos
 
@@ -463,7 +463,7 @@ Cada hallazgo se muestra como `[POSIBLE DISCREPANCIA]`, `[REVISAR]`, `[SIN FUENT
 
 ## 7. Excel de salida
 
-Archivo: `dips_audit/reporte.py`. Se crea en `salidas/<archivo>_AUDITORIA_<fecha>.xlsx`.
+Archivo: `dips_audit/reporte.py`. Se crea en `salida/<archivo>_AUDITORIA_<fecha>.xlsx`.
 
 | Hoja | Contenido |
 | --- | --- |
@@ -550,7 +550,7 @@ Las auditorías viejas dejaron pasar discrepancias: el auditor dio OK al cierre 
 
 De las 85 marcas nuevas en DIPs que el auditor dio OK, 80 son DIPs sin attachments (77 cerrados que el auditor solo revisó al cierre), 3 son S/N con errores de escritura (AB7 / A87, BEDN / BEDM, 218 / 219) y 2 son FDR con 30 días desde la apertura auditados antes del 10-sep. De las 8 discrepancias que no marca, 5 hoy se ven bien en ICAM (4 con attachments agregados y un FDR corregido) y 3 son DIPs SIN FUENTE.
 
-**Modo prueba.** Si el Excel está dentro de `pruebas/` (o se usa `--prueba`), el programa guarda los datos de ICAM en `pruebas/icam.json` y los resultados en `pruebas/salidas/`, con el prefijo `PRUEBA_` y un aviso en el Excel. Así las corridas de prueba no se mezclan con las auditorías reales en `data/icam.json` y `salidas/`. La carpeta se configura con `carpeta_pruebas` en `config/config.yaml`.
+**Modo prueba.** Si el Excel está dentro de `pruebas/` (o se usa `--prueba`), el programa guarda los datos de ICAM en `pruebas/icam.json` y los resultados en `pruebas/salida/`, con el prefijo `PRUEBA_` y un aviso en el Excel. Así las corridas de prueba no se mezclan con las auditorías reales en `data/icam.json` y `salida/`. La carpeta se configura con `carpeta_pruebas` en `config/config.yaml`.
 
 ---
 

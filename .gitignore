@@ -7,6 +7,8 @@ __pycache__/
 .mypy_cache/
 
 # Reportes generados (contienen datos operativos)
+salida/
+# Reportes conservados por instalaciones anteriores
 salidas/
 
 # Datos con información del personal / registros de auditoría: no se versionan

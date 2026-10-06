@@ -6,7 +6,7 @@ El programa hace la primera pasada de la auditoría de DIPs: lee el Excel de ent
 
 - **No usa IA.** Cada hallazgo sale de una regla escrita y dice qué dato lo produjo.
 - **No escribe en ICAM.** Solo busca el barcode y lee las pestañas.
-- **No modifica el Excel de entrada.** El resultado es un Excel nuevo en `salidas/`.
+- **No modifica el Excel de entrada.** El resultado es un Excel nuevo en `salida/`.
 
 El detalle está en [tecnico.md](tecnico.md).
 
@@ -46,16 +46,16 @@ flowchart LR
 
 | Entrada                           | Cómo                                                                               | Salida                                                                                                            |
 | --------------------------------- | ----------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
-| Excel de entrada                  | Arrastrar el Excel sobre`auditar.bat` (en consola, con `--icam` para leer ICAM) | `salidas/..._AUDITORIA_...xlsx`                                                                                 |
+| Excel de entrada                  | Arrastrar el Excel sobre`auditar.bat` (en consola, con `--icam` para leer ICAM) | `salida/..._AUDITORIA_...xlsx`                                                                                 |
 | Solo los pendientes               | `auditar.bat "DIPs Audit (...).xlsx" --pendientes`                                | Primero`... FILTERED.xlsx` (ACTV sin auditoría de apertura, COMPLETE sin la de cierre), después la auditoría |
 | Un DIP, sin Excel                 | `auditar.bat T40S0099V9C`                                                         | En consola; lee el DIP en ICAM y no genera archivos                                                               |
-| Comparar con la auditoría manual | Arrastrar el Excel sobre`comparar.bat`                                            | `salidas/..._COMPARACION_...xlsx`                                                                               |
+| Comparar con la auditoría manual | Arrastrar el Excel sobre`comparar.bat`                                            | `salida/..._COMPARACION_...xlsx`                                                                               |
 
 ```mermaid
 flowchart TD
     A["1. Ejecutar auditar.bat con el Excel de entrada<br/>(con --icam para leer todos los DIPs en ICAM)"] --> B
     B["2. Con --icam, si se pide, iniciar sesión en ICAM<br/>en la ventana de Edge (se cierra al terminar)"] --> C
-    C["3. Abrir el Excel de salida en la carpeta salidas<br/>Hoja Dashboard: resumen y gráficos"] --> D
+    C["3. Abrir el Excel de salida en la carpeta salida<br/>Hoja Dashboard: resumen y gráficos"] --> D
     D["4. Hoja Auditoría: filtrar RESULTADO<br/>y revisar POSIBLE DISCREPANCIA, REVISAR y SIN FUENTE"]
 ```
 

@@ -63,8 +63,8 @@ def test_exporta_excel(tmp_path, auditor):
     assert salida.exists()
 
 
-def test_modo_prueba_separa_icam_y_salidas_y_marca_los_resultados(tmp_path, config, monkeypatch):
-    """Un Excel dentro de la carpeta de pruebas usa pruebas/icam.json y pruebas/salidas, y el
+def test_modo_prueba_separa_icam_y_salida_y_marca_los_resultados(tmp_path, config, monkeypatch):
+    """Un Excel dentro de la carpeta de pruebas usa pruebas/icam.json y pruebas/salida, y el
     resultado lleva el prefijo PRUEBA_ y el aviso en el Excel."""
     import copy
 
@@ -83,12 +83,12 @@ def test_modo_prueba_separa_icam_y_salidas_y_marca_los_resultados(tmp_path, conf
                         encabezado=ENCABEZADO)
     assert cli.main(["comparar", str(ruta)]) == 0
     assert config["icam"]["archivo"] == (tmp_path / "pruebas" / "icam.json").resolve()
-    salidas = list((tmp_path / "pruebas" / "salidas").glob("PRUEBA_*_COMPARACION_*.xlsx"))
-    assert len(salidas) == 1
-    assert "PRUEBA" in openpyxl.load_workbook(salidas[0])["Resumen"]["A3"].value
+    salida = list((tmp_path / "pruebas" / "salida").glob("PRUEBA_*_COMPARACION_*.xlsx"))
+    assert len(salida) == 1
+    assert "PRUEBA" in openpyxl.load_workbook(salida[0])["Resumen"]["A3"].value
 
     assert cli.main(["auditar", str(ruta)]) == 0
-    assert list((tmp_path / "pruebas" / "salidas").glob("PRUEBA_*_AUDITORIA_*.xlsx"))
+    assert list((tmp_path / "pruebas" / "salida").glob("PRUEBA_*_AUDITORIA_*.xlsx"))
 
 
 def test_fuera_de_pruebas_no_es_modo_prueba(tmp_path, config):

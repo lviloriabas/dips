@@ -90,16 +90,16 @@ def _tabla_hallazgos(resultado) -> Table | None:
 
 
 QUE_HACER = {
-    "OK": "Nada más que los puntos de revisión manual, si tiene",
-    "POSIBLE DISCREPANCIA": "Leer los hallazgos y decidir",
-    "REVISAR": "El T/A o el RIR depende del daño: verlo en el manual",
-    "SIN FUENTE": "No está en la tabla de referencias: verificar la fuente que cita",
-    "FUERA DE ALCANCE": "Otro tipo de DIP: no se auditó",  # se completa con los tipos
+    "OK": "Completar las verificaciones manuales",
+    "POSIBLE DISCREPANCIA": "Confirmar o descartar las discrepancias",
+    "REVISAR": "Definir el T/A o RIR según el manual",
+    "SIN FUENTE": "Verificar la fuente citada",
+    "FUERA DE ALCANCE": "Tipo de DIP excluido",  # se completa con los tipos
 }
 
 
 def _con_revision_manual(texto: str) -> bool:
-    """El DIP tiene algún punto de VERIFICACIÓN MANUAL propio, además del recordatorio general."""
+    """El DIP tiene verificaciones adicionales al recordatorio general de adjuntos."""
     return any(l.strip() and l.strip("- ").strip() != VERIFICACION_GENERAL for l in texto.splitlines())
 
 
@@ -121,7 +121,7 @@ def _resumen(resultado, tiempos: dict[str, float]) -> Panel:
     t.add_column("Resultado")
     t.add_column("DIPs", justify="right")
     t.add_column("%", justify="right")
-    t.add_column("Qué hacer")
+    t.add_column("Acción")
     for estado in ("OK", "POSIBLE DISCREPANCIA", "REVISAR", "SIN FUENTE", "FUERA DE ALCANCE"):
         n = conteo.get(estado, 0)
         if not n and estado == "FUERA DE ALCANCE":
@@ -129,9 +129,9 @@ def _resumen(resultado, tiempos: dict[str, float]) -> Panel:
         base = len(filas) if estado == "FUERA DE ALCANCE" else auditados
         que_hacer = QUE_HACER[estado]
         if estado == "POSIBLE DISCREPANCIA" and hallazgos:
-            que_hacer += f" ({hallazgos} en total)"
+            que_hacer += f" ({hallazgos} hallazgos)"
         elif estado == "FUERA DE ALCANCE":
-            que_hacer = f"Otro tipo de DIP ({detalle_fuera}): no se auditó"
+            que_hacer = f"Tipo excluido ({detalle_fuera})"
         t.add_row(f"[{ESTILOS[estado]}]{estado}[/]", str(n), f"{n / base:.0%}" if base else "-",
                   que_hacer if n else "")
 
@@ -144,13 +144,14 @@ def _resumen(resultado, tiempos: dict[str, float]) -> Panel:
         if etapa != "Total":
             t_tiempos.add_row(etapa, _duracion(segundos))
     lineas = [
-        f"[bold]{auditados} DIPs auditados[/]: {auditados - cierre} abiertos y {cierre} cerrados.",
+        f"[bold]DIPs auditados: {auditados}[/] (apertura: {auditados - cierre}, cierre: {cierre}).",
         t,
-        (f"[bold]Revisión manual:[/] {manuales} DIPs tienen algún punto puntual para mirar "
-         "(columna VERIFICACIÓN MANUAL del Excel)." if manuales else
-         "[bold]Revisión manual:[/] ningún DIP tiene puntos puntuales para mirar."),
-        "[dim]Como siempre, revisar en todos los attachments la captura de la referencia técnica "
-        "y el EC/RA.[/]",
+        (f"[bold]Revisión manual:[/] {manuales} {'DIP' if manuales == 1 else 'DIPs'} "
+         "con verificaciones adicionales "
+         "(VERIFICACIÓN MANUAL)." if manuales else
+         "[bold]Revisión manual:[/] sin verificaciones adicionales."),
+        "[dim]DIPs diferidos desde el 09-jul-2026: verificar en adjuntos la captura de "
+        "referencia técnica y el EC/RA.[/]",
         t_tiempos,
     ]
     return Panel.fit(Group(*lineas), title="Resumen", border_style="green")
@@ -314,7 +315,7 @@ def _fecha_hora(texto: str | None) -> datetime | None:
 def _modo_prueba(args, config: dict) -> bool:
     """Modo prueba: el Excel está dentro de la carpeta de pruebas (config carpeta_pruebas)
     o se pidió --prueba. Los datos de ICAM y los resultados van a pruebas/icam.json y
-    pruebas/salidas, y los resultados se marcan como PRUEBA, para no mezclarlos con
+    pruebas/salida, y los resultados se marcan como PRUEBA, para no mezclarlos con
     auditorías reales."""
     carpeta = Path(config["carpeta_pruebas"]).resolve()
     archivo = getattr(args, "archivo", None)
@@ -323,7 +324,7 @@ def _modo_prueba(args, config: dict) -> bool:
         return False
     config["modo_prueba"] = True
     config["icam"]["archivo"] = carpeta / "icam.json"
-    config["carpeta_salida"] = carpeta / "salidas"
+    config["carpeta_salida"] = carpeta / "salida"
     consola.print(Panel.fit(
         "[bold]MODO PRUEBA[/]: datos de prueba, no es una auditoría real.\n"
         f"ICAM: {config['icam']['archivo']}\nResultados: {config['carpeta_salida']} "
@@ -606,7 +607,7 @@ def main(argv: list[str] | None = None) -> int:
     a.add_argument("-j", "--hoja", help="Hoja a leer (por defecto, la primera con 'Fault Barcode')")
     a.add_argument("--referencias", metavar="XLSX/PDF/URL",
                    help="Tabla de referencias local (XLSX o PDF) o enlace HTTPS de SharePoint")
-    a.add_argument("-p", "--prueba", action="store_true", help="Datos de prueba: usa pruebas/icam.json y pruebas/salidas y marca los resultados como PRUEBA (automático si el Excel está en pruebas/)")
+    a.add_argument("-p", "--prueba", action="store_true", help="Datos de prueba: usa pruebas/icam.json y pruebas/salida y marca los resultados como PRUEBA (automático si el Excel está en pruebas/)")
     a.add_argument("-o", "--salida", help="Ruta del Excel de resultado")
     a.add_argument("-f", "--fecha", help="Fecha y hora de auditoría 'AAAA-MM-DD HH:MM' "
                    "(por defecto, ahora)")
@@ -631,7 +632,7 @@ def main(argv: list[str] | None = None) -> int:
     c.add_argument("-j", "--hoja", help="Hoja a leer")
     c.add_argument("--referencias", metavar="XLSX/PDF/URL",
                    help="Tabla de referencias local o enlace de SharePoint")
-    c.add_argument("-p", "--prueba", action="store_true", help="Datos de prueba: usa pruebas/icam.json y pruebas/salidas y marca los resultados como PRUEBA (automático si el Excel está en pruebas/)")
+    c.add_argument("-p", "--prueba", action="store_true", help="Datos de prueba: usa pruebas/icam.json y pruebas/salida y marca los resultados como PRUEBA (automático si el Excel está en pruebas/)")
     c.add_argument("-i", "--icam", action="store_true",
                    help="Leer antes en ICAM (solo lectura) todos los DIPs del archivo y usar esos "
                         "datos (sin esta opción, se compara solo con el Excel de entrada)")
@@ -657,7 +658,7 @@ def main(argv: list[str] | None = None) -> int:
                                              "entrada y los guarda en data/icam.json")
     x.add_argument("archivo", nargs="?", help="Excel de entrada (o use --barcode)")
     x.add_argument("-j", "--hoja", help="Hoja a leer")
-    x.add_argument("-p", "--prueba", action="store_true", help="Datos de prueba: usa pruebas/icam.json y pruebas/salidas y marca los resultados como PRUEBA (automático si el Excel está en pruebas/)")
+    x.add_argument("-p", "--prueba", action="store_true", help="Datos de prueba: usa pruebas/icam.json y pruebas/salida y marca los resultados como PRUEBA (automático si el Excel está en pruebas/)")
     x.add_argument("-b", "--barcode", action="append", help="Leer solo este barcode (se puede repetir); "
                                                       "con uno solo, muestra lo interpretado")
     x.add_argument("--no-cache", action="store_true",

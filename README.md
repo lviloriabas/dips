@@ -18,11 +18,11 @@ Si la PC tiene git, al abrir `auditar.bat`, `comparar.bat` o `filtrar.bat` el pr
 
 | Acción | Cómo | Resultado |
 | --- | --- | --- |
-| Auditar | Arrastrar el Excel sobre `auditar.bat` | `salidas/...xlsx`, filtrar `RESULTADO` |
+| Auditar | Arrastrar el Excel sobre `auditar.bat` | `salida/...xlsx`, filtrar `RESULTADO` |
 | Auditar un solo DIP | `auditar.bat T40S0099V9C` (el barcode, sin Excel) | En consola: datos del DIP, resultado y hallazgos. No genera archivos |
-| Comparar con la auditoría manual | Arrastrar `DIPs Audit (...).xlsx` sobre `comparar.bat` | `salidas/..._COMPARACION_...xlsx` (hojas **Resumen** y **Detalle por DIP**) |
+| Comparar con la auditoría manual | Arrastrar `DIPs Audit (...).xlsx` sobre `comparar.bat` | `salida/..._COMPARACION_...xlsx` (hojas **Resumen** y **Detalle por DIP**) |
 | Filtrar DIPs pendientes de auditar | Arrastrar `DIPs Audit (...).xlsx` sobre `filtrar.bat` | `DIPs Audit (...) FILTERED.xlsx` junto al original: solo ACTV sin `DIP Open Audit User` y COMPLETE sin `DIP Closed Audit User` |
-| Modo prueba | Poner el Excel en `pruebas/entrada/` (o usar `--prueba`) | `pruebas/salidas/PRUEBA_...xlsx` |
+| Modo prueba | Poner el Excel en `pruebas/entrada/` (o usar `--prueba`) | `pruebas/salida/PRUEBA_...xlsx` |
 
 Por defecto se audita **solo con el Excel** (menos reglas). Para leer en ICAM todos los DIPs del archivo, de cualquier tipo, ejecute el `.bat` en la consola con `--icam` (ver [Comandos](#comandos)); fuera del aviso de actualización, el programa no hace preguntas.
 
