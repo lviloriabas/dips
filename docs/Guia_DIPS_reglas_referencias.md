@@ -22,18 +22,16 @@ $ .\auditar.bat "entrada.xlsx"
 $ .\auditar.bat "entrada.xlsx" --icam --pendientes
 ```
 
-- `--icam`: consulta los DIPs en ICAM y permite más chequeos. Si Edge pide sesión, iníciela allí. Puede reutilizar lecturas de la última hora; agregue `--no-cache` para volver a leer todo.
-- `--pendientes`: incluye ACTV sin `DIP Open Audit User` y COMPLETE sin `DIP Closed Audit User`. Crea una copia `FILTERED.xlsx` junto al original. Quite esta opción para auditar todos.
+- `--icam`: consulta los DIPs en ICAM y permite más chequeos. Si Edge pide sesión, iníciela allí.
+- `--pendientes`: incluye ACTV sin DIP Open Audit User y COMPLETE sin DIP Closed Audit User. Crea una copia `FILTERED.xlsx` junto al original. Quite esta opción para auditar todos.
 
-**Otras funciones útiles:**
+**Consultar un DIP por barcode:**
 
 ```terminal
 $ .\auditar.bat T40S0099V9C
-$ .\filtrar.bat "entrada.xlsx"
-$ .\comparar.bat "entrada.xlsx" --icam
 ```
 
-La primera consulta un barcode real en ICAM y muestra el resultado en consola. La segunda crea solo el Excel de pendientes. La tercera compara con la auditoría manual y genera un Excel de comparación.
+Sustituya el barcode de ejemplo por el real. El programa consulta el DIP en ICAM y muestra los datos, el resultado y los hallazgos en la terminal. Esta consulta no genera un Excel de resultado.
 
 Los resultados de auditoría quedan en **`salidas/`**. Revise `RESULTADO`, `HALLAZGOS` y `VERIFICACIÓN MANUAL`: **POSIBLE DISCREPANCIA** requiere revisar el hallazgo, **REVISAR** consultar el manual, **SIN FUENTE** comprobar la referencia y **OK** completar las verificaciones manuales.
 
@@ -68,13 +66,9 @@ Para reactivarla, cambie `false` por `true`. Para desactivar un tipo completo, a
 | `SIN FUENTE` | SIN FUENTE |
 | `OBSERVACION` | Informa sin cambiar el resultado |
 
-Prevalece el hallazgo de mayor severidad. Para crear otro tipo, mueva allí reglas existentes sin duplicarlas y deje al menos una regla por tipo. **El YAML configura los chequeos disponibles.** Una condición de detección completamente nueva debe implementarla quien mantiene el programa.
+Prevalece el hallazgo de mayor severidad.
 
-Si quiere comprobar el archivo antes de auditar:
-
-```terminal
-$ .\.venv\Scripts\python -m dips_audit validar-reglas
-```
+**La configuración de los chequeos disponibles está en el YAML.** Edite `config/discrepancias.yaml` para cambiar su activación o severidad y guarde. La siguiente auditoría utiliza esta configuración.
 
 ## Usar y actualizar las referencias
 
@@ -87,13 +81,5 @@ La tabla aporta el **TA, RIR, Parent Assembly y la fuente técnica** con los que
 Para agregar o corregir una referencia, edite una fila de la tabla con los valores aprobados. Conserve los encabezados **TYPE, AREA, ATA, FLEET, DESCRIPTION, PARENT ASSY, REFERENCES, TA y RIR**. Use una descripción precisa y escriba TA/RIR con su unidad, por ejemplo `30 DAYS`.
 
 La auditoría intenta actualizar desde SharePoint. Si pide sesión, iníciela en Edge. Si falla, usa la última copia válida descargada o el archivo local inicial. **La consola indica qué copia usó y su fecha.** Si ninguna es válida, se detiene.
-
-Para usar expresamente el archivo local en una auditoría:
-
-```terminal
-$ .\auditar.bat "entrada.xlsx" --referencias "DIPs References.xlsx"
-```
-
-Para trabajar siempre con el archivo local, guarde `referencias_sharepoint: ""` en `config/config.yaml`.
 
 Esta misma guía está en [PowerPoint](Guia_DIPS_reglas_referencias.pptx) y [PDF](Guia_DIPS_reglas_referencias.pdf).
