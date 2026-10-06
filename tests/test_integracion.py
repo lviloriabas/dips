@@ -96,6 +96,17 @@ def test_cli_auditar(export, tmp_path, capsys):
     assert "POSIBLE DISCREPANCIA" in salida_consola and "CRÍTICA" not in salida_consola
 
 
+def test_cli_auditar_con_flota_desconocida(tmp_path):
+    desconocida = list(FILAS[0])
+    desconocida[0], desconocida[7], desconocida[8] = "T0", "", "CFM56 ENGINE"
+    entrada = crear_export(tmp_path / "entrada.xlsx", [desconocida, FILAS[1]])
+    salida = tmp_path / "salida.xlsx"
+    assert main(["auditar", str(entrada), "--salida", str(salida), "--fecha", "2026-08-20"]) == 0
+    wb = openpyxl.load_workbook(salida)
+    assert wb["Auditoría"].max_row == 3
+    assert "Sin flota" in [c.value for c in wb["Dashboard"]["T"]]
+
+
 def test_por_defecto_audita_todos_los_tipos(auditor, export):
     resultado = auditor.auditar_archivo(export)
     estados = dict(zip(resultado.filas["Fault Barcode"], resultado.filas["RESULTADO"]))
@@ -124,6 +135,8 @@ def test_cli_archivo_inexistente(tmp_path):
     ("MAX", "HP-9810CMP", "MAX 8"), ("MAX", "HP-9924CMP", "MAX 9"),
     ("NG-700", "HP-1369CMP", "700"), ("NG-800", "HP-1837CMP", "800"),
     ("MAX", "", "Sin flota"), ("NG", "HP-1837CMP", "Sin flota"), ("", "", "Sin flota"),
+    (None, "HP-1837CMP", "Sin flota"), (float("nan"), "HP-1837CMP", "Sin flota"),
+    ("MAX", None, "Sin flota"), ("MAX", float("nan"), "Sin flota"),
 ])
 def test_flotas_del_dashboard(flota, avion, esperado):
     assert _flota_dashboard(flota, avion) == esperado

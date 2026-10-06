@@ -355,7 +355,10 @@ def normalizar_lote(original: pd.DataFrame) -> tuple[pd.DataFrame, list[str]]:
         f = _flota(r)
         if f and r["avion"] and (r["avion"] not in flotas or f.startswith("NG-")):
             flotas[r["avion"]] = f
-    datos["flota"] = [flotas.get(r["avion"]) or _flota(r) for _, r in datos.iterrows()]
+    # También esta columna conserva None, sin convertirlo en NaN al inferir texto.
+    datos["flota"] = pd.Series(
+        [flotas.get(r["avion"]) or _flota(r) for _, r in datos.iterrows()],
+        index=datos.index, dtype=object)
     corregidas = int((datos["correccion_fecha"] != "").sum())
     if corregidas:
         notas.append(f"{corregidas} fecha(s) de apertura con día/mes invertidos fueron corregidas.")

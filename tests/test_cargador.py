@@ -86,6 +86,17 @@ def test_flota_se_propaga_a_dips_de_motor(tmp_path):
     assert lote.datos.iloc[1]["flota"] == "MAX"
 
 
+@pytest.mark.parametrize("con_flota_conocida", [False, True])
+def test_flota_desconocida_conserva_none(tmp_path, con_flota_conocida):
+    desconocida = list(FILA)
+    desconocida[0], desconocida[7], desconocida[8] = "T40S0099XXX", "", "CFM56 ENGINE"
+    filas = [FILA, desconocida] if con_flota_conocida else [desconocida]
+    lote = cargar_export(crear_export(tmp_path / "e.xlsx", filas))
+    assert lote.datos.iloc[-1]["flota"] is None
+    if con_flota_conocida:
+        assert lote.datos.iloc[0]["flota"] == "MAX"
+
+
 def test_columnas_faltantes(tmp_path):
     ruta = crear_export(tmp_path / "e.xlsx", [["X", "Y"]], encabezado=["Fault Barcode", "Fault Name"])
     with pytest.raises(ErrorCarga, match="DIP Interval"):

@@ -22,6 +22,7 @@ from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from openpyxl.utils import get_column_letter
 
 from .auditor import ResultadoAuditoria
+from .cargador import parse_texto
 from .reglas import MOSTRAR_SEVERIDAD
 
 # El resultado es OK, REVISAR, SIN FUENTE o POSIBLE DISCREPANCIA: sin niveles (crítica / no
@@ -301,8 +302,9 @@ def _apiladas_por(ws, datos, columna: str, titulo: str, fila_tabla: int, fila: i
 _FLOTAS_DASHBOARD = ["MAX 8", "MAX 9", "700", "800"]
 
 
-def _flota_dashboard(flota: str, avion: str) -> str:
+def _flota_dashboard(flota: object, avion: object) -> str:
     """MAX + HP-98xx -> MAX 8, MAX + HP-99xx -> MAX 9; NG-700 -> 700, NG-800 -> 800."""
+    flota, avion = parse_texto(flota), parse_texto(avion)
     if flota == "MAX":
         m = re.search(r"\bHP-?(98|99)\d{2}", avion.upper())
         return f"MAX {m.group(1)[1]}" if m else "Sin flota"
