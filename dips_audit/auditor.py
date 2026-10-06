@@ -22,7 +22,7 @@ from .rir import revisar as revisar_rir
 from .referencias import Catalogo, EntradaCatalogo, cargar_catalogo, cargar_referencias
 from .reglas_descripcion import buscar_parent_distinto_de_pares, revisar_descripcion
 from .reglas import (ACTIVOS, MOSTRAR_SEVERIDAD, ORDEN_SEVERIDAD, POSIBLE_DISCREPANCIA,
-                     REVISAR, SIN_FUENTE, Contexto, Hallazgo, auditar_dip, buscar_duplicados,
+                     REVISAR, SEVERIDAD_SIN_FUENTE, SIN_FUENTE, Contexto, Hallazgo, auditar_dip, buscar_duplicados,
                      buscar_sn_repetidos, como_fecha_hora, dip_por_error, estado_final, etapa,
                      referencia_y_adjunto_exigibles)
 
@@ -68,7 +68,7 @@ class ResultadoAuditoria:
         h = self.hallazgos
         auditorias = self.filas.set_index("Fila Excel")["AUDITORÍA"]
         return h[(h["Auditoría"] == h["Fila Excel"].map(auditorias))
-                 | (h["Severidad"] == SIN_FUENTE)]
+                 | (h["Severidad"] == SEVERIDAD_SIN_FUENTE)]
 
 
 
@@ -178,7 +178,7 @@ class Auditor:
                 pista = "; ".join(f"'{f.descripcion}' ({f.tipo}, fila {f.fila})"
                                   for f, _ in similares)
                 r.agregar(ctx, "sin_referencia", "Missing Reference in Table",
-                          f"Sin fuente: {motivo}.")
+                          f"{SIN_FUENTE}: {motivo}.")
                 if pista:
                     r.manuales.append(f"Parecido en la tabla: {pista}.")
                 otros_tipos = {f.tipo for f, p in similares
@@ -445,7 +445,7 @@ class Auditor:
         de_cierre = [h for h in hallazgos if etapa(h.codigo) == "CIERRE"]
         de_apertura = [h for h in hallazgos if etapa(h.codigo) == "APERTURA"]
         # Sin fuente vale para las dos auditorías: el DIP no está en la tabla.
-        sin_fuente = [h for h in de_apertura if h.severidad == SIN_FUENTE]
+        sin_fuente = [h for h in de_apertura if h.severidad == SEVERIDAD_SIN_FUENTE]
         estado_apertura = estado_final(de_apertura) if en_alcance else ""
         estado_cierre = estado_final(de_cierre + sin_fuente) if cierre else ""
         estado = (estado_cierre if cierre else estado_apertura) if en_alcance else FUERA_DE_ALCANCE

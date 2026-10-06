@@ -23,16 +23,16 @@ from openpyxl.utils import get_column_letter
 
 from .auditor import CORREGIDO_EN_CIERRE, ResultadoAuditoria
 from .cargador import parse_texto
-from .reglas import MOSTRAR_SEVERIDAD
+from .reglas import MOSTRAR_SEVERIDAD, SIN_FUENTE
 
 # Los resultados separan los DIPs corregidos en el cierre de los OK desde la apertura.
-COLORES_RESULTADO = {"POSIBLE DISCREPANCIA": "FCE3B0", "REVISAR": "FFF59D", "SIN FUENTE": "D6E4F0",
+COLORES_RESULTADO = {"POSIBLE DISCREPANCIA": "FCE3B0", "REVISAR": "FFF59D", SIN_FUENTE: "D6E4F0",
                      "OK": "C9E7C9", CORREGIDO_EN_CIERRE: "CCEDE8", "FUERA DE ALCANCE": "E4E4E4"}
-COLORES_SEVERIDAD = {"POSIBLE DISCREPANCIA": "FCE3B0", "REVISAR": "FFF59D", "SIN FUENTE": "D6E4F0",
+COLORES_SEVERIDAD = {"POSIBLE DISCREPANCIA": "FCE3B0", "REVISAR": "FFF59D", SIN_FUENTE: "D6E4F0",
                      "OBSERVACIÓN": "EFEFEF"}
 # Mismos tonos que las celdas, pero saturados (colores del tema de Office): en los gráficos los
 # pasteles no se distinguen.
-COLORES_GRAFICO = {"POSIBLE DISCREPANCIA": "ED7D31", "REVISAR": "FFC000", "SIN FUENTE": "4472C4",
+COLORES_GRAFICO = {"POSIBLE DISCREPANCIA": "ED7D31", "REVISAR": "FFC000", SIN_FUENTE: "4472C4",
                    "OK": "70AD47", CORREGIDO_EN_CIERRE: "00A6A6", "FUERA DE ALCANCE": "A5A5A5"}
 _ENCABEZADO = PatternFill("solid", fgColor="1F3A5F")
 # Columnas agregadas por el programa: encabezado morado y celdas lila, para
@@ -50,7 +50,8 @@ _ANCHOS = {"Fault Name": 45, "COMENTARIO SUGERIDO": 60, "HALLAZGOS": 70,
            "REFERENCIA ASOCIADA": 32, "AUDITORÍA MANUAL EN ICAM": 40, "RESULTADO": 24,
            "ESTADO APERTURA": 24, "ESTADO CIERRE": 24}
 _ENVOLVER = {"HALLAZGOS", "VERIFICACIÓN MANUAL", "COMENTARIO SUGERIDO", "TA SEGÚN REFERENCIA",
-             "Detalle", "Fault Name", "REFERENCIA TÉCNICA ESPERADA", "AUDITORÍA MANUAL EN ICAM"}
+             "Detalle", "Fault Name", "REFERENCIA TÉCNICA ESPERADA", "AUDITORÍA MANUAL EN ICAM",
+             "RESULTADO", "ESTADO APERTURA", "ESTADO CIERRE", "Resultado"}
 
 
 def ruta_salida(resultado: ResultadoAuditoria, carpeta: Path) -> Path:
@@ -144,7 +145,7 @@ def hallazgos_para_mostrar(h: pd.DataFrame) -> pd.DataFrame:
     return h[[c for c in h.columns if c != "Fila Excel"] + ["Fila Excel"]]
 
 
-_RESULTADOS = ["POSIBLE DISCREPANCIA", "REVISAR", "SIN FUENTE", "OK", CORREGIDO_EN_CIERRE]
+_RESULTADOS = ["POSIBLE DISCREPANCIA", "REVISAR", SIN_FUENTE, "OK", CORREGIDO_EN_CIERRE]
 _GRIS_TEXTO, _GRIS_SUAVE, _GRIS_LINEA, _GRIS_FONDO = "404040", "7F7F7F", "D9D9D9", "F2F2F2"
 _AZUL = "1F3A5F"
 
@@ -263,7 +264,8 @@ def _indicador(ws, i: int, nombre: str, n: int, pct: float | None, color: str) -
         ws.cell(7, col, pct).number_format = "0.0%"
     ws.cell(7, col).font = Font(size=9, color=_GRIS_SUAVE)
     for fila in (5, 6, 7):
-        ws.cell(fila, col).alignment = Alignment(horizontal="left", vertical="center", indent=1)
+        ws.cell(fila, col).alignment = Alignment(horizontal="left", vertical="center", indent=1,
+                                                wrap_text=fila == 5)
         ws.merge_cells(start_row=fila, start_column=col, end_row=fila, end_column=col + _COLS_INDICADOR - 1)
 
 
@@ -350,7 +352,7 @@ def _hoja_dashboard(ws, resultado: ResultadoAuditoria) -> None:
     ws.column_dimensions[get_column_letter(_COL_DATOS)].width = 36
     for c in range(_COL_DATOS + 1, _COL_DATOS + len(_RESULTADOS) + 2):
         ws.column_dimensions[get_column_letter(c)].width = 22
-    for fila, alto in {1: 8, 2: 30, 3: 18, 4: 12, 5: 20, 6: 36, 7: 20, 8: 16}.items():
+    for fila, alto in {1: 8, 2: 30, 3: 18, 4: 12, 5: 30, 6: 36, 7: 20, 8: 16}.items():
         ws.row_dimensions[fila].height = alto
 
     # Encabezado: título, archivo y fecha

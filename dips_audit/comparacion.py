@@ -26,6 +26,7 @@ from openpyxl.utils import get_column_letter
 
 from .auditor import FUERA_DE_ALCANCE, Auditor
 from .cargador import ErrorCarga, Lote, cargar_export, completar_con_icam, parse_fecha, parse_texto
+from .reglas import SEVERIDAD_SIN_FUENTE, SIN_FUENTE
 
 COLUMNAS_MANUALES = {
     "apertura": "DIP Open - RT Audit Completed",
@@ -38,15 +39,14 @@ COLUMNAS_MANUALES = {
 # resultados: OK, sin fuente (el DIP no está en la tabla de referencias), revisar (la tabla
 # da el TA o el RIR según el daño: ir al manual) o posible discrepancia (sin niveles).
 POSIBLE = "Posible discrepancia"
-SIN_FUENTE = "Sin fuente"
 REVISAR = "Revisar en el manual"
 RESULTADOS = ["OK", SIN_FUENTE, REVISAR, POSIBLE]
 # Gravedad interna del hallazgo -> cómo se muestra.
 SEVERIDADES = {"CRITICA": POSIBLE, "NO CRITICA": POSIBLE, "REVISAR": POSIBLE,
-               "CONSULTAR MANUAL": REVISAR, "SIN FUENTE": SIN_FUENTE, "OBSERVACION": "Observación"}
+               "CONSULTAR MANUAL": REVISAR, SEVERIDAD_SIN_FUENTE: SIN_FUENTE, "OBSERVACION": "Observación"}
 # Código del hallazgo -> motivo en palabras simples.
 MOTIVOS = {
-    "sin_referencia": "Sin fuente: el DIP no está en la tabla de referencias",
+    "sin_referencia": f"{SIN_FUENTE}: el DIP no está en la tabla de referencias",
     "sin_referencia_tecnica": "No tiene referencia técnica (ni en ICAM ni en la descripción)",
     "referencia_tecnica_incompleta": "Referencia técnica sin revisión o sin fecha",
     "referencia_tecnica_equivocada": "Referencia técnica de otro ítem de la tabla",
@@ -114,8 +114,8 @@ COINCIDENCIAS = {  # (auditor con discrepancia, resultado del programa) -> texto
     (False, "OK"): "Sí: ambos OK",
     (False, POSIBLE): "No: el programa marca posible discrepancia y el auditor no",
     # Sin fuente no es OK ni discrepancia: no se cuenta como acierto ni como error.
-    (True, SIN_FUENTE): "Sin fuente: el auditor encontró discrepancia",
-    (False, SIN_FUENTE): "Sin fuente: el auditor no encontró discrepancia",
+    (True, SIN_FUENTE): f"{SIN_FUENTE}: el auditor encontró discrepancia",
+    (False, SIN_FUENTE): f"{SIN_FUENTE}: el auditor no encontró discrepancia",
     # Revisar tampoco: el programa no decide, remite al manual.
     (True, REVISAR): "Revisar en el manual: el auditor encontró discrepancia",
     (False, REVISAR): "Revisar en el manual: el auditor no encontró discrepancia",
@@ -152,7 +152,7 @@ def _columnas_manuales(original: pd.DataFrame) -> dict[str, str]:
 def _resultado(estado: str) -> str:
     """Estado del programa -> resultado mostrado: OK, sin fuente, revisar, posible discrepancia o ""
     (no auditado)."""
-    return {"": "", "OK": "OK", "SIN FUENTE": SIN_FUENTE, "REVISAR": REVISAR}.get(estado or "", POSIBLE)
+    return {"": "", "OK": "OK", SIN_FUENTE: SIN_FUENTE, "REVISAR": REVISAR}.get(estado or "", POSIBLE)
 
 
 def _peor(resultados: list[str]) -> str:
@@ -186,7 +186,7 @@ def comparar(auditor: Auditor, ruta: Path, hoja: str | None = None,
     ha, hc = apertura.hallazgos, cierre.hallazgos
     # Sin fuente vale también para el cierre: en los DIPs que el auditor solo revisó al
     # cerrar, es el motivo de ese resultado.
-    sin_fuente_cierre = hc[(hc["Severidad"] == "SIN FUENTE")
+    sin_fuente_cierre = hc[(hc["Severidad"] == SEVERIDAD_SIN_FUENTE)
                            & hc["Fila Excel"].isin(con_cierre - con_apertura)]
     h = pd.concat([ha[(ha["Auditoría"] == "APERTURA") & ha["Fila Excel"].isin(con_apertura)],
                    hc[(hc["Auditoría"] == "CIERRE") & hc["Fila Excel"].isin(con_cierre)],
@@ -255,15 +255,15 @@ def _tablas_resumen(d: pd.DataFrame, h: pd.DataFrame, n_apertura: int,
                          ["Dato", "Cantidad", "%"])))
 
     iguales, distintos = cuenta(coincide.str.startswith("Sí")), cuenta(coincide.str.startswith("No"))
-    sin_fuente = cuenta(coincide.str.startswith("Sin fuente"))
+    sin_fuente = cuenta(coincide.str.startswith(SIN_FUENTE))
     revisar = cuenta(coincide.str.startswith(REVISAR))
     tablas.append(("¿El programa llega al mismo resultado que el auditor?",
                    "El programa marca posible discrepancia si alguna de las auditorías del DIP la tiene. "
-                   "Sin fuente: el DIP no está en la tabla de referencias y no se compara. "
+                   f"{SIN_FUENTE}: el DIP no está en la tabla de referencias y no se compara. "
                    "Revisar en el manual: la tabla da el TA o el RIR según el daño y no se compara.",
                    lista([("Sí, mismo resultado", iguales, _pct(iguales, total)),
                           ("No, resultado distinto", distintos, _pct(distintos, total)),
-                          ("Sin fuente", sin_fuente, _pct(sin_fuente, total)),
+                          (SIN_FUENTE, sin_fuente, _pct(sin_fuente, total)),
                           (REVISAR, revisar, _pct(revisar, total))],
                          ["Respuesta", "DIPs", "%"])))
 
@@ -330,12 +330,14 @@ _COLORES = {
     "Sí: ambos OK": "C9E7C9", "Sí: ambos encuentran discrepancia": "C9E7C9",
     "No: el programa no la detecta": "F4B6B6",
     "No: el programa marca posible discrepancia y el auditor no": "FCE3B0",
-    "Sin fuente: el auditor encontró discrepancia": "D6E4F0",
-    "Sin fuente: el auditor no encontró discrepancia": "D6E4F0",
+    f"{SIN_FUENTE}: el auditor encontró discrepancia": "D6E4F0",
+    f"{SIN_FUENTE}: el auditor no encontró discrepancia": "D6E4F0",
     "Revisar en el manual: el auditor encontró discrepancia": "FFF59D",
     "Revisar en el manual: el auditor no encontró discrepancia": "FFF59D",
 }
 _ANCHOS = {"Fault Name": 42, "Apertura: motivos": 70, "Cierre: motivos": 60,
+           "Programa: resultado": 32, "Apertura: resultado del programa": 32,
+           "Cierre: resultado del programa": 32,
            "REFERENCIA ASOCIADA": 34, "¿Coinciden?": 34, "Motivo": 58, "Ejemplos": 42,
            "Detalle": 90, "Dato": 44, "Respuesta": 44, "Resultado del programa": 26,
            "Qué significa": 48, "Fault Name": 42}

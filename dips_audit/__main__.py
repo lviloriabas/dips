@@ -38,12 +38,13 @@ from .benchmark import DATOS as DATOS_BENCHMARK
 from .cargador import ErrorCarga
 from .extractor_icam import ErrorExtraccion
 from .referencias import ErrorCatalogo
+from .reglas import SEVERIDAD_SIN_FUENTE, SIN_FUENTE
 
 consola = Console()
 ESTILOS = {
     "POSIBLE DISCREPANCIA": "bold yellow",
     "REVISAR": "bold magenta",
-    "SIN FUENTE": "bold cyan",
+    SIN_FUENTE: "bold cyan",
     "OK": "bold green",
     CORREGIDO_EN_CIERRE: "bold bright_green",
     "FUERA DE ALCANCE": "dim",
@@ -65,7 +66,7 @@ def _duracion(segundos: float) -> str:
 def _tabla_hallazgos(resultado) -> Table | None:
     """Tipos de discrepancia: cuántos hallazgos y en cuántos DIPs (% de los auditados)."""
     h = resultado.hallazgos_auditoria_actual()
-    h = h[~h["Severidad"].isin(["OBSERVACION", "SIN FUENTE", "CONSULTAR MANUAL"])]
+    h = h[~h["Severidad"].isin(["OBSERVACION", SEVERIDAD_SIN_FUENTE, "CONSULTAR MANUAL"])]
     if h.empty:
         return None
     auditados = int((resultado.filas["RESULTADO"] != "FUERA DE ALCANCE").sum())
@@ -94,7 +95,7 @@ QUE_HACER = {
     CORREGIDO_EN_CIERRE: "Completar las verificaciones manuales",
     "POSIBLE DISCREPANCIA": "Confirmar o descartar las discrepancias",
     "REVISAR": "Definir el T/A o RIR según el manual",
-    "SIN FUENTE": "Verificar la fuente citada",
+    SIN_FUENTE: "Verificar la fuente citada",
     "FUERA DE ALCANCE": "Tipo de DIP excluido",  # se completa con los tipos
 }
 
@@ -107,7 +108,7 @@ def _resumen(resultado, tiempos: dict[str, float]) -> Panel:
     auditados = len(en_alcance)
     cierre = int((en_alcance["AUDITORÍA"] == "CIERRE").sum())
     h = resultado.hallazgos_auditoria_actual()
-    hallazgos = int((~h["Severidad"].isin(["OBSERVACION", "SIN FUENTE", "CONSULTAR MANUAL"])).sum())
+    hallazgos = int((~h["Severidad"].isin(["OBSERVACION", SEVERIDAD_SIN_FUENTE, "CONSULTAR MANUAL"])).sum())
 
     tipos = dict(zip(resultado.lote.datos["fila"], resultado.lote.datos["tipo"]))
     fuera = filas.loc[filas["RESULTADO"] == "FUERA DE ALCANCE", "Fila Excel"].map(tipos)
@@ -118,7 +119,7 @@ def _resumen(resultado, tiempos: dict[str, float]) -> Panel:
     t.add_column("DIPs", justify="right")
     t.add_column("%", justify="right")
     t.add_column("Acción")
-    for estado in ("OK", CORREGIDO_EN_CIERRE, "POSIBLE DISCREPANCIA", "REVISAR", "SIN FUENTE",
+    for estado in ("OK", CORREGIDO_EN_CIERRE, "POSIBLE DISCREPANCIA", "REVISAR", SIN_FUENTE,
                    "FUERA DE ALCANCE"):
         n = conteo.get(estado, 0)
         if not n and estado == "FUERA DE ALCANCE":

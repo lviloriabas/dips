@@ -59,7 +59,7 @@ def test_sin_fuente(ctx):
     r = ResultadoReglas()
     r.agregar(ctx, "sin_referencia", "Missing Reference in Table", "Sin fuente.")
     assert r.hallazgos[0].severidad == "SIN FUENTE"
-    assert estado_final(r.hallazgos) == "SIN FUENTE"
+    assert estado_final(r.hallazgos) == "SIN FUENTE EN DIPS REFERENCES"
     r.agregar(ctx, "dip_vencido", "Overdue DIP", "Vencido.")
     assert estado_final(r.hallazgos) == "POSIBLE DISCREPANCIA"
     # Con REVISAR en el documento, vuelve a ser posible discrepancia.

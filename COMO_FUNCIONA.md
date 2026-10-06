@@ -14,7 +14,7 @@ Cada DIP termina con uno de estos resultados:
 | --- | --- | --- |
 | POSIBLE DISCREPANCIA | Falló al menos una regla | Lee `HALLAZGOS` y decide |
 | REVISAR | La tabla da el TA o el RIR según el daño (DEPENDING ON, CONSULT REF., MMEL) y el programa no puede saber cuál corresponde | Lo verifica en el manual que cita el hallazgo |
-| SIN FUENTE | El ítem no está en la tabla de referencias | Lo verifica contra la fuente que cita el DIP, o se agrega la fila a la tabla |
+| SIN FUENTE EN DIPS REFERENCES | El ítem no está en la tabla de referencias | Lo verifica contra la fuente que cita el DIP, o se agrega la fila a la tabla |
 | OK | No falló ninguna regla (puede tener observaciones) | Hace lo que pide `VERIFICACIÓN MANUAL` |
 | FUERA DE ALCANCE | Su tipo de DIP se excluyó con `--tipos-dip` | Nada |
 
@@ -33,7 +33,7 @@ flowchart TD
     G --> H
 ```
 
-Un DIP que no está en la tabla sale SIN FUENTE si pasa todas las reglas que se le pueden aplicar, y POSIBLE DISCREPANCIA si falla alguna. Un DIP cerrado se audita dos veces, en la apertura y en el cierre.
+Un DIP que no está en la tabla sale SIN FUENTE EN DIPS REFERENCES si pasa todas las reglas que se le pueden aplicar, y POSIBLE DISCREPANCIA si falla alguna. Un DIP cerrado se audita dos veces, en la apertura y en el cierre.
 
 ## Archivos
 
@@ -291,7 +291,7 @@ Cuando el nombre no coincide con ninguna entrada, se sigue probando en este orde
 
 Un nombre ambiguo salta directo al paso 3. Las task cards JIC que aparecen en la descripción no sirven para reconocer el ítem, porque son la tarea donde se encontró la falla (el Service Visit), no la fuente del DIP.
 
-Si nada funciona, el DIP queda SIN FUENTE; si era ambiguo, el hallazgo nombra las candidatas ("varias referencias posibles"). Además se buscan las dos filas de la tabla más parecidas y se anotan en `VERIFICACIÓN MANUAL`. Si el DIP se parece mucho (90 % o más) a una fila de otro tipo de DIP, queda una observación de que quizá se abrió con el tipo equivocado.
+Si nada funciona, el DIP queda SIN FUENTE EN DIPS REFERENCES; si era ambiguo, el hallazgo nombra las candidatas ("varias referencias posibles"). Además se buscan las dos filas de la tabla más parecidas y se anotan en `VERIFICACIÓN MANUAL`. Si el DIP se parece mucho (90 % o más) a una fila de otro tipo de DIP, queda una observación de que quizá se abrió con el tipo equivocado.
 
 La columna `REFERENCIA ASOCIADA` dice con qué ítem se reconoció el DIP, y `ASOCIACIÓN` cómo: REGLAS (ALTA) por el nombre, REF_TECNICA (ALTA) por la referencia técnica cargada o citada, DESCRIPCION (MEDIA) por la descripción, y AMBIGUA o NINGUNA (BAJA) si no se pudo.
 
@@ -303,7 +303,7 @@ Dos DIPs son posibles duplicados si están en el mismo avión, son el mismo íte
 
 Hay S/N repetido cuando dos o más DIPs activos del mismo avión citan el mismo S/N, como un FAK 1 y un FAK 2 con el mismo número. Es la señal de un duplicado: también queda como observación, y no se anota si ya se anotó el duplicado.
 
-La regla de Parent Assembly distinto de sus pares es solo para DIPs SIN FUENTE. Si el DIP cita una EC/ECRA y al menos otros dos DIPs del archivo que citan la misma están todos en otro Parent Assembly, se marca. Por ejemplo, cinco cambios de toberas por la ECRA 7300-0132C cargados en el motor y uno en el avión. Solo se hace con EC, porque una AMM puede ser genérica.
+La regla de Parent Assembly distinto de sus pares es solo para DIPs SIN FUENTE EN DIPS REFERENCES. Si el DIP cita una EC/ECRA y al menos otros dos DIPs del archivo que citan la misma están todos en otro Parent Assembly, se marca. Por ejemplo, cinco cambios de toberas por la ECRA 7300-0132C cargados en el motor y uno en el avión. Solo se hace con EC, porque una AMM puede ser genérica.
 
 ### Reglas de cada DIP
 
@@ -312,13 +312,13 @@ A cada DIP en alcance se le aplican, en este orden:
 1. Intervalo, Parent Assembly y S/N requerido, solo si el DIP está en la tabla.
 2. Fechas: due date, vencimiento del ítem, DIP vencido, Usage Remaining y, si está COMPLETE, las reglas de cierre. Después, Start del TA, attachments, paquete programado después del due date, S/N contra las notas de la descripción, ATA, Deferral Reference y Fault Severity.
 3. Referencia técnica y RIR.
-4. Si el DIP es SIN FUENTE, las reglas contra su propia descripción.
+4. Si el DIP es SIN FUENTE EN DIPS REFERENCES, las reglas contra su propia descripción.
 5. Lo que salió de comparar con los demás DIPs, el aviso de intervalo tomado de ICAM y las observaciones de la asociación.
 6. Si el técnico declaró que el DIP se creó por error o es un duplicado, se borra todo lo anterior y queda solo ese hallazgo.
 
 A los DIPs con `Defer Dt` desde el 9 de julio de 2026 se les agrega en `VERIFICACIÓN MANUAL` el recordatorio "Verificar attachments: captura de referencia técnica y EC/RA adjunta.". Si el DIP tiene marcas AUDITDIP, esa columna empieza con "Ya se había auditado manualmente" y lo que anotó el auditor en cada marca, por ejemplo "Apertura: DISCREPANCIA (MISSING RIR INTERVAL); Cierre: sin discrepancia".
 
-Las reglas están en `reglas.py`, salvo la referencia técnica y la RIR (`Auditor._referencia_tecnica` y `Auditor._rir`) y las de los DIPs SIN FUENTE (`reglas_descripcion.py`). Lo que sigue es qué revisa cada una.
+Las reglas están en `reglas.py`, salvo la referencia técnica y la RIR (`Auditor._referencia_tecnica` y `Auditor._rir`) y las de los DIPs SIN FUENTE EN DIPS REFERENCES (`reglas_descripcion.py`). Lo que sigue es qué revisa cada una.
 
 #### Intervalo
 
@@ -374,7 +374,7 @@ Algunos ítems tienen una ventana "AFTER A, BEFORE B": su TA tiene que empezar A
 | Filtro de combustible del motor | Después de 10 FH, antes de 75 | Start + 10 FH, 65 FH |
 | Sellante de ventanas | Opcional: 7 días desde la apertura, o Start + 3 y 4 días | Cualquiera de las dos |
 
-Un TA que empieza en otro momento (antes de la apertura, o en la apertura cuando debía empezar en A) es posible discrepancia. Si empieza bien pero dura B, vence después de la ventana y sale como intervalo excedido. En un ítem sin ventana, un Start posterior a la apertura con eso descontado del intervalo (más ciclos en el Start, menos en el TA) se acepta si vence dentro del TA de la tabla; si vence después, es posible discrepancia. En un DIP SIN FUENTE no se sabe si hay ventana: un Start posterior a la apertura queda como observación, pero uno anterior sí es posible discrepancia.
+Un TA que empieza en otro momento (antes de la apertura, o en la apertura cuando debía empezar en A) es posible discrepancia. Si empieza bien pero dura B, vence después de la ventana y sale como intervalo excedido. En un ítem sin ventana, un Start posterior a la apertura con eso descontado del intervalo (más ciclos en el Start, menos en el TA) se acepta si vence dentro del TA de la tabla; si vence después, es posible discrepancia. En un DIP SIN FUENTE EN DIPS REFERENCES no se sabe si hay ventana: un Start posterior a la apertura queda como observación, pero uno anterior sí es posible discrepancia.
 
 #### Attachments y paquete programado
 
@@ -434,7 +434,7 @@ En ICAM las RIR son las Follow-on Tasks de clase ADHOC; las REQ, como el servici
 
 Las tres últimas necesitan la página de la RIR, así que solo se revisan con ICAM.
 
-#### DIPs SIN FUENTE: contra su propia descripción
+#### DIPs SIN FUENTE EN DIPS REFERENCES: contra su propia descripción
 
 Si el DIP no está en la tabla, se revisa contra lo que dice su descripción (`reglas_descripcion.py` y `limites_declarados.py`):
 
@@ -471,14 +471,14 @@ Cada hallazgo tiene la severidad que le asigna `config/discrepancias.yaml` a su 
 | --- | --- | --- |
 | CRITICA, NO CRITICA o REVISAR | `[POSIBLE DISCREPANCIA]` | POSIBLE DISCREPANCIA |
 | CONSULTAR MANUAL | `[REVISAR]` | REVISAR |
-| SIN FUENTE | `[SIN FUENTE]` | SIN FUENTE |
+| SIN FUENTE | `[SIN FUENTE EN DIPS REFERENCES]` | SIN FUENTE EN DIPS REFERENCES |
 | OBSERVACION | `[OBSERVACIÓN]` | Ninguno: no cambia el resultado |
 
 Sin hallazgos, o solo con observaciones, el DIP es OK. Los nombres confunden un poco: la severidad REVISAR da POSIBLE DISCREPANCIA, y el resultado REVISAR sale de CONSULTAR MANUAL. CRITICA, NO CRITICA y REVISAR se mantienen separadas para cuando se definan los niveles de discrepancia con los auditores; hoy solo sirven para ordenar los hallazgos.
 
-Algunos casos fijan la severidad en el código, siempre como observación: Parent Assembly flexible, Start posterior en un SIN FUENTE y referencia técnica distinta cuando no es grave. Si la regla, su tipo de discrepancia o su categoría (con `--categorias`) están desactivados, el hallazgo directamente no se agrega. Por eso, con `--categorias`, un DIP sin referencia puede salir OK: SIN FUENTE es del tipo "Missing Reference in Table" y también quedó afuera. La consola y el Excel lo avisan.
+Algunos casos fijan la severidad en el código, siempre como observación: Parent Assembly flexible, Start posterior en un SIN FUENTE EN DIPS REFERENCES y referencia técnica distinta cuando no es grave. Si la regla, su tipo de discrepancia o su categoría (con `--categorias`) están desactivados, el hallazgo directamente no se agrega. Por eso, con `--categorias`, un DIP sin referencia puede salir OK: SIN FUENTE EN DIPS REFERENCES es del tipo "Missing Reference in Table" y también quedó afuera. La consola y el Excel lo avisan.
 
-Un DIP COMPLETE tiene hallazgos de apertura y de cierre. Son de cierre `completado_fuera_de_plazo`, `cierre_deadline_extendido`, `cierre_sin_accion_correctiva`, `cierre_sin_referencia_tecnica`, `cierre_referencia_incompleta`, `cierre_sn_distinto` y `cierre_sin_adjuntos` (`reglas.CODIGOS_CIERRE`); todos los demás son de apertura. En el Excel, `ESTADO APERTURA` es el resultado de los hallazgos de apertura y `ESTADO CIERRE` el de los de cierre más el SIN FUENTE, que vale para las dos. `RESULTADO` junta todos. `AUDITORÍA` dice CIERRE si el DIP está COMPLETE y APERTURA si no.
+Un DIP COMPLETE tiene hallazgos de apertura y de cierre. Son de cierre `completado_fuera_de_plazo`, `cierre_deadline_extendido`, `cierre_sin_accion_correctiva`, `cierre_sin_referencia_tecnica`, `cierre_referencia_incompleta`, `cierre_sn_distinto` y `cierre_sin_adjuntos` (`reglas.CODIGOS_CIERRE`); todos los demás son de apertura. En el Excel, `ESTADO APERTURA` es el resultado de los hallazgos de apertura y `ESTADO CIERRE` el de los de cierre más el SIN FUENTE EN DIPS REFERENCES, que vale para las dos. `RESULTADO` junta todos. `AUDITORÍA` dice CIERRE si el DIP está COMPLETE y APERTURA si no.
 
 El `COMENTARIO SUGERIDO` es un texto listo para el comentario del auditor: "T/A aperturado correctamente" si el intervalo coincide con la tabla, seguido de los mensajes de los hallazgos que no son observaciones ni "revisar en el manual", separados por " // ". Un DIP cerrado sin attachments tiene dos hallazgos (apertura y cierre), pero el comentario lo dice una vez. En un DIP creado por error, el comentario es solo ese mensaje.
 
@@ -503,7 +503,7 @@ Columnas que agrega el programa en la hoja Auditoría:
 
 | Columna | Contenido |
 | --- | --- |
-| `RESULTADO` | POSIBLE DISCREPANCIA, REVISAR, SIN FUENTE, OK o FUERA DE ALCANCE, con color |
+| `RESULTADO` | POSIBLE DISCREPANCIA, REVISAR, SIN FUENTE EN DIPS REFERENCES, OK o FUERA DE ALCANCE, con color |
 | `COMENTARIO SUGERIDO` | Ver [El resultado](#el-resultado) |
 | `HALLAZGOS` | Uno por línea, del más grave al más leve: `[POSIBLE DISCREPANCIA] [CIERRE] mensaje` |
 | `VERIFICACIÓN MANUAL` | Un punto por línea |
@@ -520,7 +520,7 @@ Columnas que agrega el programa en la hoja Auditoría:
 | `ESTADO APERTURA`, `ESTADO CIERRE` | Resultado de cada auditoría, con color |
 | `Fila Excel` | Número de fila en el Excel de entrada |
 
-Los colores son naranja claro para POSIBLE DISCREPANCIA, amarillo para REVISAR, celeste para SIN FUENTE, verde para OK y gris para FUERA DE ALCANCE.
+Los colores son naranja claro para POSIBLE DISCREPANCIA, amarillo para REVISAR, celeste para SIN FUENTE EN DIPS REFERENCES, verde para OK y gris para FUERA DE ALCANCE.
 
 ## Auditar un solo DIP
 
@@ -542,7 +542,7 @@ El archivo se audita dos veces: una con la fecha y hora en que el auditor hizo l
 | Con discrepancia | Posible discrepancia | Coinciden |
 | Sin discrepancia | Posible discrepancia | El programa marca algo que el auditor no marcó |
 | Con discrepancia | OK | El programa no la detecta |
-| Cualquiera | SIN FUENTE o REVISAR | No cuenta ni como acierto ni como error |
+| Cualquiera | SIN FUENTE EN DIPS REFERENCES o REVISAR | No cuenta ni como acierto ni como error |
 
 El resultado va a `salida/<nombre>_COMPARACION_<fecha>.xlsx`, con tres hojas: Resumen (una tabla por pregunta: si coinciden, qué dijo el programa de cada grupo, por qué marca DIPs que el auditor dio OK...), Detalle por DIP (la auditoría manual y la del programa lado a lado) y Hallazgos del programa (uno por fila, con el motivo en palabras simples).
 
@@ -568,7 +568,7 @@ Sin `--icam` la corrida tarda segundos en vez de minutos, pero revisa menos y de
 | TA con dos límites | Verificación manual | Se revisa |
 | RIR | El RIR activo de las columnas `Rir ...`, sin Start ni Parent | Todas, con intervalo, límites, Start y Parent |
 | S/N contra las notas de la descripción | No | Sí |
-| Reglas de los SIN FUENTE | Con la descripción del Excel | Con la descripción y las notas de ICAM |
+| Reglas de los SIN FUENTE EN DIPS REFERENCES | Con la descripción del Excel | Con la descripción y las notas de ICAM |
 | Acción correctiva y S/N removido | No | Sí |
 | Generators de oxígeno | Verificación manual, con la fecha de la descripción | Exp. Date del PDF de inventario |
 | DIP ya auditado (AUDITDIP) | No se sabe | Nota en verificación manual y lo que anotó el auditor |
@@ -633,7 +633,7 @@ Una entrada por ítem:
 ### Cambios frecuentes
 
 - Para que se entienda un error de escritura frecuente, se agrega a `_SINONIMOS` en `dips_audit/texto.py`.
-- Para cubrir un ítem que sale SIN FUENTE, se agrega la fila a `DIPs References.xlsx`. Con eso ya se reconoce por su referencia técnica y por sus palabras; para reconocer todos sus DIPs, conviene escribirle su entrada en el catálogo.
+- Para cubrir un ítem que sale SIN FUENTE EN DIPS REFERENCES, se agrega la fila a `DIPs References.xlsx`. Con eso ya se reconoce por su referencia técnica y por sus palabras; para reconocer todos sus DIPs, conviene escribirle su entrada en el catálogo.
 - Si un DIP se asocia a un ítem equivocado, se agrega la palabra que lo distingue en `excluir` de esa entrada.
 - Para que una regla sea solo observación, se cambia su valor a `OBSERVACION` en `discrepancias.yaml`. Para desactivarla, se usa `{activa: false, severidad: VALOR_ACTUAL}`.
 - Las tolerancias están en `config/config.yaml`.
@@ -658,12 +658,12 @@ PD es posible discrepancia y Obs. es observación. La severidad es la que tiene 
 | `usage_remaining_mayor_a_intervalo` | Incorrect DIP Interval | Usage Remaining mayor que el intervalo | Obs. |
 | `limite_faltante` | Incorrect DIP Interval | La tabla pide dos límites y el TA en ICAM no los tiene | PD |
 | `intervalo_segun_manual` | Incorrect DIP Interval | La tabla da el TA según el daño o el tipo | REVISAR |
-| `intervalo_mayor_a_descripcion` | Incorrect DIP Interval | SIN FUENTE: TA mayor que el plazo de la descripción | PD |
-| `tipo_intervalo_distinto_a_descripcion` | Incorrect DIP Interval | SIN FUENTE: TA en otra unidad que la descripción | PD |
-| `limite_declarado_faltante` | Incorrect DIP Interval | SIN FUENTE: la descripción pide varios límites y el TA no los tiene | PD |
-| `datos_incompletos` | Deferral Interval Not Documented | Sin intervalo o sin tipo (en SIN FUENTE: sin TA ni RIR) | PD |
+| `intervalo_mayor_a_descripcion` | Incorrect DIP Interval | SIN FUENTE EN DIPS REFERENCES: TA mayor que el plazo de la descripción | PD |
+| `tipo_intervalo_distinto_a_descripcion` | Incorrect DIP Interval | SIN FUENTE EN DIPS REFERENCES: TA en otra unidad que la descripción | PD |
+| `limite_declarado_faltante` | Incorrect DIP Interval | SIN FUENTE EN DIPS REFERENCES: la descripción pide varios límites y el TA no los tiene | PD |
+| `datos_incompletos` | Deferral Interval Not Documented | Sin intervalo o sin tipo (en SIN FUENTE EN DIPS REFERENCES: sin TA ni RIR) | PD |
 | `intervalo_de_icam` | Missing Data | El Excel no trae intervalo; se usó el de ICAM | Obs. |
-| `inicio_ta_incorrecto` | Incorrect DIP Start Values | Start del TA distinto de la apertura (o de apertura + A); posterior con el intervalo descontado se acepta | PD (Obs. en SIN FUENTE con Start posterior) |
+| `inicio_ta_incorrecto` | Incorrect DIP Start Values | Start del TA distinto de la apertura (o de apertura + A); posterior con el intervalo descontado se acepta | PD (Obs. en SIN FUENTE EN DIPS REFERENCES con Start posterior) |
 | `due_date_posterior_a_intervalo` | Incorrect Due Date | Due date después del Start + intervalo | PD |
 | `due_date_anterior_a_intervalo` | Incorrect Due Date | Due date antes del Start + intervalo | Obs. |
 | `due_date_posterior_a_vencimiento_item` | Incorrect Due Date | Due date después del vencimiento del ítem | PD |
@@ -671,7 +671,7 @@ PD es posible discrepancia y Obs. es observación. La severidad es la que tiene 
 | `dip_vencido` | Overdue DIP | DIP activo vencido a la hora de la auditoría | PD |
 | `programado_despues_del_due` | Overdue DIP | Paquete de trabajo programado después del due date | PD |
 | `parent_assy_incorrecto` | Incorrect Parent Assembly | Parent Assembly distinto del de la tabla | PD (Obs. si es flexible) |
-| `parent_assy_distinto_a_pares` | Incorrect Parent Assembly | SIN FUENTE: los demás DIPs con la misma EC están en otro | PD |
+| `parent_assy_distinto_a_pares` | Incorrect Parent Assembly | SIN FUENTE EN DIPS REFERENCES: los demás DIPs con la misma EC están en otro | PD |
 | `deferral_reference_ata` | Incorrect ATA | Deferral Reference no empieza con el ATA | Obs. |
 | `ata_distinto_a_referencia` | Incorrect ATA | ATA distinto del de la tabla | Obs. |
 | `sin_sn_en_descripcion` | Missing S/N | La tabla pide S/N y el DIP no lo cita | Obs. |
@@ -694,8 +694,8 @@ PD es posible discrepancia y Obs. es observación. La severidad es la que tiene 
 | `rir_inicio_distinto` | RIR | La RIR no empieza donde empieza el TA | PD |
 | `rir_parent_distinto` | RIR | RIR en otro Parent Assembly | PD |
 | `rir_segun_manual` | RIR | La tabla da el RIR según el daño | REVISAR |
-| `rir_descripcion_faltante` | RIR | SIN FUENTE: la descripción pide inspección repetitiva y no hay RIR | PD |
-| `rir_descripcion_distinto` | RIR | SIN FUENTE: RIR distinta de la que pide la descripción | PD |
+| `rir_descripcion_faltante` | RIR | SIN FUENTE EN DIPS REFERENCES: la descripción pide inspección repetitiva y no hay RIR | PD |
+| `rir_descripcion_distinto` | RIR | SIN FUENTE EN DIPS REFERENCES: RIR distinta de la que pide la descripción | PD |
 | `sin_adjuntos` | Missing Attachment | Sin attachments | PD |
 | `adjunto_otro_avion` | Missing Attachment | Attachment con la matrícula de otro avión | Obs. |
 | `sin_inventario_generadores` | Missing Attachment | Generators: sin el PDF de inventario | Obs. |
@@ -703,7 +703,7 @@ PD es posible discrepancia y Obs. es observación. La severidad es la que tiene 
 | `asociacion_por_referencia_tecnica` | Reference Match | Asociado por la referencia técnica | Obs. |
 | `asociacion_por_descripcion` | Reference Match | Asociado por la descripción | Obs. |
 | `asociacion_por_tabla` | Reference Match | Asociado a una fila sin entrada en el catálogo | Obs. |
-| `sin_referencia` | Missing Reference in Table | No está en la tabla, o es ambiguo | SIN FUENTE |
+| `sin_referencia` | Missing Reference in Table | No está en la tabla, o es ambiguo | SIN FUENTE EN DIPS REFERENCES |
 | `tipo_dip_distinto_a_referencia` | Incorrect DIP Type | Parece una fila de otro tipo de DIP | Obs. |
 
 ### Reglas de cierre
@@ -748,7 +748,7 @@ La carpeta `dips_audit/`, más o menos en el orden en que interviene cada archiv
 | `reglas.py` | Reglas de apertura y cierre, duplicados y resultado |
 | `rir.py` | Arma las RIR y las revisa |
 | `limites_declarados.py` | Lee plazos, inspecciones y vencimientos de la descripción |
-| `reglas_descripcion.py` | Reglas de los DIPs SIN FUENTE |
+| `reglas_descripcion.py` | Reglas de los DIPs SIN FUENTE EN DIPS REFERENCES |
 | `auditor.py` | Une todo: asociación, reglas y resultado |
 | `reporte.py` | Escribe el Excel de salida y el dashboard |
 | `comparacion.py` | Compara con la auditoría manual |
@@ -760,7 +760,7 @@ Los datos pasan de una etapa a la siguiente en un solo sentido. El Excel se conv
 
 - ICAM muestra el presente. El programa ve el DIP como está hoy, no como estaba cuando lo auditó una persona. Por eso el mismo Excel puede dar otro resultado más tarde: pudo cambiar ICAM (se agregó un attachment, se cerró el DIP), pudo cambiar la fecha de auditoría (un DIP venció, un duplicado se cerró) o una corrida usó ICAM y la otra no. Con `--fecha` se audita a un momento fijo.
 - Los attachments se cuentan, no se leen. El programa no sabe si un attachment es la captura de la referencia o una foto, salvo los PDF de inventario de generators y los nombres que parecen capturas de un barcode.
-- La tabla de referencias no está completa. Lo que no tiene (daños de Structures con ECRA propia, CNR de vibración, aire o combustible, cables de spoiler...) sale SIN FUENTE.
+- La tabla de referencias no está completa. Lo que no tiene (daños de Structures con ECRA propia, CNR de vibración, aire o combustible, cables de spoiler...) sale SIN FUENTE EN DIPS REFERENCES.
 - Hay criterios por confirmar con los auditores: los niveles de discrepancia, el cierre tarde con Usage Remaining -1, el TA de algunos ítems (amortiguadores MAX, filtro de combustible, sellante de ventanas, pitot MAX) y la revisión vigente de los manuales. El detalle está en [docs/tecnico.md](docs/tecnico.md#12-pendientes).
 - Se audita una sola hoja por corrida: la primera con encabezados, o la de `--hoja`.
 - La flota se deduce de la matrícula. MAX 8 y MAX 9 se distinguen por HP-98xx y HP-99xx, y un DIP sin matrícula conocida queda como "Sin flota" en el dashboard.

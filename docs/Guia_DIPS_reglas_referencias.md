@@ -33,7 +33,7 @@ $ .\auditar.bat T40S0099V9C
 
 Sustituya el barcode de ejemplo por el real. El programa consulta el DIP en ICAM y muestra los datos, el resultado y los hallazgos en la terminal. Esta consulta no genera un Excel de resultado.
 
-Los resultados de auditoría quedan en **`salida/`**. Revise `RESULTADO`, `HALLAZGOS` y `VERIFICACIÓN MANUAL`: **POSIBLE DISCREPANCIA** requiere revisar el hallazgo, **REVISAR** consultar el manual, **SIN FUENTE** comprobar la referencia y **OK** completar las verificaciones manuales.
+Los resultados de auditoría quedan en **`salida/`**. Revise `RESULTADO`, `HALLAZGOS` y `VERIFICACIÓN MANUAL`: **POSIBLE DISCREPANCIA** requiere revisar el hallazgo, **REVISAR** consultar el manual, **SIN FUENTE EN DIPS REFERENCES** comprobar la referencia y **OK** completar las verificaciones manuales.
 
 ## Configurar los chequeos desde el YAML
 
@@ -63,7 +63,7 @@ Para reactivarla, cambie `false` por `true`. Para desactivar un tipo completo, a
 | --- | --- |
 | `CRITICA`, `NO CRITICA`, `REVISAR` | POSIBLE DISCREPANCIA |
 | `CONSULTAR MANUAL` | REVISAR |
-| `SIN FUENTE` | SIN FUENTE |
+| `SIN FUENTE` | SIN FUENTE EN DIPS REFERENCES |
 | `OBSERVACION` | Informa sin cambiar el resultado |
 
 Prevalece el hallazgo de mayor severidad.

@@ -15,8 +15,9 @@ from .referencias import EntradaCatalogo, Limite, Variante
 from .rir import solo_rir
 from .texto import clave_sn, extraer_fechas, extraer_psi, extraer_sn, normalizar, posiciones
 
+SEVERIDAD_SIN_FUENTE = "SIN FUENTE"  # Valor de configuración; separado de la etiqueta del resultado.
 ORDEN_SEVERIDAD = {"CRITICA": 6, "NO CRITICA": 5, "REVISAR": 4, "CONSULTAR MANUAL": 3,
-                   "SIN FUENTE": 2, "OBSERVACION": 1}
+                   SEVERIDAD_SIN_FUENTE: 2, "OBSERVACION": 1}
 # El resultado de un DIP es OK, REVISAR, SIN FUENTE o POSIBLE DISCREPANCIA: los niveles (crítica /
 # no crítica) y los tipos de discrepancia todavía no coinciden con el proceso de los
 # auditores. La severidad de cada regla (config/discrepancias.yaml) solo ordena los hallazgos
@@ -24,7 +25,7 @@ ORDEN_SEVERIDAD = {"CRITICA": 6, "NO CRITICA": 5, "REVISAR": 4, "CONSULTAR MANUA
 POSIBLE_DISCREPANCIA = "POSIBLE DISCREPANCIA"
 # El DIP no está en la tabla de referencias: no hay contra qué auditarlo. Una posible
 # discrepancia que no depende de la tabla (vencido, cierre tarde...) pesa más.
-SIN_FUENTE = "SIN FUENTE"
+SIN_FUENTE = "SIN FUENTE EN DIPS REFERENCES"
 # La tabla da el TA o el RIR según el daño o el tipo ("DEPENDING ON...", "CONSULT REF."):
 # el auditor lo revisa en el manual. Una posible discrepancia pesa más.
 REVISAR = "REVISAR"
@@ -33,12 +34,12 @@ ESTADOS = {
     "NO CRITICA": POSIBLE_DISCREPANCIA,
     "REVISAR": POSIBLE_DISCREPANCIA,
     "CONSULTAR MANUAL": REVISAR,
-    "SIN FUENTE": SIN_FUENTE,
+    SEVERIDAD_SIN_FUENTE: SIN_FUENTE,
 }
 # Cómo se muestra cada hallazgo según su severidad.
 MOSTRAR_SEVERIDAD = {"CRITICA": POSIBLE_DISCREPANCIA, "NO CRITICA": POSIBLE_DISCREPANCIA,
                      "REVISAR": POSIBLE_DISCREPANCIA, "CONSULTAR MANUAL": REVISAR,
-                     "SIN FUENTE": SIN_FUENTE,
+                     SEVERIDAD_SIN_FUENTE: SIN_FUENTE,
                      "OBSERVACION": "OBSERVACIÓN"}
 # Cada DIP se audita dos veces: al abrirse (APERTURA) y al cerrarse (CIERRE). Estos códigos
 # son de la auditoría de cierre; todos los demás, de la de apertura.

@@ -46,7 +46,7 @@ def test_auditoria_de_punta_a_punta(auditor_others, export, tmp_path):
     assert estados == {
         "T1": "OK",
         "T2": "POSIBLE DISCREPANCIA",
-        "T3": "SIN FUENTE",
+        "T3": "SIN FUENTE EN DIPS REFERENCES",
         "T4": "OK",
         "T5": "OK",
         "T6": "FUERA DE ALCANCE",
@@ -135,7 +135,7 @@ def test_resultado_corresponde_a_la_auditoria_actual(auditor, tmp_path, capsys, 
         assert "(2 hallazgos)" in consola  # intervalo incorrecto y DIP vencido.
 
 
-@pytest.mark.parametrize("remanente, esperado", [(36, "SIN FUENTE"),
+@pytest.mark.parametrize("remanente, esperado", [(36, "SIN FUENTE EN DIPS REFERENCES"),
                                                (-1, "POSIBLE DISCREPANCIA")])
 def test_cierre_conserva_sin_fuente_y_discrepancias_del_cierre(auditor, tmp_path, remanente,
                                                              esperado):

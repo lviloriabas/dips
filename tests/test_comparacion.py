@@ -63,6 +63,25 @@ def test_exporta_excel(tmp_path, auditor):
     assert salida.exists()
 
 
+def test_sin_fuente_en_dips_references_se_cuenta_en_apertura_y_cierre(tmp_path, auditor):
+    due = datetime(2026, 8, 21, 23, 59)
+    apertura = _fila("S1", "ACTV", due, None, datetime(2026, 8, 18, 12), None)
+    cierre = _fila("S2", "COMPLETE", due, datetime(2026, 8, 20), None,
+                   datetime(2026, 8, 20, 12))
+    apertura[3] = cierre[3] = "DEFIBRILLATOR DUE DATE"
+    entrada = crear_export(tmp_path / "entrada.xlsx", [apertura, cierre], encabezado=ENCABEZADO)
+    comparacion = comparar(auditor, entrada)
+    etiqueta = "SIN FUENTE EN DIPS REFERENCES"
+    detalle = comparacion.detalle.set_index("Fault Barcode")
+    assert detalle.loc["S1", "Apertura: resultado del programa"] == etiqueta
+    assert detalle.loc["S2", "Cierre: resultado del programa"] == etiqueta
+    assert (detalle["Programa: resultado"] == etiqueta).all()
+    assert detalle["¿Coinciden?"].str.startswith(etiqueta).all()
+    tabla = next(df for titulo, _, df in comparacion.tablas
+                 if titulo == "¿El programa llega al mismo resultado que el auditor?")
+    assert tabla.set_index("Respuesta").loc[etiqueta, "DIPs"] == 2
+
+
 def test_modo_prueba_separa_icam_y_salida_y_marca_los_resultados(tmp_path, config, monkeypatch):
     """Un Excel dentro de la carpeta de pruebas usa pruebas/icam.json y pruebas/salida, y el
     resultado lleva el prefijo PRUEBA_ y el aviso en el Excel."""

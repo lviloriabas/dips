@@ -20,7 +20,7 @@ flowchart LR
     P --> S[Excel de salida]
     S --> D[POSIBLE DISCREPANCIA]
     S --> R[REVISAR]
-    S --> F[SIN FUENTE]
+    S --> F[SIN FUENTE EN DIPS REFERENCES]
     S --> O[OK]
     D --> U([Auditor confirma])
     R --> U
@@ -32,13 +32,13 @@ flowchart LR
     style O fill:#C9E7C9,color:#000
 ```
 
-`DIPs References.xlsx` dice qué exige cada ítem (TA, Parent Assy, AMM/ECRA, RIR). El **catálogo** (`config/catalogo_others.yaml`) dice cómo reconocer ese ítem en el Fault Name: qué palabras debe tener y cuáles no ("CREW OXY 850 PSI" -> `CREW OXYGEN BOTTLE PRESSURE`). También resuelve los TA que en la tabla dependen de la flota o de la presión. Un DIP que no coincide con ninguna entrada sale SIN FUENTE.
+`DIPs References.xlsx` dice qué exige cada ítem (TA, Parent Assy, AMM/ECRA, RIR). El **catálogo** (`config/catalogo_others.yaml`) dice cómo reconocer ese ítem en el Fault Name: qué palabras debe tener y cuáles no ("CREW OXY 850 PSI" -> `CREW OXYGEN BOTTLE PRESSURE`). También resuelve los TA que en la tabla dependen de la flota o de la presión. Un DIP que no coincide con ninguna entrada sale SIN FUENTE EN DIPS REFERENCES.
 
 | Resultado            | Qué significa                                                                           | Qué hace el auditor                               |
 | -------------------- | ---------------------------------------------------------------------------------------- | -------------------------------------------------- |
 | POSIBLE DISCREPANCIA | Falló al menos una regla                                                                | Lee`HALLAZGOS` y decide                          |
 | REVISAR              | La tabla da el TA o el RIR según el daño o el tipo ("DEPENDING ON...", "CONSULT REF.") | Lo verifica en el manual que indica el hallazgo    |
-| SIN FUENTE           | El DIP no está en la tabla de referencias                                               | Lo verifica contra la fuente que cita el DIP       |
+| SIN FUENTE EN DIPS REFERENCES           | El DIP no está en la tabla de referencias                                               | Lo verifica contra la fuente que cita el DIP       |
 | OK                   | No falló ninguna regla (puede tener observaciones)                                      | Hace las verificaciones de`VERIFICACIÓN MANUAL` |
 | FUERA DE ALCANCE     | Tipo de DIP excluido con`--tipos-dip`                                                  | No se revisa                                       |
 
@@ -56,7 +56,7 @@ flowchart TD
     A["1. Ejecutar auditar.bat con el Excel de entrada<br/>(con --icam para leer todos los DIPs en ICAM)"] --> B
     B["2. Con --icam, si se pide, iniciar sesión en ICAM<br/>en la ventana de Edge (se cierra al terminar)"] --> C
     C["3. Abrir el Excel de salida en la carpeta salida<br/>Hoja Dashboard: resumen y gráficos"] --> D
-    D["4. Hoja Auditoría: filtrar RESULTADO<br/>y revisar POSIBLE DISCREPANCIA, REVISAR y SIN FUENTE"]
+    D["4. Hoja Auditoría: filtrar RESULTADO<br/>y revisar POSIBLE DISCREPANCIA, REVISAR y SIN FUENTE EN DIPS REFERENCES"]
 ```
 
 Sin `--icam` se audita solo con el Excel: menos reglas (no hay Start del T/A, RIR vigentes, notas de la descripción ni acción correctiva) y más verificaciones manuales.
@@ -136,7 +136,7 @@ flowchart TD
     N[Fault Name, referencia técnica<br/>o descripción] --> REF{¿Referencia en la tabla?}
     REF -- No --> SD[Reglas de la descripción<br/>y reglas generales]
     SD -- Falla alguna --> PD
-    SD -- Ninguna falla --> SF[SIN FUENTE]
+    SD -- Ninguna falla --> SF[SIN FUENTE EN DIPS REFERENCES]
     REF -- Sí --> M{¿TA o RIR<br/>según el manual?}
     M -- Sí --> RV[REVISAR]
     M -- No --> V[Intervalo, Start, Parent Assy, Due date, Vencido<br/>Referencia técnica, RIR, Attachments, S/N, Duplicados]
@@ -177,8 +177,8 @@ Si en un DIP con REVISAR además falla otra regla, queda en POSIBLE DISCREPANCIA
 | Cierre sin acción correctiva                                                                      | OBSERVACIÓN           |
 | Acción correctiva sin cita del manual                                                             | OBSERVACIÓN           |
 | TA o RIR según el daño o el tipo ("DEPENDING ON...", "CONSULT REF.")                             | REVISAR (ir al manual) |
-| Sin referencia en la tabla                                                                         | SIN FUENTE             |
-| DIP SIN FUENTE con T/A mayor que el plazo de su descripción, o sin el RIR que pide                | POSIBLE DISCREPANCIA   |
+| Sin referencia en la tabla                                                                         | SIN FUENTE EN DIPS REFERENCES             |
+| DIP SIN FUENTE EN DIPS REFERENCES con T/A mayor que el plazo de su descripción, o sin el RIR que pide                | POSIBLE DISCREPANCIA   |
 
 Qué tipos de discrepancia y reglas se revisan, y cuáles son solo observación, se configura en `config/discrepancias.yaml`. Ese archivo guarda además una severidad interna por regla (CRITICA, NO CRITICA, REVISAR) que hoy solo ordena los hallazgos: los niveles de discrepancia todavía no están definidos con los auditores.
 

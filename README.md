@@ -1,8 +1,8 @@
 # Auditor preliminar de DIPs
 
-Audita los DIPs de un Excel (por defecto, de todos los tipos) con los datos de **ICAM** (solo lectura) y `DIPs References.xlsx`. Resultado por DIP: **POSIBLE DISCREPANCIA**, **REVISAR**, **SIN FUENTE**, **OK** o **CORREGIDO EN CIERRE**, con el motivo. Reglas fijas, sin IA. Detalle en [docs/tecnico.md](docs/tecnico.md).
+Audita los DIPs de un Excel (por defecto, de todos los tipos) con los datos de **ICAM** (solo lectura) y `DIPs References.xlsx`. Resultado por DIP: **POSIBLE DISCREPANCIA**, **REVISAR**, **SIN FUENTE EN DIPS REFERENCES**, **OK** o **CORREGIDO EN CIERRE**, con el motivo. Reglas fijas, sin IA. Detalle en [docs/tecnico.md](docs/tecnico.md).
 
-Cada fila de `DIPs References.xlsx` (Others, Powerplant y Structures) tiene en `config/catalogo_others.yaml` las palabras con que se reconoce en los DIPs. Una fila nueva sin entrada en ese archivo se usa igual: se reconoce por su referencia técnica o por las palabras de su DESCRIPTION (con la entrada se reconocen muchos más DIPs). Los DIPs que no están en la tabla salen **SIN FUENTE** y se revisan contra el plazo, el RIR y el vencimiento que dice su propia descripción. Para auditar solo algunos tipos use `--tipos-dip` (o `tipos_auditados` en `config/config.yaml`); los demás quedan **FUERA DE ALCANCE** (otro tipo de DIP) y no se revisan.
+Cada fila de `DIPs References.xlsx` (Others, Powerplant y Structures) tiene en `config/catalogo_others.yaml` las palabras con que se reconoce en los DIPs. Una fila nueva sin entrada en ese archivo se usa igual: se reconoce por su referencia técnica o por las palabras de su DESCRIPTION (con la entrada se reconocen muchos más DIPs). Los DIPs que no están en la tabla salen **SIN FUENTE EN DIPS REFERENCES** y se revisan contra el plazo, el RIR y el vencimiento que dice su propia descripción. Para auditar solo algunos tipos use `--tipos-dip` (o `tipos_auditados` en `config/config.yaml`); los demás quedan **FUERA DE ALCANCE** (otro tipo de DIP) y no se revisan.
 
 ## Instalación
 
@@ -104,7 +104,7 @@ Pruebas: `.venv\Scripts\python -m pytest`
 | --- | --- |
 | POSIBLE DISCREPANCIA | Leer `HALLAZGOS` y decidir |
 | REVISAR | La tabla da el TA o el RIR según el daño o el tipo ("DEPENDING ON...", "CONSULT REF."): verificarlo en el manual que indica el hallazgo |
-| SIN FUENTE | El DIP no está en la tabla de referencias: verificarlo contra la fuente que cita (o agregar la referencia a la tabla) |
+| SIN FUENTE EN DIPS REFERENCES | El DIP no está en la tabla de referencias: verificarlo contra la fuente que cita (o agregar la referencia a la tabla) |
 | OK | Hacer las verificaciones de `VERIFICACIÓN MANUAL` |
 | CORREGIDO EN CIERRE | Discrepancia de apertura con cierre OK. Hacer las verificaciones de `VERIFICACIÓN MANUAL` |
 
