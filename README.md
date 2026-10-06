@@ -114,6 +114,11 @@ el resultado es **OK**, aunque la apertura tenga discrepancias. `ESTADO APERTURA
 los hallazgos marcados `[APERTURA]` conservan ese historial. El comentario sugerido
 y los conteos de discrepancias en consola corresponden a la auditoría actual.
 
+Los DIPs que mencionan **BOROSCOPE** o **BORESCOPE** en el nombre, la descripción
+o sus notas se siguen **solo por RIR, sin T/A**. No se exige ni se valida el intervalo,
+el Start o el plazo del T/A. Se revisa que exista el RIR y se valida contra la tabla
+o el periodo que declare la descripción; si faltan datos, queda para verificación manual.
+
 ## Ajustes
 
 | Qué | Dónde |

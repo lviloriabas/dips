@@ -18,7 +18,7 @@ from .referencia_tecnica import extraer_codigos, sin_task_cards
 from .referencias import EntradaCatalogo
 from .reglas import ACTIVOS, Contexto, ResultadoReglas, _como_fecha, _fecha, _fmt
 from .rir import Limite as LimiteRIR
-from .rir import _mismo
+from .rir import _mismo, solo_rir
 
 # Parámetro del T/A en ICAM -> unidad.
 _UNIDAD_TA = {"CDY": "DAY", "DAY": "DAY", "HOURS": "FH", "HOUR": "FH", "CYCLES": "FC", "CYCLE": "FC"}
@@ -105,6 +105,8 @@ def regla_rir_declarado(dip: dict, ctx: Contexto, r: ResultadoReglas) -> None:
         return
     if not rirs:
         if dip.get("historico_rir") or dip.get("estado") in ACTIVOS:
+            if any(h.codigo == "rir_faltante" for h in r.hallazgos):
+                return  # La ausencia del RIR ya se informó.
             r.agregar(ctx, "rir_descripcion_faltante", "RIR",
                       f"Sin RIR; la descripción pide {texto}.")
         else:
@@ -170,12 +172,17 @@ def regla_sin_ta(dip: dict, ctx: Contexto, r: ResultadoReglas) -> None:
 def revisar_descripcion(dip: dict, entrada: EntradaCatalogo | None, ctx: Contexto,
                         r: ResultadoReglas) -> None:
     """Reglas contra la descripción. Solo en los DIPs que la tabla no tiene."""
+    sin_ta = solo_rir(dip)
     if entrada is not None:
+        if sin_ta and not entrada.rir_segun_manual and not any(v.rir for v in entrada.variantes):
+            regla_rir_declarado(dip, ctx, r)
         return
-    regla_sin_ta(dip, ctx, r)
-    regla_plazo_declarado(dip, ctx, r)
+    if not sin_ta:
+        regla_sin_ta(dip, ctx, r)
+        regla_plazo_declarado(dip, ctx, r)
     regla_rir_declarado(dip, ctx, r)
-    regla_vencimiento_declarado(dip, ctx, r)
+    if not sin_ta:
+        regla_vencimiento_declarado(dip, ctx, r)
 
 
 def _codigo_citado(dip: dict) -> str | None:

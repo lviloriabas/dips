@@ -21,11 +21,19 @@ from dataclasses import dataclass, field
 from datetime import datetime
 
 from .icam import FichaICAM, TareaSiguiente
+from .texto import normalizar
 
 # Unidad normalizada de ICAM y de la tabla: DAY, FH, FC, MONTH.
 _UNIDADES = {"CDY": "DAY", "DAY": "DAY", "DAYS": "DAY", "D": "DAY", "HOUR": "FH", "HOURS": "FH",
              "FH": "FH", "HRS": "FH", "CYCLE": "FC", "CYCLES": "FC", "FC": "FC", "LANDINGS": "FC",
              "MONTH": "MONTH", "MONTHS": "MONTH", "CMON": "MONTH"}
+
+
+def solo_rir(dip: dict) -> bool:
+    """Los DIPs que mencionan boroscope/borescope se siguen solo por RIR, sin T/A."""
+    texto = " ".join(normalizar(dip.get(c)) for c in
+                     ("nombre", "descripcion", "notas_descripcion"))
+    return bool(re.search(r"\bBOR[OE]SCOP\w*\b", texto))
 
 
 def unidad(texto: str) -> str:
@@ -159,11 +167,13 @@ def revisar(rirs: list[RIR], exigido: Limite | None, dip: dict) -> list[tuple[st
     icam_intervalos (T/A del DIP en Scheduling) y parent_icam.
     """
     hallazgos: list[tuple[str, str]] = []
+    sin_ta = solo_rir(dip)
+    if (exigido or sin_ta) and not rirs:
+        if dip.get("historico_rir") or dip.get("estado") in {"ACTV", "OPEN", "IN WORK"}:
+            hallazgos.append(("rir_faltante",
+                              f"Sin RIR; la referencia pide RIR cada {exigido}." if exigido
+                              else "DIP de boroscope sin RIR; se sigue solo por RIR, sin T/A."))
     if exigido:
-        if not rirs:
-            if dip.get("historico_rir") or dip.get("estado") in {"ACTV", "OPEN", "IN WORK"}:
-                hallazgos.append(("rir_faltante",
-                                  f"Sin RIR; la referencia pide RIR cada {exigido}."))
         for rir in rirs:
             if rir.limites and not any(_mismo(l, exigido) for l in rir.limites):
                 # Más seguido que lo que pide la referencia (cada 1 día en vez de 2) es más
@@ -172,7 +182,8 @@ def revisar(rirs: list[RIR], exigido: Limite | None, dip: dict) -> list[tuple[st
                 hallazgos.append(("rir_intervalo_menor" if menor else "rir_intervalo_incorrecto",
                                   f"RIR {rir.ids[0]} cada "
                                   f"{' / '.join(map(str, rir.limites))}; la referencia pide {exigido}."))
-    ta = [(unidad(i.get("parameter", "")), i.get("start", "")) for i in dip.get("icam_intervalos") or []]
+    ta = [] if sin_ta else [(unidad(i.get("parameter", "")), i.get("start", ""))
+                            for i in dip.get("icam_intervalos") or []]
     unidades_ta = {u for u, _ in ta if u}
     for rir in rirs:
         if rir.fuente != "página del RIR":

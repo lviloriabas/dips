@@ -16,7 +16,7 @@ from .discrepancias import Discrepancias, cargar_discrepancias, validar_cobertur
 from .referencia_tecnica import (IndiceReferencias, buscar_referencia, cita_barcode, cita_mgm,
                                  es_captura_de_barcode, extraer_codigos, referencias_cargadas, revisar,
                                  sin_task_cards)
-from .rir import requerido as rir_requerido
+from .rir import requerido as rir_requerido, solo_rir
 from .rir import revisar as revisar_rir
 from .referencias import Catalogo, EntradaCatalogo, cargar_catalogo, cargar_referencias
 from .reglas_descripcion import buscar_parent_distinto_de_pares, revisar_descripcion
@@ -147,7 +147,7 @@ class Auditor:
                 r.agregar(ctx, "parent_assy_distinto_a_pares", "Incorrect Parent Assembly",
                           f"Asignado a {dip['parent_tipo']}; los otros {n} DIPs con la {codigo} "
                           f"están en {tipo}.")
-            if dip.get("intervalo_de_icam"):
+            if dip.get("intervalo_de_icam") and not solo_rir(dip):
                 r.agregar(ctx, "intervalo_de_icam", "Missing Data",
                           f"Sin intervalo en el Excel; se usó el de ICAM "
                           f"({dip['intervalo']:g} {dip['tipo_intervalo_original']}).")
@@ -315,6 +315,7 @@ class Auditor:
         for mensaje in remanentes_inverosimiles(rirs):
             r.agregar(ctx, "rir_restante_inverosimil", "RIR", mensaje)
         entrada = asoc.entrada
+        sin_ta = solo_rir(dip)
         if entrada and entrada.rir_segun_manual:
             # El RIR cambia según el daño o la medición: no se compara, se revisa en el manual.
             rirs = dip.get("rirs")
@@ -326,8 +327,13 @@ class Auditor:
                       f"('{entrada.rir_segun_manual}'). Revisar en el manual"
                       + (f" ({manual})." if manual else ".") + en_icam)
             r.manuales = [m for m in r.manuales if not m.startswith("Verificar RIR")]
+            if sin_ta and rirs is not None:
+                for codigo, mensaje in revisar_rir(rirs, None, dip):
+                    r.agregar(ctx, codigo, "RIR", mensaje)
             return
         if dip.get("rirs") is None:
+            if sin_ta:
+                r.manuales.append("Verificar RIR en Follow-on Tasks: DIP de boroscope sin T/A.")
             return  # sin datos de RIR: queda la verificación manual
         texto = ""
         if entrada:
@@ -337,12 +343,13 @@ class Auditor:
         for codigo, mensaje in revisar_rir(dip["rirs"], rir_requerido(texto), dip):
             r.agregar(ctx, codigo, "RIR", mensaje)
         exigido = rir_requerido(texto)
-        if exigido and not dip["rirs"] and not dip.get("historico_rir") and \
+        if (exigido or sin_ta) and not dip["rirs"] and not dip.get("historico_rir") and \
                 dip.get("estado") not in {"ACTV", "OPEN", "IN WORK"}:
             r.manuales = [m for m in r.manuales if not m.startswith("Verificar RIR")]
-            r.manuales.append(f"Verificar RIR cada {exigido} en Follow-on Tasks "
+            r.manuales.append((f"Verificar RIR cada {exigido}" if exigido else "Verificar RIR")
+                              + " en Follow-on Tasks "
                               "(Show Historical Tasks): el DIP está cerrado.")
-        elif dip["rirs"] or exigido:
+        elif dip["rirs"] or exigido or sin_ta:
             r.manuales = [m for m in r.manuales if not m.startswith("Verificar RIR")]
 
     def _asociar(self, dip: dict) -> Asociacion:
@@ -457,7 +464,8 @@ class Auditor:
             "VERIFICACIÓN MANUAL": "\n".join(f"- {m}" for m in manuales),
             "REFERENCIA ASOCIADA": entrada.nombre if entrada else "",
             "ASOCIACIÓN": (f"{asoc.metodo} ({asoc.confianza})" if asoc else ""),
-            "TA SEGÚN REFERENCIA": "\n".join(
+            "TA SEGÚN REFERENCIA": "No aplica: solo RIR (boroscope)." if en_alcance and solo_rir(dip)
+            else "\n".join(
                 f"{x.descripcion}: {x.ta}" + (f" / RIR {x.rir}" if x.rir else "")
                 for x in entrada.referencias) if entrada else "",
             "REFERENCIA TÉCNICA ESPERADA": entrada.referencias_tecnicas if entrada else "",

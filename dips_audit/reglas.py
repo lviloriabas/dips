@@ -12,6 +12,7 @@ from .discrepancias import Discrepancias
 from .inventario import cruzar
 from .partes import es_squib, verificar_squib
 from .referencias import EntradaCatalogo, Limite, Variante
+from .rir import solo_rir
 from .texto import clave_sn, extraer_fechas, extraer_psi, extraer_sn, normalizar, posiciones
 
 ORDEN_SEVERIDAD = {"CRITICA": 6, "NO CRITICA": 5, "REVISAR": 4, "CONSULTAR MANUAL": 3,
@@ -238,6 +239,8 @@ def _ventana(dip: dict, entrada: EntradaCatalogo | None) -> tuple[Variante, Limi
 
 
 def regla_intervalo(dip: dict, entrada: EntradaCatalogo, ctx: Contexto, r: ResultadoReglas) -> None:
+    if solo_rir(dip):
+        return
     valor, unidad = dip["intervalo"], dip["unidad"]
     if valor is None or unidad is None:
         if dip.get("rirs") and (entrada.no_verificable or not entrada.variantes):
@@ -402,6 +405,10 @@ def regla_inventario(dip: dict, due: date, ctx: Contexto, r: ResultadoReglas) ->
 
 def regla_fechas(dip: dict, entrada: EntradaCatalogo | None, ctx: Contexto,
                  r: ResultadoReglas) -> None:
+    if solo_rir(dip):
+        if dip["estado"] == "COMPLETE":
+            regla_cierre(dip, ctx, r, entrada)
+        return
     due, found = _como_fecha(dip["due_date"]), _como_fecha(dip["found_date"])
     valor, unidad, estado = dip["intervalo"], dip["unidad"], dip["estado"]
 
@@ -529,7 +536,8 @@ def regla_cierre(dip: dict, ctx: Contexto, r: ResultadoReglas,
     # Primera línea: "1. NOMBRE (Technician), 09-SEP-2026 17:27 UTC".
     texto = re.sub(r"^\s*\d+\.\s[^\n]*UTC\s*", "", accion or "")
     otra_tarea = _OTRA_TAREA.search(texto)
-    if completo and due:
+    sin_ta = solo_rir(dip)
+    if completo and due and not sin_ta:
         # En un DIP cerrado, Usage Remaining es lo que le quedaba al cerrarlo (ICAM): negativo =
         # se cerró tarde. Sin ese dato, se compara la hora de cierre con el due date.
         restante = dip.get("usage_remaining")
@@ -548,12 +556,12 @@ def regla_cierre(dip: dict, ctx: Contexto, r: ResultadoReglas,
             r.agregar(ctx, "cierre_deadline_extendido", "Late Completion",
                       f"Cerrado el {_fecha_hora(completo)}, después del due date original "
                       f"({_fecha_hora(original)}). Verificar la extensión.")
-    elif not completo:
+    elif not completo and not sin_ta:
         r.manuales.append("DIP COMPLETE: verificar en ICAM que se cerró dentro del plazo.")
     # "A new ... deadline has been added" es la apertura del T/A, no un cambio.
     cambios = [c for c in dip.get("cambios_deadline") or []
                if not re.search(r"deadline has been added", c, re.I)]
-    if cambios:
+    if cambios and not sin_ta:
         r.manuales.append("Cambios de deadline en History: " + " | ".join(cambios))
 
     if accion is not None and referencia_y_adjunto_exigibles(dip):  # None = no se leyó ICAM
@@ -614,6 +622,8 @@ def regla_inicio_ta(dip: dict, entrada: EntradaCatalogo | None, ctx: Contexto,
     En un ítem sin ventana, un Start posterior con eso descontado del intervalo se acepta si
     vence dentro del TA. No aplica a los ítems con vencimiento (UNTIL DUE DATE): ahí manda
     la fecha del ítem."""
+    if solo_rir(dip):
+        return
     unidad, valor = dip["unidad"], dip["intervalo"]
     if unidad is None or (entrada is not None and entrada.hasta_vencimiento):
         return
@@ -708,6 +718,8 @@ def regla_adjuntos(dip: dict, ctx: Contexto, r: ResultadoReglas) -> None:
 
 def regla_programado_despues_del_due(dip: dict, ctx: Contexto, r: ResultadoReglas) -> None:
     """Un DIP activo en un paquete de trabajo programado después de su due date va a vencer."""
+    if solo_rir(dip):
+        return
     programado, due = dip.get("scheduled_date"), dip.get("due_date")
     if dip.get("estado") not in ACTIVOS or not programado or not due:
         return

@@ -396,6 +396,15 @@ Un T/A con otro intervalo es otro trabajo sobre el mismo ítem ("NLG STRUT COMPR
 
 **RIR (inspecciones repetitivas).** Archivo: `dips_audit/rir.py`. En ICAM, las RIR son Follow-on Tasks del DIP de clase ADHOC; las de clase REQ (por ejemplo, el servicio de taller) no son RIR. La página de Fault Information trae dos tablas: las tareas abiertas y las históricas (cerradas o canceladas). Se leen las dos, y también la página de cada RIR vigente.
 
+**Boroscope: solo RIR.** Si el nombre, la descripción o sus notas mencionan BOROSCOPE,
+BORESCOPE o boroscopio, el DIP no requiere T/A. Se omiten sus controles de intervalo,
+Start, due date, vencimiento y cierre fuera de plazo, así como las comparaciones del
+RIR con el T/A. `TA SEGÚN REFERENCIA` indica «No aplica: solo RIR (boroscope)».
+El RIR sigue siendo obligatorio: se valida su intervalo contra la tabla o, si la tabla
+no define RIR, contra el periodo declarado en la descripción. Sin datos de RIR se pide
+verificar en ICAM; para un DIP cerrado sin histórico, se pide Show Historical Tasks.
+Los controles de referencia técnica, adjuntos y Parent Assembly siguen aplicándose.
+
 | Qué se revisa | Si falla |
 | --- | --- |
 | La tabla pide RIR y el DIP abierto no tiene ninguna | Posible discrepancia. Si el DIP ya está cerrado y no se ve ninguna, queda para verificar en "Show Historical Tasks" |
