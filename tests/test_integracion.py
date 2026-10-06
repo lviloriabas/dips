@@ -81,6 +81,64 @@ def test_auditoria_de_punta_a_punta(auditor_others, export, tmp_path):
     assert openpyxl.load_workbook(export).sheetnames == ["Export"]
 
 
+@pytest.mark.parametrize("estado, remanente, esperado", [
+    ("ACTV", 43, "POSIBLE DISCREPANCIA"),
+    ("COMPLETE", 43, "OK"),
+    ("COMPLETE", -1, "POSIBLE DISCREPANCIA"),
+])
+def test_resultado_corresponde_a_la_auditoria_actual(auditor, tmp_path, capsys, estado,
+                                                    remanente, esperado):
+    fila = list(FILAS[1])  # FDR abierto con un intervalo incorrecto.
+    fila[6], fila[-1] = estado, remanente
+    completo = (datetime(2026, 10, 3, 10, 0) if remanente < 0
+                else datetime(2026, 8, 20, 10, 0)) if estado == "COMPLETE" else None
+    entrada = crear_export(tmp_path / "entrada.xlsx", [[*fila, completo]],
+                           encabezado=[*ENCABEZADO_ENTRADA, "Complete Dt"])
+    resultado = auditor.auditar_archivo(entrada)
+    actual = resultado.filas.iloc[0]
+    assert actual["ESTADO APERTURA"] == "POSIBLE DISCREPANCIA"
+    assert actual["RESULTADO"] == actual["ESTADO IA"] == esperado
+    assert resultado.conteo_estados() == {esperado: 1}
+    assert "intervalo_excedido" in set(resultado.hallazgos["Código"])
+
+    if estado == "COMPLETE":
+        assert actual["AUDITORÍA"] == "CIERRE"
+        assert actual["ESTADO CIERRE"] == esperado
+        assert "T/A con 45 DAY" not in actual["COMENTARIO SUGERIDO"]
+        if esperado == "OK":
+            assert actual["COMENTARIO SUGERIDO"] == ""
+        else:
+            assert "Cerrado" in actual["COMENTARIO SUGERIDO"]
+
+    salida = exportar_excel(resultado, tmp_path / "salida.xlsx")
+    wb = openpyxl.load_workbook(salida)
+    columnas = {c.value: c.column for c in wb["Auditoría"][1]}
+    assert wb["Auditoría"].cell(2, columnas["RESULTADO"]).value == esperado
+    assert wb["Dashboard"]["E6"].value == (0 if esperado == "OK" else 1)
+    assert wb["Dashboard"]["N6"].value == (1 if esperado == "OK" else 0)
+    assert main(["auditar", str(entrada), "--sin-excel", "--fecha", "2026-10-06"]) == 0
+    consola = " ".join(capsys.readouterr().out.split())
+    assert ("Posibles discrepancias por tipo" in consola) is (esperado != "OK")
+    if esperado == "OK":
+        assert "POSIBLE DISCREPANCIA 0 0%" in consola
+    elif estado == "COMPLETE":
+        assert "(1 hallazgos)" in consola
+    else:
+        assert "(2 hallazgos)" in consola  # intervalo incorrecto y DIP vencido.
+
+
+@pytest.mark.parametrize("remanente, esperado", [(36, "SIN FUENTE"),
+                                               (-1, "POSIBLE DISCREPANCIA")])
+def test_cierre_conserva_sin_fuente_y_discrepancias_del_cierre(auditor, tmp_path, remanente,
+                                                             esperado):
+    fila = list(FILAS[2])
+    fila[6], fila[-1] = "COMPLETE", remanente
+    entrada = crear_export(tmp_path / "entrada.xlsx", [[*fila, datetime(2026, 8, 20, 10, 0)]],
+                           encabezado=[*ENCABEZADO_ENTRADA, "Complete Dt"])
+    actual = auditor.auditar_archivo(entrada).filas.iloc[0]
+    assert actual["RESULTADO"] == actual["ESTADO CIERRE"] == esperado
+
+
 def test_dashboard_sin_dips_en_alcance(config, export, tmp_path):
     auditor = Auditor({**config, "tipos_auditados": ["Avionics"]}, fecha_auditoria=date(2026, 8, 20))
     salida = exportar_excel(auditor.auditar_archivo(export), tmp_path / "salida.xlsx")

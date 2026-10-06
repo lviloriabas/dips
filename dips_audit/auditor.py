@@ -61,6 +61,13 @@ class ResultadoAuditoria:
     def conteo_estados(self) -> dict[str, int]:
         return self.filas["ESTADO IA"].value_counts().to_dict()
 
+    def hallazgos_auditoria_actual(self) -> pd.DataFrame:
+        """Hallazgos de apertura para DIPs abiertos y de cierre para los COMPLETE."""
+        h = self.hallazgos
+        auditorias = self.filas.set_index("Fila Excel")["AUDITORÍA"]
+        return h[(h["Auditoría"] == h["Fila Excel"].map(auditorias))
+                 | (h["Severidad"] == SIN_FUENTE)]
+
 
 
 class Auditor:
@@ -126,7 +133,7 @@ class Auditor:
         filas, hallazgos = [], []
         for i, (dip, alcance, asoc) in enumerate(zip(dips, en_alcance, asociaciones)):
             if not alcance:
-                filas.append(self._fila(dip, None, None, [], [], FUERA_DE_ALCANCE, "", None))
+                filas.append(self._fila(dip, None, None, None))
                 continue
             fecha = fechas_referencia[i] if fechas_referencia else None
             fecha = None if fecha is None or pd.isna(fecha) else fecha
@@ -197,10 +204,7 @@ class Auditor:
             if marcas:
                 r.manuales.insert(0, "Ya se había auditado manualmente (Technical References "
                                   f"en ICAM): {'; '.join(marcas)}.")
-            estado = estado_final(r.hallazgos)
-            comentario = self._comentario(r)
-            filas.append(self._fila(dip, asoc, r, r.hallazgos, r.manuales, estado, comentario,
-                                    ctx.fecha_referencia))
+            filas.append(self._fila(dip, asoc, r, ctx.fecha_referencia))
             for h in r.hallazgos:
                 hallazgos.append({
                     "Fila Excel": dip["fila"], "Fault Barcode": dip["barcode"],
@@ -396,14 +400,14 @@ class Auditor:
                   None if dip["estado"] in ACTIVOS else "OBSERVACION")
 
     @staticmethod
-    def _comentario(r) -> str:
+    def _comentario(r, hallazgos: list[Hallazgo] | None = None) -> str:
         if any(h.codigo == "duplicado_declarado" for h in r.hallazgos):
             return r.hallazgos[0].mensaje
         partes = []
-        if r.intervalo_ok:
+        if hallazgos is None and r.intervalo_ok:
             partes.append("T/A aperturado correctamente")
         # "Revisar en el manual" es para el auditor, no un comentario de discrepancia.
-        hallazgos = [h for h in r.hallazgos
+        hallazgos = [h for h in (r.hallazgos if hallazgos is None else hallazgos)
                      if h.severidad not in {"OBSERVACION", "CONSULTAR MANUAL"}]
         codigos = {h.codigo for h in hallazgos}
         for h in hallazgos:
@@ -414,18 +418,22 @@ class Auditor:
             partes.append(h.mensaje)
         return " // ".join(partes)
 
-    @staticmethod
-    def _fila(dip: dict, asoc: Asociacion | None, r, hallazgos: list[Hallazgo],
-              manuales: list[str], estado: str, comentario: str, fecha) -> dict:
+    @classmethod
+    def _fila(cls, dip: dict, asoc: Asociacion | None, r, fecha) -> dict:
         entrada: EntradaCatalogo | None = asoc.entrada if asoc else None
-        hallazgos = sorted(hallazgos, key=lambda h: -ORDEN_SEVERIDAD[h.severidad])
-        en_alcance = estado != FUERA_DE_ALCANCE
+        hallazgos = sorted(r.hallazgos if r else [], key=lambda h: -ORDEN_SEVERIDAD[h.severidad])
+        manuales = r.manuales if r else []
+        en_alcance = r is not None
         # Apertura: DIP abierto. Cierre: DIP COMPLETE (se informan también los de apertura).
         cierre = en_alcance and dip["estado"] == "COMPLETE"
         de_cierre = [h for h in hallazgos if etapa(h.codigo) == "CIERRE"]
         de_apertura = [h for h in hallazgos if etapa(h.codigo) == "APERTURA"]
         # Sin fuente vale para las dos auditorías: el DIP no está en la tabla.
         sin_fuente = [h for h in de_apertura if h.severidad == SIN_FUENTE]
+        estado_apertura = estado_final(de_apertura) if en_alcance else ""
+        estado_cierre = estado_final(de_cierre + sin_fuente) if cierre else ""
+        estado = (estado_cierre if cierre else estado_apertura) if en_alcance else FUERA_DE_ALCANCE
+        comentario = cls._comentario(r, de_cierre + sin_fuente if cierre else None) if r else ""
         return {
             "Fila Excel": dip["fila"],
             "Fault Barcode": dip["barcode"],
@@ -439,10 +447,11 @@ class Auditor:
             "ESTADO IA": estado,
             "AUDITORÍA": ("CIERRE" if cierre else "APERTURA") if en_alcance else "",
             "FECHA AUDITORÍA": fecha,
-            "ESTADO APERTURA": estado_final(de_apertura) if en_alcance else "",
-            "ESTADO CIERRE": estado_final(de_cierre + sin_fuente) if cierre else "",
+            "ESTADO APERTURA": estado_apertura,
+            "ESTADO CIERRE": estado_cierre,
             "HALLAZGOS": "\n".join(
-                f"[{MOSTRAR_SEVERIDAD[h.severidad]}]{' [CIERRE]' if h in de_cierre else ''} {h.mensaje}"
+                f"[{MOSTRAR_SEVERIDAD[h.severidad]}]"
+                f"{' [CIERRE]' if h in de_cierre else ' [APERTURA]' if cierre else ''} {h.mensaje}"
                 for h in hallazgos),
             "COMENTARIO SUGERIDO": comentario,
             "VERIFICACIÓN MANUAL": "\n".join(f"- {m}" for m in manuales),

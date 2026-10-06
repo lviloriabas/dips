@@ -80,7 +80,7 @@ En palabras:
 4. **Asociación.** Para cada DIP, `Auditor._asociar` decide qué entrada del catálogo es: por el Fault Name, y si no alcanza, por la referencia técnica o la descripción. Devuelve una `Asociacion` con la entrada (o ninguna) y el método usado.
 5. **Reglas de lote.** Duplicados, S/N repetidos y Parent Assembly distinto de sus pares se buscan entre todos los DIPs del archivo, porque comparan un DIP con otros.
 6. **Reglas por DIP.** `reglas.auditar_dip` y los métodos del `Auditor` (`_referencia_tecnica`, `_rir`) y `reglas_descripcion.revisar_descripcion` agregan `Hallazgo`s a un `ResultadoReglas`. Cada `agregar` consulta `discrepancias.yaml`: si la regla está inactiva no se agrega, y si está activa toma de ahí su severidad y su tipo de discrepancia.
-7. **Resultado.** `reglas.estado_final` toma el hallazgo más grave y lo traduce al resultado que ve el auditor. `_comentario` arma el `COMENTARIO SUGERIDO` ("T/A aperturado correctamente // ..."). Un DIP cerrado sin attachments tiene dos hallazgos (apertura y cierre), pero el comentario lo dice una sola vez.
+7. **Resultado.** `reglas.estado_final` toma el hallazgo más grave de cada etapa. `RESULTADO` y `ESTADO IA` usan el estado de cierre si el DIP está COMPLETE y el de apertura en los demás casos. `_comentario` arma el `COMENTARIO SUGERIDO` con los hallazgos de esa auditoría. Un DIP cerrado sin attachments conserva los dos hallazgos (apertura y cierre), pero el comentario solo informa el de cierre.
 8. **Salida.** Todo termina en un `ResultadoAuditoria` con dos tablas: `filas` (un DIP por fila) y `hallazgos` (un hallazgo por fila). `reporte.py` las escribe en Excel; la consola y `comparacion.py` leen las mismas tablas.
 
 `auditar.bat T40S...` (un DIP sin Excel) usa el mismo camino: `cargador.lote_desde_icam` arma un `Lote` de una fila con lo leído en ICAM.
@@ -99,7 +99,7 @@ En palabras:
 
 ### Cómo se decide el resultado
 
-Cada hallazgo tiene una severidad, que sale de `discrepancias.yaml`. El resultado del DIP es el de su hallazgo más grave (`reglas.ORDEN_SEVERIDAD`):
+Cada hallazgo tiene una severidad, que sale de `discrepancias.yaml`. El resultado de cada auditoría es el de su hallazgo más grave (`reglas.ORDEN_SEVERIDAD`):
 
 | Severidad del hallazgo | Se muestra como | Resultado del DIP |
 | --- | --- | --- |
@@ -110,6 +110,12 @@ Cada hallazgo tiene una severidad, que sale de `discrepancias.yaml`. El resultad
 | (sin hallazgos) | | OK |
 
 Cada hallazgo es de apertura o de cierre: los códigos de `reglas.CODIGOS_CIERRE` son de cierre y todos los demás, de apertura. Así salen `ESTADO APERTURA` y `ESTADO CIERRE`.
+
+En DIPs COMPLETE, `RESULTADO` corresponde a `ESTADO CIERRE`. Una apertura con
+discrepancias y un cierre OK da **OK**; los hallazgos de apertura se conservan como
+historial y se identifican con `[APERTURA]`. El comentario sugerido y los conteos de
+discrepancias de consola usan los hallazgos de la auditoría actual.
+`SIN FUENTE` se aplica a ambas etapas cuando falta la referencia en la tabla.
 
 ### Dónde tocar según el cambio
 

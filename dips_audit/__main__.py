@@ -64,7 +64,7 @@ def _duracion(segundos: float) -> str:
 
 def _tabla_hallazgos(resultado) -> Table | None:
     """Tipos de discrepancia: cuántos hallazgos y en cuántos DIPs (% de los auditados)."""
-    h = resultado.hallazgos
+    h = resultado.hallazgos_auditoria_actual()
     h = h[~h["Severidad"].isin(["OBSERVACION", "SIN FUENTE", "CONSULTAR MANUAL"])]
     if h.empty:
         return None
@@ -110,7 +110,7 @@ def _resumen(resultado, tiempos: dict[str, float]) -> Panel:
     en_alcance = filas[filas["RESULTADO"] != "FUERA DE ALCANCE"]
     auditados = len(en_alcance)
     cierre = int((en_alcance["AUDITORÍA"] == "CIERRE").sum())
-    h = resultado.hallazgos
+    h = resultado.hallazgos_auditoria_actual()
     hallazgos = int((~h["Severidad"].isin(["OBSERVACION", "SIN FUENTE", "CONSULTAR MANUAL"])).sum())
 
     tipos = dict(zip(resultado.lote.datos["fila"], resultado.lote.datos["tipo"]))
