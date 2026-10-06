@@ -38,7 +38,6 @@ from .benchmark import DATOS as DATOS_BENCHMARK
 from .cargador import ErrorCarga
 from .extractor_icam import ErrorExtraccion
 from .referencias import ErrorCatalogo
-from .reglas import VERIFICACION_GENERAL
 
 consola = Console()
 ESTILOS = {
@@ -100,11 +99,6 @@ QUE_HACER = {
 }
 
 
-def _con_revision_manual(texto: str) -> bool:
-    """El DIP tiene verificaciones adicionales al recordatorio general de adjuntos."""
-    return any(l.strip() and l.strip("- ").strip() != VERIFICACION_GENERAL for l in texto.splitlines())
-
-
 def _resumen(resultado, tiempos: dict[str, float]) -> Panel:
     """Resumen final de la corrida: cuántos DIPs, qué resultado tuvieron y qué hacer con cada uno."""
     filas = resultado.filas
@@ -138,7 +132,6 @@ def _resumen(resultado, tiempos: dict[str, float]) -> Panel:
         t.add_row(f"[{ESTILOS[estado]}]{estado}[/]", str(n), f"{n / base:.0%}" if base else "-",
                   que_hacer if n else "")
 
-    manuales = int(en_alcance["VERIFICACIÓN MANUAL"].map(_con_revision_manual).sum())
     t_tiempos = Table(box=box.SIMPLE_HEAD, padding=(0, 1), pad_edge=False, show_footer=True,
                       style="dim", header_style="dim bold", footer_style="dim bold")
     t_tiempos.add_column("Etapa", footer="Total")
@@ -149,12 +142,6 @@ def _resumen(resultado, tiempos: dict[str, float]) -> Panel:
     lineas = [
         f"[bold]DIPs auditados: {auditados}[/] (apertura: {auditados - cierre}, cierre: {cierre}).",
         t,
-        (f"[bold]Revisión manual:[/] {manuales} {'DIP' if manuales == 1 else 'DIPs'} "
-         "con verificaciones adicionales "
-         "(VERIFICACIÓN MANUAL)." if manuales else
-         "[bold]Revisión manual:[/] sin verificaciones adicionales."),
-        "[dim]DIPs diferidos desde el 09-jul-2026: verificar en adjuntos la captura de "
-        "referencia técnica y el EC/RA.[/]",
         t_tiempos,
     ]
     return Panel.fit(Group(*lineas), title="Resumen", border_style="green")
