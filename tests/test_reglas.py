@@ -21,6 +21,14 @@ def test_intervalo_correcto(catalogo, ctx):
     assert estado_final(r.hallazgos) == "OK"
 
 
+def test_comentario_intervalo_incompleto_pide_verificar_en_icam(auditor, catalogo, ctx):
+    r = auditar(catalogo, ctx, "OXIGENO_TRIPULACION", intervalo=None, unidad=None)
+    assert "datos_incompletos" in codigos(r)
+    comentario = auditor._comentario(r)
+    assert "excel" not in comentario.lower()
+    assert "Verificar el intervalo y el tipo de intervalo del T/A en ICAM." in comentario
+
+
 def test_intervalo_excedido_es_critico(catalogo, ctx):
     r = auditar(catalogo, ctx, "FDR", nombre="FDR - REPORT", intervalo=45.0, ata=31,
                 deferral_ref="31-DIP", due_date=datetime(2026, 10, 2, 23, 59))

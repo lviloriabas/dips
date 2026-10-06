@@ -35,6 +35,18 @@ def test_remanente_rir_compara_cada_unidad_y_conserva_excel(auditor, ctx):
     assert any("500 FH" in m and "página del RIR" in m for m in mensajes)
 
 
+def test_comentario_rir_no_menciona_excel_y_conserva_valores(auditor, ctx):
+    dip = hacer_dip(rirs=[RIR("RIR", ["R1"], ["ACTV"],
+                             [Limite(50, "FH", restante=-2778.4)], "Excel")])
+    r = ResultadoReglas()
+    auditor._rir(dip, auditor._asociar(dip), ctx, r)
+    comentario = auditor._comentario(r)
+    assert "excel" not in comentario.lower()
+    assert "RIR R1 Usage Remaining -2778.4 FH" in comentario
+    assert "intervalo de 50 FH" in comentario
+    assert "Verificar configuración en ICAM" in comentario
+
+
 def test_remanente_leido_de_scheduling_icam():
     detalle = FichaICAM(intervalos=[Intervalo("HOURS", "HOUR", "", 50, "", "", "", "-2,778.4")])
     rirs = agrupar([_t("RIR X", "A", "ACTV", "10 HOUR")], {"A": detalle})

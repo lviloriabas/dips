@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 import time
 from dataclasses import dataclass, field
 from datetime import date, datetime
@@ -408,6 +409,7 @@ class Auditor:
 
     @staticmethod
     def _comentario(r, hallazgos: list[Hallazgo] | None = None) -> str:
+        """Texto para ICAM: datos y correcciones del DIP, sin mencionar el Excel."""
         if any(h.codigo == "duplicado_declarado" for h in r.hallazgos):
             return r.hallazgos[0].mensaje
         partes = []
@@ -422,7 +424,13 @@ class Auditor:
             # comentario lo dice una vez (HALLAZGOS conserva los dos, uno por auditoría).
             if h.codigo == "cierre_sin_adjuntos" and "sin_adjuntos" in codigos:
                 continue
-            partes.append(h.mensaje)
+            mensaje = h.mensaje
+            if h.codigo == "datos_incompletos" and "excel" in mensaje.lower():
+                mensaje = "Verificar el intervalo y el tipo de intervalo del T/A en ICAM."
+            # La procedencia del remanente sirve a la auditoría; el comentario conserva
+            # el barcode, el valor, la unidad y el intervalo que se debe revisar en ICAM.
+            mensaje = re.sub(r"\s*\(\s*Excel\s*\)", "", mensaje, flags=re.IGNORECASE)
+            partes.append(mensaje)
         return " // ".join(partes)
 
     @classmethod

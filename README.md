@@ -114,6 +114,9 @@ el resultado es **OK**, aunque la apertura tenga discrepancias. `ESTADO APERTURA
 los hallazgos marcados `[APERTURA]` conservan ese historial. El comentario sugerido
 y los conteos de discrepancias en consola corresponden a la auditoría actual.
 
+`COMENTARIO SUGERIDO` está redactado para ICAM: indica qué dato del DIP se debe
+verificar o corregir y conserva los valores relevantes, sin mencionar el Excel de auditoría.
+
 Los DIPs que mencionan **BOROSCOPE** o **BORESCOPE** en el nombre, la descripción
 o sus notas se siguen **solo por RIR, sin T/A**. No se exige ni se valida el intervalo,
 el Start o el plazo del T/A. Se revisa que exista el RIR y se valida contra la tabla

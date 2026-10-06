@@ -117,6 +117,11 @@ historial y se identifican con `[APERTURA]`. El comentario sugerido y los conteo
 discrepancias de consola usan los hallazgos de la auditoría actual.
 `SIN FUENTE` se aplica a ambas etapas cuando falta la referencia en la tabla.
 
+`COMENTARIO SUGERIDO` describe los datos o la configuración que se deben revisar en
+ICAM y nunca menciona el Excel. Si el intervalo está incompleto, pide verificar el
+intervalo y el tipo del T/A en ICAM. En remanentes de RIR fuera de rango, conserva el
+barcode, el valor, la unidad y el intervalo, sin la etiqueta de procedencia «Excel».
+
 ### Dónde tocar según el cambio
 
 | Quiero... | Dónde |
