@@ -28,9 +28,10 @@ from .reglas import (ACTIVOS, MOSTRAR_SEVERIDAD, ORDEN_SEVERIDAD, POSIBLE_DISCRE
 
 RAIZ = Path(__file__).resolve().parent.parent
 FUERA_DE_ALCANCE = "FUERA DE ALCANCE"
-# Resultado para el auditor: OK, REVISAR, SIN FUENTE o POSIBLE DISCREPANCIA (ver reglas.ESTADOS).
+CORREGIDO_EN_CIERRE = "CORREGIDO EN CIERRE"
+# CORREGIDO EN CIERRE identifica discrepancias de apertura con cierre OK.
 RESULTADOS = {POSIBLE_DISCREPANCIA: POSIBLE_DISCREPANCIA, REVISAR: REVISAR, SIN_FUENTE: SIN_FUENTE,
-              "OK": "OK", FUERA_DE_ALCANCE: FUERA_DE_ALCANCE}
+              "OK": "OK", CORREGIDO_EN_CIERRE: CORREGIDO_EN_CIERRE, FUERA_DE_ALCANCE: FUERA_DE_ALCANCE}
 
 
 def cargar_configuracion(ruta: Path | None = None) -> dict:
@@ -448,6 +449,8 @@ class Auditor:
         estado_apertura = estado_final(de_apertura) if en_alcance else ""
         estado_cierre = estado_final(de_cierre + sin_fuente) if cierre else ""
         estado = (estado_cierre if cierre else estado_apertura) if en_alcance else FUERA_DE_ALCANCE
+        if cierre and estado_apertura == POSIBLE_DISCREPANCIA and estado_cierre == "OK":
+            estado = CORREGIDO_EN_CIERRE
         comentario = cls._comentario(r, de_cierre + sin_fuente if cierre else None) if r else ""
         return {
             "Fila Excel": dip["fila"],

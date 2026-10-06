@@ -14,7 +14,7 @@ El programa hace lo mismo que un auditor, en este orden:
 2. **Lee cada DIP en ICAM** (con `--icam`): referencia técnica, attachments, intervalos, RIR, acción correctiva e historial.
 3. **Reconoce qué ítem es cada DIP** y busca su fila en la tabla de referencias (`DIPs References.xlsx`).
 4. **Aplica las reglas de apertura** y, si el DIP está cerrado, **las de cierre**.
-5. **Da un resultado** por DIP (POSIBLE DISCREPANCIA, REVISAR, SIN FUENTE u OK) con los motivos.
+5. **Da un resultado** por DIP (POSIBLE DISCREPANCIA, REVISAR, SIN FUENTE, OK o CORREGIDO EN CIERRE) con los motivos.
 6. **Escribe un Excel nuevo** en `salida/`. El de entrada no se toca.
 
 **¿Usa inteligencia artificial?** No. Todo lo deciden reglas escritas en el código y en los archivos de configuración, y cada hallazgo dice qué dato lo produjo. Hubo un agente opcional (un modelo de lenguaje local) para sugerir la referencia de los DIPs que no se reconocen; no mejoró el resultado y se eliminó ([comparacion_modos.md](comparacion_modos.md)).
@@ -80,7 +80,7 @@ En palabras:
 4. **Asociación.** Para cada DIP, `Auditor._asociar` decide qué entrada del catálogo es: por el Fault Name, y si no alcanza, por la referencia técnica o la descripción. Devuelve una `Asociacion` con la entrada (o ninguna) y el método usado.
 5. **Reglas de lote.** Duplicados, S/N repetidos y Parent Assembly distinto de sus pares se buscan entre todos los DIPs del archivo, porque comparan un DIP con otros.
 6. **Reglas por DIP.** `reglas.auditar_dip` y los métodos del `Auditor` (`_referencia_tecnica`, `_rir`) y `reglas_descripcion.revisar_descripcion` agregan `Hallazgo`s a un `ResultadoReglas`. Cada `agregar` consulta `discrepancias.yaml`: si la regla está inactiva no se agrega, y si está activa toma de ahí su severidad y su tipo de discrepancia.
-7. **Resultado.** `reglas.estado_final` toma el hallazgo más grave de cada etapa. `RESULTADO` y `ESTADO IA` usan el estado de cierre si el DIP está COMPLETE y el de apertura en los demás casos. `_comentario` arma el `COMENTARIO SUGERIDO` con los hallazgos de esa auditoría. Un DIP cerrado sin attachments conserva los dos hallazgos (apertura y cierre), pero el comentario solo informa el de cierre.
+7. **Resultado.** `reglas.estado_final` toma el hallazgo más grave de cada etapa. `RESULTADO` y `ESTADO IA` usan el estado de cierre si el DIP está COMPLETE y el de apertura en los demás casos. Si la apertura es POSIBLE DISCREPANCIA y el cierre es OK, el resultado general es CORREGIDO EN CIERRE. `_comentario` arma el `COMENTARIO SUGERIDO` con los hallazgos de esa auditoría. Un DIP cerrado sin attachments conserva los dos hallazgos (apertura y cierre), pero el comentario solo informa el de cierre.
 8. **Salida.** Todo termina en un `ResultadoAuditoria` con dos tablas: `filas` (un DIP por fila) y `hallazgos` (un hallazgo por fila). `reporte.py` las escribe en Excel; la consola y `comparacion.py` leen las mismas tablas.
 
 `auditar.bat T40S...` (un DIP sin Excel) usa el mismo camino: `cargador.lote_desde_icam` arma un `Lote` de una fila con lo leído en ICAM.
@@ -111,8 +111,9 @@ Cada hallazgo tiene una severidad, que sale de `discrepancias.yaml`. El resultad
 
 Cada hallazgo es de apertura o de cierre: los códigos de `reglas.CODIGOS_CIERRE` son de cierre y todos los demás, de apertura. Así salen `ESTADO APERTURA` y `ESTADO CIERRE`.
 
-En DIPs COMPLETE, `RESULTADO` corresponde a `ESTADO CIERRE`. Una apertura con
-discrepancias y un cierre OK da **OK**; los hallazgos de apertura se conservan como
+En DIPs COMPLETE, una apertura con **POSIBLE DISCREPANCIA** y un cierre **OK** da
+**CORREGIDO EN CIERRE** en `RESULTADO` y `ESTADO IA`; `ESTADO CIERRE` conserva **OK**.
+En los demás casos, `RESULTADO` corresponde a `ESTADO CIERRE`. Los hallazgos de apertura se conservan como
 historial y se identifican con `[APERTURA]`. El comentario sugerido y los conteos de
 discrepancias de consola usan los hallazgos de la auditoría actual.
 `SIN FUENTE` se aplica a ambas etapas cuando falta la referencia en la tabla.
@@ -464,7 +465,7 @@ Se aplica además a los DIPs COMPLETE.
 
 ## 6. Resultado de cada DIP
 
-El programa da **cuatro resultados**:
+El programa da **cinco resultados**:
 
 | Resultado | Cuándo |
 | --- | --- |
@@ -472,6 +473,7 @@ El programa da **cuatro resultados**:
 | REVISAR | La tabla da el TA o el RIR según el daño, la medición o el tipo (el texto dice DEPENDING, DEPENDS, CONSULT o SEGÚN) y no falló ninguna otra regla. El programa no compara ese TA o RIR: el hallazgo cita el texto de la tabla y el manual donde verificarlo. `python -m dips_audit referencias` muestra cuáles son |
 | SIN FUENTE | El DIP no está en la tabla de referencias y no falló ninguna regla que no dependa de la tabla. Se verifica contra la fuente que cita el DIP |
 | OK | No falló ninguna regla (puede tener observaciones) |
+| CORREGIDO EN CIERRE | El DIP está COMPLETE, la apertura tiene POSIBLE DISCREPANCIA y el cierre está OK |
 
 Además, un DIP de un tipo excluido con `--tipos-dip` (o `tipos_auditados` en `config.yaml`) queda **FUERA DE ALCANCE** y no se revisa.
 
@@ -487,7 +489,7 @@ Archivo: `dips_audit/reporte.py`. Se crea en `salida/<archivo>_AUDITORIA_<fecha>
 
 | Hoja | Contenido |
 | --- | --- |
-| Dashboard | Indicadores por resultado y gráficos: resultado, apertura y cierre, DIPs por tipo, DIPs por flota (MAX 8, MAX 9, 700 y 800), referencias y aviones con posible discrepancia. Los datos de cada gráfico están a la derecha (columna T) |
+| Dashboard | Indicadores por resultado y gráficos: resultado, apertura y cierre, DIPs por tipo, DIPs por flota (MAX 8, MAX 9, 700 y 800), referencias y aviones con posible discrepancia. Los datos de cada gráfico están a la derecha (columna W) |
 | Resumen | Archivo, fecha y conteos |
 | Auditoría | Un DIP por fila: resultado, hallazgos, comentario sugerido, referencia, TA, referencia técnica, RIR, adjuntos, apertura/cierre y las columnas originales |
 | Hallazgos | Un hallazgo por fila: posible discrepancia u observación, y si es de apertura o de cierre |

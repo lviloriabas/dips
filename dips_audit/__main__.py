@@ -33,7 +33,7 @@ from . import __version__
 from .anonimizar import CANTIDAD as CANTIDAD_BENCHMARK
 from .anonimizar import SEMILLA as SEMILLA_BENCHMARK
 from .anonimizar import ErrorAnonimizacion
-from .auditor import RAIZ, Auditor, cargar_configuracion
+from .auditor import CORREGIDO_EN_CIERRE, RAIZ, Auditor, cargar_configuracion
 from .benchmark import DATOS as DATOS_BENCHMARK
 from .cargador import ErrorCarga
 from .extractor_icam import ErrorExtraccion
@@ -46,6 +46,7 @@ ESTILOS = {
     "REVISAR": "bold magenta",
     "SIN FUENTE": "bold cyan",
     "OK": "bold green",
+    CORREGIDO_EN_CIERRE: "bold bright_green",
     "FUERA DE ALCANCE": "dim",
 }
 HISTORICO = RAIZ / "02 - HISTORY - DIPs AUDIT (From 09Jul 15_45).xlsx"
@@ -91,6 +92,7 @@ def _tabla_hallazgos(resultado) -> Table | None:
 
 QUE_HACER = {
     "OK": "Completar las verificaciones manuales",
+    CORREGIDO_EN_CIERRE: "Completar las verificaciones manuales",
     "POSIBLE DISCREPANCIA": "Confirmar o descartar las discrepancias",
     "REVISAR": "Definir el T/A o RIR según el manual",
     "SIN FUENTE": "Verificar la fuente citada",
@@ -122,7 +124,8 @@ def _resumen(resultado, tiempos: dict[str, float]) -> Panel:
     t.add_column("DIPs", justify="right")
     t.add_column("%", justify="right")
     t.add_column("Acción")
-    for estado in ("OK", "POSIBLE DISCREPANCIA", "REVISAR", "SIN FUENTE", "FUERA DE ALCANCE"):
+    for estado in ("OK", CORREGIDO_EN_CIERRE, "POSIBLE DISCREPANCIA", "REVISAR", "SIN FUENTE",
+                   "FUERA DE ALCANCE"):
         n = conteo.get(estado, 0)
         if not n and estado == "FUERA DE ALCANCE":
             continue

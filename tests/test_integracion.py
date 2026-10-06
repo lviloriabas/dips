@@ -83,7 +83,7 @@ def test_auditoria_de_punta_a_punta(auditor_others, export, tmp_path):
 
 @pytest.mark.parametrize("estado, remanente, esperado", [
     ("ACTV", 43, "POSIBLE DISCREPANCIA"),
-    ("COMPLETE", 43, "OK"),
+    ("COMPLETE", 43, "CORREGIDO EN CIERRE"),
     ("COMPLETE", -1, "POSIBLE DISCREPANCIA"),
 ])
 def test_resultado_corresponde_a_la_auditoria_actual(auditor, tmp_path, capsys, estado,
@@ -103,9 +103,9 @@ def test_resultado_corresponde_a_la_auditoria_actual(auditor, tmp_path, capsys, 
 
     if estado == "COMPLETE":
         assert actual["AUDITORÍA"] == "CIERRE"
-        assert actual["ESTADO CIERRE"] == esperado
+        assert actual["ESTADO CIERRE"] == ("OK" if esperado == "CORREGIDO EN CIERRE" else esperado)
         assert "T/A con 45 DAY" not in actual["COMENTARIO SUGERIDO"]
-        if esperado == "OK":
+        if esperado == "CORREGIDO EN CIERRE":
             assert actual["COMENTARIO SUGERIDO"] == ""
         else:
             assert "Cerrado" in actual["COMENTARIO SUGERIDO"]
@@ -114,13 +114,21 @@ def test_resultado_corresponde_a_la_auditoria_actual(auditor, tmp_path, capsys, 
     wb = openpyxl.load_workbook(salida)
     columnas = {c.value: c.column for c in wb["Auditoría"][1]}
     assert wb["Auditoría"].cell(2, columnas["RESULTADO"]).value == esperado
-    assert wb["Dashboard"]["E6"].value == (0 if esperado == "OK" else 1)
-    assert wb["Dashboard"]["N6"].value == (1 if esperado == "OK" else 0)
+    assert wb["Dashboard"]["E6"].value == (1 if esperado == "POSIBLE DISCREPANCIA" else 0)
+    assert wb["Dashboard"]["N6"].value == 0
+    assert wb["Dashboard"]["Q6"].value == (1 if esperado == "CORREGIDO EN CIERRE" else 0)
+    if esperado == "CORREGIDO EN CIERRE":
+        assert wb["Dashboard"]["Q5"].value == esperado
+        resumen = {f[0]: f[1] for f in wb["Resumen"].values if len(f) > 1}
+        assert resumen[esperado] == 1 and resumen["OK"] == 0
+        assert esperado in [c.value for c in wb["Dashboard"]["W"]]
+        assert wb["Auditoría"].cell(2, columnas["RESULTADO"]).fill.fgColor.rgb != "00000000"
     assert main(["auditar", str(entrada), "--sin-excel", "--fecha", "2026-10-06"]) == 0
     consola = " ".join(capsys.readouterr().out.split())
-    assert ("Posibles discrepancias por tipo" in consola) is (esperado != "OK")
-    if esperado == "OK":
+    assert ("Posibles discrepancias por tipo" in consola) is (esperado == "POSIBLE DISCREPANCIA")
+    if esperado == "CORREGIDO EN CIERRE":
         assert "POSIBLE DISCREPANCIA 0 0%" in consola
+        assert "CORREGIDO EN CIERRE 1 100%" in consola
     elif estado == "COMPLETE":
         assert "(1 hallazgos)" in consola
     else:
@@ -139,11 +147,39 @@ def test_cierre_conserva_sin_fuente_y_discrepancias_del_cierre(auditor, tmp_path
     assert actual["RESULTADO"] == actual["ESTADO CIERRE"] == esperado
 
 
+def test_cierre_ok_sin_discrepancias_de_apertura_permanece_ok(auditor, tmp_path):
+    fila = list(FILAS[0])
+    fila[6] = "COMPLETE"
+    fila[1] = 31  # ATA distinto: solo observación en apertura.
+    entrada = crear_export(tmp_path / "entrada.xlsx", [[*fila, datetime(2026, 8, 20)]],
+                           encabezado=[*ENCABEZADO_ENTRADA, "Complete Dt"])
+    resultado = auditor.auditar_archivo(entrada)
+    actual = resultado.filas.iloc[0]
+    assert "ata_distinto_a_referencia" in set(resultado.hallazgos["Código"])
+    assert actual["ESTADO APERTURA"] == actual["ESTADO CIERRE"] == actual["RESULTADO"] == "OK"
+
+
+def test_evaluacion_cuenta_corregidos_en_cierre_sin_marcarlos_como_discrepancia(auditor, tmp_path):
+    from dips_audit.evaluacion import evaluar
+
+    fila = list(FILAS[1])
+    fila[6] = "COMPLETE"
+    encabezado = [*ENCABEZADO_ENTRADA, "Complete Dt", "STATUS - Apertura",
+                  "COMMENTS - Apertura", "AUDIT DATE - Apertura"]
+    entrada = crear_export(tmp_path / "entrada.xlsx",
+                           [[*fila, datetime(2026, 8, 20), "OK", "", datetime(2026, 8, 18)]],
+                           encabezado=encabezado)
+    evaluacion = evaluar(auditor, entrada, hoja_entrada="Export", hoja_veredictos="Export")
+    assert evaluacion.matriz.loc["OK", "CORREGIDO EN CIERRE"] == 1
+    assert evaluacion.matriz.to_numpy().sum() == len(evaluacion.comparacion) == 1
+    assert not evaluacion.comparacion["IA DISCREPANCIA"].any()
+
+
 def test_dashboard_sin_dips_en_alcance(config, export, tmp_path):
     auditor = Auditor({**config, "tipos_auditados": ["Avionics"]}, fecha_auditoria=date(2026, 8, 20))
     salida = exportar_excel(auditor.auditar_archivo(export), tmp_path / "salida.xlsx")
     dashboard = openpyxl.load_workbook(salida)["Dashboard"]
-    assert dashboard["B6"].value == 0 and dashboard["Q6"].value == len(FILAS)
+    assert dashboard["B6"].value == 0 and dashboard["T6"].value == len(FILAS)
 
 
 def test_cli_auditar(export, tmp_path, capsys):
@@ -162,7 +198,7 @@ def test_cli_auditar_con_flota_desconocida(tmp_path):
     assert main(["auditar", str(entrada), "--salida", str(salida), "--fecha", "2026-08-20"]) == 0
     wb = openpyxl.load_workbook(salida)
     assert wb["Auditoría"].max_row == 3
-    assert "Sin flota" in [c.value for c in wb["Dashboard"]["T"]]
+    assert "Sin flota" in [c.value for c in wb["Dashboard"]["W"]]
 
 
 def test_por_defecto_audita_todos_los_tipos(auditor, export):

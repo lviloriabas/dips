@@ -21,20 +21,19 @@ from openpyxl.drawing.text import Font as DrawingFont
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from openpyxl.utils import get_column_letter
 
-from .auditor import ResultadoAuditoria
+from .auditor import CORREGIDO_EN_CIERRE, ResultadoAuditoria
 from .cargador import parse_texto
 from .reglas import MOSTRAR_SEVERIDAD
 
-# El resultado es OK, REVISAR, SIN FUENTE o POSIBLE DISCREPANCIA: sin niveles (crítica / no
-# crítica) ni tipos de discrepancia, que todavía no coinciden con el proceso de los auditores.
+# Los resultados separan los DIPs corregidos en el cierre de los OK desde la apertura.
 COLORES_RESULTADO = {"POSIBLE DISCREPANCIA": "FCE3B0", "REVISAR": "FFF59D", "SIN FUENTE": "D6E4F0",
-                     "OK": "C9E7C9", "FUERA DE ALCANCE": "E4E4E4"}
+                     "OK": "C9E7C9", CORREGIDO_EN_CIERRE: "CCEDE8", "FUERA DE ALCANCE": "E4E4E4"}
 COLORES_SEVERIDAD = {"POSIBLE DISCREPANCIA": "FCE3B0", "REVISAR": "FFF59D", "SIN FUENTE": "D6E4F0",
                      "OBSERVACIÓN": "EFEFEF"}
 # Mismos tonos que las celdas, pero saturados (colores del tema de Office): en los gráficos los
 # pasteles no se distinguen.
 COLORES_GRAFICO = {"POSIBLE DISCREPANCIA": "ED7D31", "REVISAR": "FFC000", "SIN FUENTE": "4472C4",
-                   "OK": "70AD47", "FUERA DE ALCANCE": "A5A5A5"}
+                   "OK": "70AD47", CORREGIDO_EN_CIERRE: "00A6A6", "FUERA DE ALCANCE": "A5A5A5"}
 _ENCABEZADO = PatternFill("solid", fgColor="1F3A5F")
 # Columnas agregadas por el programa: encabezado morado y celdas lila, para
 # distinguirlas de las columnas originales del Excel de entrada.
@@ -145,18 +144,18 @@ def hallazgos_para_mostrar(h: pd.DataFrame) -> pd.DataFrame:
     return h[[c for c in h.columns if c != "Fila Excel"] + ["Fila Excel"]]
 
 
-_RESULTADOS = ["POSIBLE DISCREPANCIA", "REVISAR", "SIN FUENTE", "OK"]
+_RESULTADOS = ["POSIBLE DISCREPANCIA", "REVISAR", "SIN FUENTE", "OK", CORREGIDO_EN_CIERRE]
 _GRIS_TEXTO, _GRIS_SUAVE, _GRIS_LINEA, _GRIS_FONDO = "404040", "7F7F7F", "D9D9D9", "F2F2F2"
 _AZUL = "1F3A5F"
 
-# Cuadrícula del dashboard: seis indicadores de 2 columnas separados por una columna angosta.
+# Cuadrícula del dashboard: un indicador por resultado, más auditados y fuera de alcance.
 # Los gráficos se anclan a esas celdas (inicio y fin), así el espaciado es el mismo en Excel
 # desktop y en Excel web aunque cambie el ancho en píxeles.
 _COL0 = 2                       # B
-_COLS_INDICADOR, _N_INDICADORES = 2, 6
-_ULTIMA_COL = _COL0 + _N_INDICADORES * (_COLS_INDICADOR + 1) - 2          # R
-_MITAD = _COL0 + 3 * (_COLS_INDICADOR + 1) - 1                             # J (separador)
-_COL_DATOS = _ULTIMA_COL + 2                                               # T
+_COLS_INDICADOR, _N_INDICADORES = 2, len(_RESULTADOS) + 2
+_ULTIMA_COL = _COL0 + _N_INDICADORES * (_COLS_INDICADOR + 1) - 2          # U
+_MITAD = _COL0 + (_N_INDICADORES // 2) * (_COLS_INDICADOR + 1) - 1       # J (separador)
+_COL_DATOS = _ULTIMA_COL + 2                                           # W
 _FILA_GRAFICOS, _ALTO_GRAFICO = 9, 16                                      # filas de 20 px
 
 
@@ -349,7 +348,7 @@ def _hoja_dashboard(ws, resultado: ResultadoAuditoria) -> None:
         ws.column_dimensions[get_column_letter(c)].width = 2 if separador else 11
     ws.column_dimensions[get_column_letter(_ULTIMA_COL + 1)].width = 4
     ws.column_dimensions[get_column_letter(_COL_DATOS)].width = 36
-    for c in range(_COL_DATOS + 1, _COL_DATOS + 6):
+    for c in range(_COL_DATOS + 1, _COL_DATOS + len(_RESULTADOS) + 2):
         ws.column_dimensions[get_column_letter(c)].width = 22
     for fila, alto in {1: 8, 2: 30, 3: 18, 4: 12, 5: 20, 6: 36, 7: 20, 8: 16}.items():
         ws.row_dimensions[fila].height = alto
@@ -378,7 +377,8 @@ def _hoja_dashboard(ws, resultado: ResultadoAuditoria) -> None:
     for i, r in enumerate(_RESULTADOS, start=1):
         n = int((en_alcance["RESULTADO"] == r).sum())
         _indicador(ws, i, r, n, n / total if total else 0, COLORES_GRAFICO[r])
-    _indicador(ws, 5, "FUERA DE ALCANCE", int((datos["RESULTADO"] == "FUERA DE ALCANCE").sum()),
+    _indicador(ws, len(_RESULTADOS) + 1, "FUERA DE ALCANCE",
+               int((datos["RESULTADO"] == "FUERA DE ALCANCE").sum()),
                None, COLORES_GRAFICO["FUERA DE ALCANCE"])
 
     izquierda, derecha = (_COL0, _MITAD - 1), (_MITAD + 1, _ULTIMA_COL)

@@ -10,12 +10,12 @@ from pathlib import Path
 
 import pandas as pd
 
-from .auditor import Auditor, ResultadoAuditoria
+from .auditor import CORREGIDO_EN_CIERRE, Auditor, ResultadoAuditoria
 from .cargador import cargar_export, parse_fecha
 
 ESTADOS_HUMANOS = ["OK", "DISCREPANCIA NO CRÍTICA", "DISCREPANCIA CRÍTICA"]
 # Resultados del programa (ver reglas.ESTADOS). SIN FUENTE y REVISAR no son OK ni discrepancia.
-ESTADOS_IA = ["OK", "REVISAR", "SIN FUENTE", "POSIBLE DISCREPANCIA"]
+ESTADOS_IA = ["OK", CORREGIDO_EN_CIERRE, "REVISAR", "SIN FUENTE", "POSIBLE DISCREPANCIA"]
 # Temas de los comentarios humanos (en orden de prioridad). Los primeros dependen
 # de información que no viene en el Excel de entrada (attachments, RIRs, tarjetas).
 TEMAS = [

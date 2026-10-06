@@ -1,6 +1,6 @@
 # Auditor preliminar de DIPs
 
-Audita los DIPs de un Excel (por defecto, de todos los tipos) con los datos de **ICAM** (solo lectura) y `DIPs References.xlsx`. Resultado por DIP: **POSIBLE DISCREPANCIA**, **REVISAR**, **SIN FUENTE** u **OK**, con el motivo. Reglas fijas, sin IA. Detalle en [docs/tecnico.md](docs/tecnico.md).
+Audita los DIPs de un Excel (por defecto, de todos los tipos) con los datos de **ICAM** (solo lectura) y `DIPs References.xlsx`. Resultado por DIP: **POSIBLE DISCREPANCIA**, **REVISAR**, **SIN FUENTE**, **OK** o **CORREGIDO EN CIERRE**, con el motivo. Reglas fijas, sin IA. Detalle en [docs/tecnico.md](docs/tecnico.md).
 
 Cada fila de `DIPs References.xlsx` (Others, Powerplant y Structures) tiene en `config/catalogo_others.yaml` las palabras con que se reconoce en los DIPs. Una fila nueva sin entrada en ese archivo se usa igual: se reconoce por su referencia técnica o por las palabras de su DESCRIPTION (con la entrada se reconocen muchos más DIPs). Los DIPs que no están en la tabla salen **SIN FUENTE** y se revisan contra el plazo, el RIR y el vencimiento que dice su propia descripción. Para auditar solo algunos tipos use `--tipos-dip` (o `tipos_auditados` en `config/config.yaml`); los demás quedan **FUERA DE ALCANCE** (otro tipo de DIP) y no se revisan.
 
@@ -106,11 +106,13 @@ Pruebas: `.venv\Scripts\python -m pytest`
 | REVISAR | La tabla da el TA o el RIR según el daño o el tipo ("DEPENDING ON...", "CONSULT REF."): verificarlo en el manual que indica el hallazgo |
 | SIN FUENTE | El DIP no está en la tabla de referencias: verificarlo contra la fuente que cita (o agregar la referencia a la tabla) |
 | OK | Hacer las verificaciones de `VERIFICACIÓN MANUAL` |
+| CORREGIDO EN CIERRE | Discrepancia de apertura con cierre OK. Hacer las verificaciones de `VERIFICACIÓN MANUAL` |
 
 Otras columnas: `COMENTARIO SUGERIDO`, `AUDITORÍA` (APERTURA/CIERRE), `ESTADO APERTURA` / `ESTADO CIERRE`, `REFERENCIA ASOCIADA`, `REFERENCIA TÉCNICA DEL DIP`, `RIR EN ICAM`, `ADJUNTOS EN ICAM`, `AUDITORÍA MANUAL EN ICAM` (lo que anotó el auditor en cada marca: discrepancia y motivo, o sin discrepancia). El Excel de entrada no se modifica.
 
-En DIPs **COMPLETE**, `RESULTADO` corresponde a `ESTADO CIERRE`: si el cierre es OK,
-el resultado es **OK**, aunque la apertura tenga discrepancias. `ESTADO APERTURA` y
+En DIPs **COMPLETE**, una apertura con **POSIBLE DISCREPANCIA** y un cierre **OK** da
+**CORREGIDO EN CIERRE**. Si la apertura también era OK, el resultado sigue como **OK**.
+En los demás casos, `RESULTADO` corresponde a `ESTADO CIERRE`. `ESTADO APERTURA` y
 los hallazgos marcados `[APERTURA]` conservan ese historial. El comentario sugerido
 y los conteos de discrepancias en consola corresponden a la auditoría actual.
 
