@@ -1,5 +1,10 @@
 # Instrucciones para Codex
 
+## Directorios de resultados
+
+- Los directorios de resultados se llaman `salida`, en singular, tanto en la raíz como dentro de `pruebas/`.
+- Usar este nombre en el código, la configuración y la documentación.
+
 ## Commits y pull requests
 
 - No agregues a Codex como coautor: nada de `Co-Authored-By: Codex ...`.
