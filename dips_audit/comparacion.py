@@ -43,7 +43,7 @@ REVISAR = "Revisar en el manual"
 RESULTADOS = ["OK", SIN_FUENTE, REVISAR, POSIBLE]
 # Valor configurado del hallazgo -> cómo se muestra en la comparación.
 SEVERIDADES = {POSIBLE_DISCREPANCIA: POSIBLE, "REVISAR": REVISAR,
-               SEVERIDAD_SIN_FUENTE: SIN_FUENTE, "OBSERVACION": "Observación"}
+               SEVERIDAD_SIN_FUENTE: SIN_FUENTE, "OK": "OK"}
 # Código del hallazgo -> motivo en palabras simples.
 MOTIVOS = {
     "sin_referencia": f"{SIN_FUENTE}: el DIP no está en la tabla de referencias",
@@ -194,7 +194,7 @@ def comparar(auditor: Auditor, ruta: Path, hoja: str | None = None,
     h = h.sort_values(["Fila Excel", "Auditoría"], ascending=[True, False])
     h.insert(h.columns.get_loc("Código"), "Motivo", h["Código"].map(MOTIVOS).fillna(h["Código"]))
     motivos = {(f, e): "\n".join(f"- {d}" for s, d in zip(g["Severidad"], g["Detalle"])
-                                 if s != "OBSERVACION")
+                                 if s != "OK")
                for (f, e), g in h.groupby(["Fila Excel", "Auditoría"])}
 
     leido = lote.datos.set_index("fila")["adjuntos"].map(lambda x: x is not None)
@@ -326,7 +326,6 @@ _ORIGINALES = {"Fault Barcode", "Aircraft", "Fault Name", "Fault Status",
 _BORDE = Border(*(Side(style="thin", color="BFBFBF"),) * 4)
 _COLORES = {
     "OK": "C9E7C9", POSIBLE: "FCE3B0", SIN_FUENTE: "D6E4F0", REVISAR: "FFF59D",
-    "Observación": "EFEFEF",
     "Sí: ambos OK": "C9E7C9", "Sí: ambos encuentran discrepancia": "C9E7C9",
     "No: el programa no la detecta": "F4B6B6",
     "No: el programa marca posible discrepancia y el auditor no": "FCE3B0",

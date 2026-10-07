@@ -97,7 +97,7 @@ class EntradaCatalogo:
     # Fila de la tabla sin entrada en el catálogo: se reconoce por las palabras de su
     # DESCRIPTION y por su referencia técnica, solo si ninguna entrada del catálogo coincide.
     automatica: bool = False
-    # Como el asterisco en PARENT ASSY de la tabla: otro Parent Assembly queda en observación.
+    # Como el asterisco en PARENT ASSY de la tabla: otro Parent Assembly queda en OK.
     parent_flexible: bool = False
     # El vencimiento del ítem es el del PDF de inventario adjunto (generators de oxígeno).
     inventario: bool = False

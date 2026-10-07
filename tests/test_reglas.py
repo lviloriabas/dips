@@ -36,10 +36,10 @@ def test_intervalo_excedido_es_posible_discrepancia(catalogo, ctx):
     assert estado_final(r.hallazgos) == "POSIBLE DISCREPANCIA"
 
 
-def test_intervalo_menor_es_observacion(catalogo, ctx):
+def test_intervalo_menor_queda_ok(catalogo, ctx):
     r = auditar(catalogo, ctx, "OXIGENO_TRIPULACION", intervalo=2.0,
                 due_date=datetime(2026, 8, 20, 23, 59))
-    assert "intervalo_menor" in codigos(r, "OBSERVACION")
+    assert "intervalo_menor" in codigos(r, "OK")
     assert estado_final(r.hallazgos) == "OK"
 
 
@@ -218,17 +218,17 @@ def test_squib_sin_tabla_de_analogos_queda_para_verificar(catalogo, ctx):
     assert any("Verificar P/N y análogos: M30903872A" in m for m in r.manuales)
 
 
-def test_cierre_sin_accion_correctiva_es_observacion(catalogo, ctx):
+def test_cierre_sin_accion_correctiva_queda_ok(catalogo, ctx):
     """Sin acción correctiva no es discrepancia (se cierra por la validación de QC o solo con
-    partes): observación. Sin cita del manual, también."""
+    partes): OK. Sin cita del manual, también."""
     base = dict(estado="COMPLETE", complete_date=datetime(2026, 8, 21, 10, 0), adjuntos=["A.PDF"])
     r = auditar(catalogo, ctx, "OXIGENO_TRIPULACION",
                 accion_correctiva="1. JUAN PEREZ (Technician), 21-AUG-2026 10:00 UTC\n", **base)
-    assert "cierre_sin_accion_correctiva" in codigos(r, "OBSERVACION")
+    assert "cierre_sin_accion_correctiva" in codigos(r, "OK")
     assert estado_final(r.hallazgos) == "OK"
     assert "cierre_sin_referencia_tecnica" not in codigos(r)
     r = auditar(catalogo, ctx, "OXIGENO_TRIPULACION", accion_correctiva="BOTTLE REPLACED", **base)
-    assert "cierre_sin_referencia_tecnica" in codigos(r, "OBSERVACION")
+    assert "cierre_sin_referencia_tecnica" in codigos(r, "OK")
 
 
 def test_cierre_con_mgm_o_amm_sin_revision(catalogo, ctx):
@@ -255,8 +255,8 @@ def test_usage_remaining_mayor_que_intervalo(catalogo, ctx):
     r = auditar(catalogo, ctx, "AMORTIGUADOR_MLG", nombre="DIP-Right Main Landing Gear Shock Strut",
                 intervalo=10.0, unidad="FC", tipo_intervalo_original="CYCLES", ata=32,
                 deferral_ref="32-DIP", usage_remaining=20.0, due_date=None)
-    # Los auditores lo aceptan (el T/A empieza después de la apertura): observación.
-    assert "usage_remaining_mayor_a_intervalo" in codigos(r, "OBSERVACION")
+    # Los auditores lo aceptan (el T/A empieza después de la apertura): OK.
+    assert "usage_remaining_mayor_a_intervalo" in codigos(r, "OK")
 
 
 def test_due_date_desde_el_start_del_ta_en_icam(catalogo, ctx):
@@ -297,26 +297,26 @@ def test_parent_assy_incorrecto(catalogo, ctx):
     assert "parent_assy_incorrecto" in codigos(r, "POSIBLE DISCREPANCIA")
 
 
-def test_parent_assy_flexible_es_observacion(catalogo, ctx):
+def test_parent_assy_flexible_queda_ok(catalogo, ctx):
     r = auditar(catalogo, ctx, "FILTRO_COMBUSTIBLE_MOTOR", nombre="DIP - ENGINE #1 FUEL FILTER",
                 intervalo=75.0, unidad="FH", tipo_intervalo_original="HOUR", ata=73,
                 deferral_ref="73-DIP", due_date=None, usage_remaining=None,
                 parent_assy="(LH) CFM56-7B26E Engine (PN: CFM56-7B26E, SN: 660819)",
                 parent_tipo="ENGINE")
-    assert "parent_assy_incorrecto" in codigos(r, "OBSERVACION")
+    assert "parent_assy_incorrecto" in codigos(r, "OK")
 
 
 def test_deferral_reference_distinta_al_ata(catalogo, ctx):
-    """El ATA del DIP no es relevante para la auditoría: observación."""
+    """El ATA del DIP no es relevante para la auditoría: OK."""
     r = auditar(catalogo, ctx, "OXIGENO_TRIPULACION", deferral_ref="25-DIP")
-    assert "deferral_reference_ata" in codigos(r, "OBSERVACION")
+    assert "deferral_reference_ata" in codigos(r, "OK")
     assert estado_final(r.hallazgos) == "OK"
 
 
-def test_sin_sn_es_observacion(catalogo, ctx):
+def test_sin_sn_queda_ok(catalogo, ctx):
     r = auditar(catalogo, ctx, "FAK", nombre="DIP-FWD FAK", intervalo=60.0, ata=25,
                 deferral_ref="25-DIP", due_date=datetime(2026, 10, 17, 23, 59), usage_remaining=58.0)
-    assert "sin_sn_en_descripcion" in codigos(r, "OBSERVACION")
+    assert "sin_sn_en_descripcion" in codigos(r, "OK")
     r = auditar(catalogo, ctx, "FAK", nombre="DIP-FWD FAK S/N FAK082", intervalo=60.0, ata=25,
                 deferral_ref="25-DIP", due_date=datetime(2026, 10, 17, 23, 59), usage_remaining=58.0)
     assert "sin_sn_en_descripcion" not in codigos(r)

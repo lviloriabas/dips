@@ -88,7 +88,7 @@ def evaluar(auditor: Auditor, ruta_historico: Path, hoja_entrada: str = "DIPs",
     comp["IA MARCA"] = comp["IA DISCREPANCIA"]
     comp["TEMA HUMANO"] = comp["COMENTARIO HUMANO"].map(tema)
     comp["NO DETECTABLE DESDE EXCEL"] = comp["TEMA HUMANO"].isin(_NO_DETECTABLE)
-    # Cualquier hallazgo, incluidas observaciones (no cambian el estado).
+    # Cualquier hallazgo, incluidos los detalles adicionales (no cambian el estado).
     comp["IA ALGÚN HALLAZGO"] = comp["HALLAZGOS"].fillna("").str.strip() != ""
 
     def acuerdo(fila) -> str:

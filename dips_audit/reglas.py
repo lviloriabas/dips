@@ -24,15 +24,16 @@ SIN_FUENTE = "SIN FUENTE EN DIPS REFERENCES"
 REVISAR = "REVISAR"
 SEVERIDAD_SIN_FUENTE = SIN_FUENTE
 # Prioridad del resultado: una posible discrepancia pesa más que una consulta al manual
-# o la falta de fuente. Las observaciones se anotan sin cambiar el resultado.
-ORDEN_SEVERIDAD = {POSIBLE_DISCREPANCIA: 4, REVISAR: 3, SIN_FUENTE: 2, "OBSERVACION": 1}
+# o la falta de fuente. Los detalles adicionales se anotan sin cambiar el resultado.
+ORDEN_SEVERIDAD = {POSIBLE_DISCREPANCIA: 4, REVISAR: 3, SIN_FUENTE: 2, "OK": 1}
 ESTADOS = {
     POSIBLE_DISCREPANCIA: POSIBLE_DISCREPANCIA,
     REVISAR: REVISAR,
     SIN_FUENTE: SIN_FUENTE,
+    "OK": "OK",
 }
 # Cómo se muestra cada hallazgo según su severidad.
-MOSTRAR_SEVERIDAD = {**ESTADOS, "OBSERVACION": "OBSERVACIÓN"}
+MOSTRAR_SEVERIDAD = ESTADOS.copy()
 # Cada DIP se audita dos veces: al abrirse (APERTURA) y al cerrarse (CIERRE). Estos códigos
 # son de la auditoría de cierre; todos los demás, de la de apertura.
 CODIGOS_CIERRE = {
@@ -50,7 +51,7 @@ def etapa(codigo: str) -> str:
 class Hallazgo:
     codigo: str       # regla en config/discrepancias.yaml (p. ej. intervalo_excedido)
     categoria: str    # tipo de discrepancia (nomenclatura del departamento)
-    severidad: str    # Valor en config/discrepancias.yaml; OBSERVACION no cambia el resultado.
+    severidad: str    # Valor en config/discrepancias.yaml; OK no cambia el resultado.
     mensaje: str
 
 
@@ -673,7 +674,7 @@ def regla_inicio_ta(dip: dict, entrada: EntradaCatalogo | None, ctx: Contexto,
         r.agregar(ctx, "inicio_ta_incorrecto", "Incorrect DIP Start Values",
                   f"{detalle}; debe empezar {esperado}"
                   + (" (salvo que la fuente que cita diga otra cosa: verificar)." if verificar else "."),
-                  "OBSERVACION" if verificar else None)
+                  "OK" if verificar else None)
         return
     # Empieza bien, pero con el intervalo B: vence después de la ventana.
     if ventana and valor is not None and corrido + valor > limite + tolerancia:
@@ -769,7 +770,7 @@ def regla_parent_assy(dip: dict, entrada: EntradaCatalogo, ctx: Contexto,
             r.agregar(ctx, "parent_assy_incorrecto", "Incorrect Parent Assembly",
                       f"Asignado a {actual}; la referencia indica {texto_esp} (a ENGINE si "
                       f"se roba el motor). Verificar.",
-                      "OBSERVACION")
+                      "OK")
         else:
             # Si es el avión basta con AIRCRAFT; el modelo (737-800...) no aporta.
             asignado = actual if actual == "AIRCRAFT" else f"{actual} ({dip['parent_assy']})"

@@ -438,7 +438,7 @@ def cmd_auditar(args, config) -> int:
         t.add_column("Hallazgos", ratio=4)
         for _, f in marcadas.head(args.max_filas).iterrows():
             hallazgos = "\n".join(l for l in f["HALLAZGOS"].splitlines()
-                                  if not l.startswith("[OBSERVACIÓN]"))
+                                  if not l.startswith("[OK]"))
             t.add_row(str(f["Fila Excel"]), f["Fault Barcode"], f["Aircraft"],
                       f["Fault Name"][:90], f"[{ESTILOS[f['RESULTADO']]}]{f['RESULTADO']}[/]",
                       hallazgos)

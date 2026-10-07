@@ -39,7 +39,7 @@ flowchart LR
 | POSIBLE DISCREPANCIA | Falló al menos una regla                                                                | Lee`HALLAZGOS` y decide                          |
 | REVISAR              | La tabla da el TA o el RIR según el daño o el tipo ("DEPENDING ON...", "CONSULT REF.") | Lo verifica en el manual que indica el hallazgo    |
 | SIN FUENTE EN DIPS REFERENCES           | El DIP no está en la tabla de referencias                                               | Lo verifica contra la fuente que cita el DIP       |
-| OK                   | No falló ninguna regla (puede tener observaciones)                                      | Hace las verificaciones de`VERIFICACIÓN MANUAL` |
+| OK                   | No falló ninguna regla (puede incluir detalles adicionales)                                      | Hace las verificaciones de`VERIFICACIÓN MANUAL` |
 | FUERA DE ALCANCE     | Tipo de DIP excluido con`--tipos-dip`                                                  | No se revisa                                       |
 
 ## Formas de usarlo
@@ -148,12 +148,12 @@ flowchart TD
     style OK fill:#C9E7C9,color:#000
 ```
 
-Si en un DIP con REVISAR además falla otra regla, queda en POSIBLE DISCREPANCIA: manda el hallazgo más grave. Una OBSERVACIÓN se anota en `HALLAZGOS` pero no cambia el resultado.
+Si en un DIP con REVISAR además falla otra regla, queda en POSIBLE DISCREPANCIA: manda el hallazgo más grave. Un hallazgo con resultado OK se anota en `HALLAZGOS` y no desplaza otros resultados.
 
 | Regla                                                                                              | Resultado              |
 | -------------------------------------------------------------------------------------------------- | ---------------------- |
 | Intervalo mayor que el TA, o en otra unidad (días, FH, FC)                                        | POSIBLE DISCREPANCIA   |
-| Intervalo menor que el TA                                                                          | OBSERVACIÓN           |
+| Intervalo menor que el TA                                                                          | OK           |
 | Intervalo 0                                                                                        | POSIBLE DISCREPANCIA   |
 | La tabla pide dos límites ("45 DAYS OR 225 FC") y el T/A en ICAM tiene uno                        | POSIBLE DISCREPANCIA   |
 | Parent Assy distinto (AIRCRAFT / ENGINE)                                                           | POSIBLE DISCREPANCIA   |
@@ -161,26 +161,26 @@ Si en un DIP con REVISAR además falla otra regla, queda en POSIBLE DISCREPANCIA
 | Due date después del Start + intervalo, o del vencimiento del ítem                               | POSIBLE DISCREPANCIA   |
 | Generators de oxígeno: due date después del Exp. Date del PDF de inventario, o S/N que no está en el PDF | POSIBLE DISCREPANCIA   |
 | DIP activo vencido, o paquete programado después del due date                                     | POSIBLE DISCREPANCIA   |
-| Usage Remaining mayor que el intervalo                                                             | OBSERVACIÓN           |
+| Usage Remaining mayor que el intervalo                                                             | OK           |
 | Sin referencia técnica (ni cargada, ni captura adjunta, ni citada)                                | POSIBLE DISCREPANCIA   |
-| Referencia técnica sin REV o sin fecha                                                            | OBSERVACIÓN           |
+| Referencia técnica sin REV o sin fecha                                                            | OK           |
 | Referencia técnica de otra referencia de la tabla, o tarea que la tabla no tiene                  | POSIBLE DISCREPANCIA   |
-| Otra tarea del mismo capítulo-sección-tema                                                       | OBSERVACIÓN           |
+| Otra tarea del mismo capítulo-sección-tema                                                       | OK           |
 | Barcode de trabajo citado como referencia (no específica)                                         | POSIBLE DISCREPANCIA   |
 | Sin attachments (apertura o cierre)                                                                | POSIBLE DISCREPANCIA   |
 | S/N distinto del de las notas de la descripción                                                    | POSIBLE DISCREPANCIA   |
-| DIP duplicado (o S/N repetido en otro DIP activo), o declarado duplicado / creado por error       | OBSERVACIÓN           |
-| Deferral Reference distinto del ATA                                                                | OBSERVACIÓN           |
+| DIP duplicado (o S/N repetido en otro DIP activo), o declarado duplicado / creado por error       | OK           |
+| Deferral Reference distinto del ATA                                                                | OK           |
 | RIR faltante, con otro intervalo, sin un límite del T/A, en otro Parent Assembly o con otro Start | POSIBLE DISCREPANCIA   |
 | Sin intervalo o sin tipo de intervalo                                                              | POSIBLE DISCREPANCIA   |
 | Cierre después del due date, o después del original con deadline extendido                       | POSIBLE DISCREPANCIA   |
-| Cierre sin acción correctiva                                                                      | OBSERVACIÓN           |
-| Acción correctiva sin cita del manual                                                             | OBSERVACIÓN           |
+| Cierre sin acción correctiva                                                                      | OK           |
+| Acción correctiva sin cita del manual                                                             | OK           |
 | TA o RIR según el daño o el tipo ("DEPENDING ON...", "CONSULT REF.")                             | REVISAR (ir al manual) |
 | Sin referencia en la tabla                                                                         | SIN FUENTE EN DIPS REFERENCES             |
 | DIP SIN FUENTE EN DIPS REFERENCES con T/A mayor que el plazo de su descripción, o sin el RIR que pide                | POSIBLE DISCREPANCIA   |
 
-Qué tipos de discrepancia y reglas se revisan, y cuáles son solo observación, se configura en `config/discrepancias.yaml`. Sus valores son POSIBLE DISCREPANCIA, REVISAR, SIN FUENTE EN DIPS REFERENCES y OBSERVACION. La prioridad sigue ese orden; OBSERVACION no cambia el resultado. CORREGIDO EN CIERRE se calcula a partir de los resultados de apertura y cierre.
+Qué tipos de discrepancia y reglas se revisan, y cuáles son OK, se configura en `config/discrepancias.yaml`. Sus valores son POSIBLE DISCREPANCIA, REVISAR, SIN FUENTE EN DIPS REFERENCES y OK. La prioridad sigue ese orden; OK no cambia el resultado. CORREGIDO EN CIERRE se calcula a partir de los resultados de apertura y cierre.
 
 ## RIR en ICAM
 

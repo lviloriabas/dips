@@ -24,13 +24,13 @@ El programa hace lo mismo que un auditor, en este orden:
 | Decisión | Por qué |
 | --- | --- |
 | **Reglas fijas, sin IA** | El auditor tiene que poder rastrear cada hallazgo hasta un dato y una regla. Una regla se prueba, se desactiva y se mide; una respuesta de un modelo, no |
-| **El conocimiento va fuera del código** | La tabla de referencias (`DIPs References.xlsx`), las palabras clave de cada ítem (`catalogo_others.yaml`), qué regla es discrepancia u observación (`discrepancias.yaml`) y las tolerancias (`config.yaml`) cambian con los criterios de los auditores. Se ajustan sin tocar Python. Al cargar, el catálogo se valida contra la tabla: si una referencia no existe con el texto exacto, el programa se detiene |
+| **El conocimiento va fuera del código** | La tabla de referencias (`DIPs References.xlsx`), las palabras clave de cada ítem (`catalogo_others.yaml`), qué regla es discrepancia u OK (`discrepancias.yaml`) y las tolerancias (`config.yaml`) cambian con los criterios de los auditores. Se ajustan sin tocar Python. Al cargar, el catálogo se valida contra la tabla: si una referencia no existe con el texto exacto, el programa se detiene |
 | **Etapas en un solo sentido** | Entrada -> formato común -> asociación -> reglas -> resultado -> salida. Cada etapa solo usa la anterior. Así una regla no sabe si el dato vino del Excel o de ICAM, y el Excel de salida no sabe cómo se decidió el resultado |
 | **Reglas como funciones pequeñas** | Cada regla recibe un DIP (`dict`), su entrada del catálogo y un `Contexto`, y agrega hallazgos. No lee archivos ni ICAM. Por eso cada una se prueba sola en `tests/` |
 | **ICAM se lee y se interpreta por separado** | `extractor_icam.py` guarda el texto de las pestañas en `data/icam.json`; `icam.py` lo interpreta después. Se puede volver a auditar o corregir la interpretación sin volver a leer ICAM (`--datos-icam`). Y la lectura es solo de lectura: nunca escribe en ICAM |
 | **"Sin dato" no es "cero"** | `None` significa que no se leyó (por ejemplo, `adjuntos` sin ICAM); `[]` significa que se leyó y no hay nada. Sin dato, la regla no marca discrepancia: usa lo que dice el Excel o deja una verificación manual |
 | **La fecha de auditoría es un parámetro** | `Contexto.fecha_referencia` dice "auditar como si fuera tal día y hora". Con eso `comparar` audita cada DIP a la hora en que lo auditó la persona, y se puede calibrar contra la auditoría manual |
-| **Valores de las reglas y resultados** | Cada regla usa POSIBLE DISCREPANCIA, REVISAR, SIN FUENTE EN DIPS REFERENCES u OBSERVACION. CORREGIDO EN CIERRE se calcula al combinar apertura y cierre |
+| **Valores de las reglas y resultados** | Cada regla usa POSIBLE DISCREPANCIA, REVISAR, SIN FUENTE EN DIPS REFERENCES u OK. CORREGIDO EN CIERRE se calcula al combinar apertura y cierre |
 | **Benchmark con línea base** | Cambiar una regla puede arreglar un caso y romper diez. `benchmark` mide contra DIPs ya auditados y falla si algún indicador empeora |
 | **Datos sensibles fuera de Git** | El Excel de entrada, `data/`, `pruebas/` y `salida/` tienen nombres del personal y datos operativos: están en `.gitignore`. El benchmark usa una copia sin nombres (`anonimizar.py`) |
 
@@ -106,7 +106,7 @@ Cada hallazgo tiene una severidad, que sale de `discrepancias.yaml`. El resultad
 | POSIBLE DISCREPANCIA | `[POSIBLE DISCREPANCIA]` | POSIBLE DISCREPANCIA |
 | REVISAR | `[REVISAR]` | REVISAR |
 | SIN FUENTE EN DIPS REFERENCES | `[SIN FUENTE EN DIPS REFERENCES]` | SIN FUENTE EN DIPS REFERENCES |
-| OBSERVACION | `[OBSERVACIÓN]` | No cambia el resultado |
+| OK | `[OK]` | OK, salvo un hallazgo de mayor prioridad |
 | (sin hallazgos) | | OK |
 
 Cada hallazgo es de apertura o de cierre: los códigos de `reglas.CODIGOS_CIERRE` son de cierre y todos los demás, de apertura. Así salen `ESTADO APERTURA` y `ESTADO CIERRE`.
@@ -129,7 +129,7 @@ barcode, el valor, la unidad y el intervalo, sin la etiqueta de procedencia «Ex
 | --- | --- |
 | Que se lea bien un error de escritura frecuente | `_SINONIMOS` en `texto.py` |
 | Cubrir un ítem que sale SIN FUENTE EN DIPS REFERENCES | Fila en `DIPs References.xlsx` + entrada en `catalogo_others.yaml` (sección 3.8) |
-| Que una regla sea observación, o desactivarla | `config/discrepancias.yaml` |
+| Que una regla sea OK, o desactivarla | `config/discrepancias.yaml` |
 | Cambiar una tolerancia | `config/config.yaml` |
 | Agregar una regla | Una función en `reglas.py` (o un método en `auditor.py` si necesita la asociación o datos de ICAM), su código en `discrepancias.yaml` (si es de cierre, también en `CODIGOS_CIERRE`) y un test |
 | Usar un dato nuevo de ICAM | `icam.leer_ficha` (interpretarlo) -> `cargador._dato_icam` y `completar_con_icam` (pasarlo al `dip`) -> la regla |
@@ -263,7 +263,7 @@ Si ninguna entrada coincide exacto, se vuelve a intentar tolerando errores de es
 - Solo en **palabras de 5 letras o más** y con al menos **85 % de parecido**: "FUNIGATION" se lee como "FUMIGATION" y "EXTINGUSHER" como "EXTINGUISHER".
 - En **siglas y palabras cortas no hay tolerancia**, porque un cambio de letra es otra cosa: ELT y EMK son ítems distintos.
 
-Si así coincide una sola entrada, se acepta y se anota como **observación**: "'FUNIGATION' se leyó como 'FUMIGATION'". Así el auditor ve qué se interpretó.
+Si así coincide una sola entrada, se acepta y se anota con estado **OK**: "'FUNIGATION' se leyó como 'FUMIGATION'". Así el auditor ve qué se interpretó.
 
 ### 3.4 Por la referencia técnica o la descripción
 
@@ -273,7 +273,7 @@ Muchos Fault Names no dicen qué ítem es ("AFT PASSENGER CABIN LESS THAN 130 DA
 2. **El Fault Name junto con la descripción**, con las mismas palabras clave del catálogo ("...WAS FOUND FIRST AID KIT..." -> FAK), sin tolerar errores de escritura. Juntos, cada uno puede aportar una parte: "OPEN DIP FOR FLIGHT COMPARTMENT AND CONTROL CABIN WINDOWS" en el nombre y "before the sealant fully cures" en la descripción -> SEALANT (WINDOWS). No se acepta si la descripción cita una tarea que no es la de esa referencia, porque el DIP sigue otra fuente: una muestra nueva de combustible por la SUBTASK 28-10-00-280-056 (10 días) no es FUEL MICROBIAL GROWTH (AMM 28-10-00-200-802, 4 días).
 3. **La tarea citada en la descripción** ("IAW EC/RA 2500-0538C" -> LIFEVEST DOOR LATCH DAMAGED).
 
-Las task cards JIC de la descripción no cuentan: son la tarea donde se encontró la falla. Cada asociación así se anota como observación ("identificada por la descripción, no por el Fault Name") para que el auditor la confirme.
+Las task cards JIC de la descripción no cuentan: son la tarea donde se encontró la falla. Cada asociación así se anota con estado OK ("identificada por la descripción, no por el Fault Name") para que el auditor la confirme.
 
 ### 3.5 Cuando no se reconoce: SIN FUENTE EN DIPS REFERENCES
 
@@ -304,11 +304,11 @@ La tabla también se escribe a mano, así que se interpreta con cuidado (`refere
 | TA en meses | 1 mes = entre 30 y 31 días, más 1 día de tolerancia |
 | "UNTIL DUE DATE" | El DIP debe ir en días y su due date no puede pasar el vencimiento que dice la descripción |
 | TA condicional: por flota, por presión ("IF…", "DEPENDING…") | No se adivina. El catálogo define las variantes en `intervalos` (p. ej. oxígeno de tripulación: 3 días, 1 día o 1 ciclo según la presión) |
-| Parent Assy con asterisco | Acepta avión o motor (se transfiere al robar el motor): la diferencia queda como observación |
+| Parent Assy con asterisco | Acepta avión o motor (se transfiere al robar el motor): la diferencia queda con estado OK |
 
 Al cargar, el programa verifica que cada referencia del catálogo exista **con el texto exacto** en la columna DESCRIPTION de la tabla; si no existe, se detiene con un mensaje claro. Para ver todo esto: `.venv\Scripts\python -m dips_audit referencias`.
 
-**Fila nueva sin entrada en el catálogo.** Una fila de la tabla (de cualquier tipo) que el catálogo no tiene se usa igual, con una entrada automática (`FILA_<n>`): el DIP se asocia si su referencia técnica tiene un número de tarea de esa fila, o si tiene todas las palabras de la DESCRIPTION antes de la aclaración ("TIRE PRESSURE RECHECK IN 24 HOURS (LOW PRESSURE...)" -> TIRE, PRESSURE, RECHECK, HOURS). Solo se prueba si ninguna entrada del catálogo coincide, y queda como observación ("Fila n de la tabla sin entrada en el catálogo... Verificar"). Al cargar se avisa qué filas están así. Es un respaldo: la entrada del catálogo, con sinónimos y exclusiones, reconoce muchos más DIPs.
+**Fila nueva sin entrada en el catálogo.** Una fila de la tabla (de cualquier tipo) que el catálogo no tiene se usa igual, con una entrada automática (`FILA_<n>`): el DIP se asocia si su referencia técnica tiene un número de tarea de esa fila, o si tiene todas las palabras de la DESCRIPTION antes de la aclaración ("TIRE PRESSURE RECHECK IN 24 HOURS (LOW PRESSURE...)" -> TIRE, PRESSURE, RECHECK, HOURS). Solo se prueba si ninguna entrada del catálogo coincide, y queda con estado OK ("Fila n de la tabla sin entrada en el catálogo... Verificar"). Al cargar se avisa qué filas están así. Es un respaldo: la entrada del catálogo, con sinónimos y exclusiones, reconoce muchos más DIPs.
 
 **"[AIRCRAFT SPECIFIC]".** Si la columna REFERENCES empieza así ("ECRA OF EACH REPAIR, E.G. ECRA 5300-3447C"), los números son ejemplos: no se exige que el DIP cite esos.
 
@@ -335,12 +335,12 @@ Y descarta lo que parece referencia pero no lo es:
 
 Las task cards sí son referencia técnica: cargadas en ICAM, citadas en la descripción ("IAW TASK B737-05-1-0005-U-JIC", "REF. TASK CARD…", "DURING TASK CARD…") o en un attachment. Al comparar con la tabla, la task card de la descripción se toma como la tarea donde se encontró la falla (el Service Visit) y no se compara, salvo que sea justo la que da la tabla.
 
-Al comparar con la tabla, una tarea **del mismo capítulo-sección-tema** pero con otro número (AMM 12-15-21-**200**-801 cuando la tabla dice 12-15-21-**210**-801) se anota como observación: el auditor la acepta.
+Al comparar con la tabla, una tarea **del mismo capítulo-sección-tema** pero con otro número (AMM 12-15-21-**200**-801 cuando la tabla dice 12-15-21-**210**-801) se anota con estado OK: el auditor la acepta.
 
 ### 3.8 Cómo agregar un nombre o un ítem nuevo
 
 1. Si es un error de escritura frecuente, agréguelo a `_SINONIMOS` en `dips_audit/texto.py`.
-2. Si es un ítem nuevo, agregue la fila a `DIPs References.xlsx`. Con eso ya se reconoce por su referencia técnica y por las palabras de la DESCRIPTION (3.6). Para reconocer todos los DIPs de ese ítem, agregue también su entrada en `config/catalogo_others.yaml` con `requiere` (y `excluir` si se confunde con otro); `parent_assy_flexible: true` hace que otro Parent Assembly quede como observación, igual que el asterisco en la tabla.
+2. Si es un ítem nuevo, agregue la fila a `DIPs References.xlsx`. Con eso ya se reconoce por su referencia técnica y por las palabras de la DESCRIPTION (3.6). Para reconocer todos los DIPs de ese ítem, agregue también su entrada en `config/catalogo_others.yaml` con `requiere` (y `excluir` si se confunde con otro); `parent_assy_flexible: true` hace que otro Parent Assembly quede con estado OK, igual que el asterisco en la tabla.
 3. Ejecute `python -m dips_audit referencias` para ver cómo quedó y `.venv\Scripts\python -m dips_audit benchmark` para verificar que nada empeoró.
 
 ---
@@ -351,19 +351,19 @@ Archivos: `dips_audit/reglas.py` y `dips_audit/auditor.py`. Se aplica a todo DIP
 
 | Qué se revisa | Cómo |
 | --- | --- |
-| Intervalo | Se compara con el TA de la tabla (o la variante que corresponda a la flota o la presión). Mayor (si de verdad vence después: con el Start de ICAM, uno que empieza antes de la apertura y vence dentro del TA no se marca) o en otra unidad -> posible discrepancia; menor -> observación |
+| Intervalo | Se compara con el TA de la tabla (o la variante que corresponda a la flota o la presión). Mayor (si de verdad vence después: con el Start de ICAM, uno que empieza antes de la apertura y vence dentro del TA no se marca) o en otra unidad -> posible discrepancia; menor -> OK |
 | Start del T/A | Ver abajo (**Incorrect DIP Start Values**) |
 | Due date | Debe ser el Start del T/A en ICAM más el intervalo (1 día de tolerancia); sin ICAM, la apertura más el intervalo (o la apertura + 7 días en un FDR armado con 23 días). En ítems con vencimiento (UNTIL DUE DATE) no se cuenta por intervalo: el due date no puede pasar la fecha que dice la descripción. En generators de oxígeno, la fecha es la del PDF de inventario (ver abajo) |
 | DIP vencido | Un DIP abierto con due date anterior al **momento de la auditoría** (día y hora) es una posible discrepancia. Un due date sin hora vence al final del día |
-| Usage Remaining | Mayor que el intervalo se anota como observación: pasa cuando el T/A empieza después de la apertura, y los auditores lo aceptan |
+| Usage Remaining | Mayor que el intervalo se anota con estado OK: pasa cuando el T/A empieza después de la apertura, y los auditores lo aceptan |
 | Parent Assembly | Avión o motor, según la tabla |
-| ATA y Deferral Reference | El ATA del DIP no es relevante: un Deferral Reference que no empieza con el ATA, o un ATA distinto del de la tabla, es observación |
+| ATA y Deferral Reference | El ATA del DIP no es relevante: un Deferral Reference que no empieza con el ATA, o un ATA distinto del de la tabla, queda OK |
 | Referencia técnica | Ver abajo |
-| S/N | Si la tabla lo pide, debe estar en la descripción. Un S/N repetido en otro DIP abierto del mismo avión es señal de un duplicado: observación. El S/N del Fault Name y la descripción debe ser el de las notas de la descripción en ICAM: se compara el número (P11101989 y 11101989 son el mismo S/N); si el número difiere (11101989 / 11101998) es posible discrepancia. Un S/N de más en uno de los dos textos no cuenta |
+| S/N | Si la tabla lo pide, debe estar en la descripción. Un S/N repetido en otro DIP abierto del mismo avión es señal de un duplicado: OK. El S/N del Fault Name y la descripción debe ser el de las notas de la descripción en ICAM: se compara el número (P11101989 y 11101989 son el mismo S/N); si el número difiere (11101989 / 11101998) es posible discrepancia. Un S/N de más en uno de los dos textos no cuenta |
 | Attachments | En DIPs diferidos desde el 9-jul-2026, la falta de attachments es posible discrepancia. Los anteriores quedan exentos. Se cuentan en ICAM y, sin ICAM, en el Excel (`Attach Docs`) |
 | RIR | Si la tabla pide RIR, debe existir en Follow-on Tasks con el intervalo correcto, en el mismo Parent Assembly y con el mismo inicio que el T/A (ver abajo) |
-| Duplicados | Mismo avión, mismo ítem, misma posición (FWD/AFT, LH/RH, #1/#2; también la de la descripción: el squib LEFT y el RIGHT de la misma botella no son duplicados), S/N compatibles (del nombre y la descripción), los mismos mensajes de mantenimiento si los citan (SHORT TIME 75-20451 y 75-10451 son dos fallas) y abiertos a la vez según la fecha de cierre. En una referencia con varias etapas, otro intervalo es otra etapa y no un duplicado (re-torque a los 60 días y a los 12 meses; cable ajustado a 6 meses y nuevo a 4). Un duplicado es un duplicado, no una discrepancia: observación |
-| Duplicado o creado por error | El técnico lo dice en la acción correctiva ("ENTERED BY MISTAKE", "DUPLICATED DIP") o en el nombre, la descripción o las notas de la descripción, referido al DIP ("DIP DUPLICADO"; "MASK DEPLOYED BY MISTAKE" es la falla). El DIP no se audita: el único hallazgo y el comentario son "DIP creado por error." o "DIP duplicado (ver T40S...).". Observación, esté abierto o cerrado |
+| Duplicados | Mismo avión, mismo ítem, misma posición (FWD/AFT, LH/RH, #1/#2; también la de la descripción: el squib LEFT y el RIGHT de la misma botella no son duplicados), S/N compatibles (del nombre y la descripción), los mismos mensajes de mantenimiento si los citan (SHORT TIME 75-20451 y 75-10451 son dos fallas) y abiertos a la vez según la fecha de cierre. En una referencia con varias etapas, otro intervalo es otra etapa y no un duplicado (re-torque a los 60 días y a los 12 meses; cable ajustado a 6 meses y nuevo a 4). Un duplicado es un duplicado, no una discrepancia: OK |
+| Duplicado o creado por error | El técnico lo dice en la acción correctiva ("ENTERED BY MISTAKE", "DUPLICATED DIP") o en el nombre, la descripción o las notas de la descripción, referido al DIP ("DIP DUPLICADO"; "MASK DEPLOYED BY MISTAKE" es la falla). El DIP no se audita: el único hallazgo y el comentario son "DIP creado por error." o "DIP duplicado (ver T40S...).". OK, esté abierto o cerrado |
 
 **Referencia técnica en la apertura.** Se acepta cualquiera de estas tres evidencias, que es lo que acepta el auditor:
 
@@ -371,7 +371,7 @@ Archivos: `dips_audit/reglas.py` y `dips_audit/auditor.py`. Se aplica a todo DIP
 2. una captura adjunta (Attachments);
 3. la referencia citada en la descripción.
 
-Para DIPs diferidos desde el 9-jul-2026, si no hay ninguna, es posible discrepancia. Si la cita no trae la revisión o su fecha, se anota como observación. En los COMPLETE también se considera la acción correctiva descargada de ICAM. Sin datos de ICAM no se marca, porque no se sabe si hay captura: queda como verificación manual.
+Para DIPs diferidos desde el 9-jul-2026, si no hay ninguna, es posible discrepancia. Si la cita no trae la revisión o su fecha, se anota con estado OK. En los COMPLETE también se considera la acción correctiva descargada de ICAM. Sin datos de ICAM no se marca, porque no se sabe si hay captura: queda como verificación manual.
 
 **Referencia no específica.** Si el DIP cita como su fuente un barcode de trabajo ("TO BE ACCOMPLISHED IN 500FH IAW BARCODE: TRF7N00900V4, STEP 63") y no cita una referencia del manual, es posible discrepancia (*Non-Specific Technical Reference*, como la anota el auditor). La task card JIC del Service Visit ("REF TASK CARD B737-05-1-0001-U-JIC STEP 3") sí se acepta: así se abren los DIPs de oxígeno, halon, FAK o fumigación, y los auditores no los marcan. Una task card JIC cargada en Technical References en lugar de la AMM de la tabla ya la marca la revisión contra la tabla.
 
@@ -398,7 +398,7 @@ La ventana se define con `inicio` en `config/catalogo_others.yaml`. Se marca:
 - el que empieza antes de la apertura (muestra microbiana con Start 3 días antes);
 - el que empieza a los A pero dura B, porque vence después de la ventana.
 
-Un T/A con otro intervalo es otro trabajo sobre el mismo ítem ("NLG STRUT COMPRESSED UNDER 5 INCHES" en 4 FC) y empieza en la apertura. En los ítems con vencimiento (UNTIL DUE DATE) no se revisa el Start: manda la fecha del ítem. En un ítem sin ventana, un Start posterior a la apertura con eso descontado del intervalo (más ciclos en el Start, menos en el T/A) se acepta si vence dentro del TA de la tabla: lo que importa es que no se pase. En un DIP SIN FUENTE EN DIPS REFERENCES no se sabe si el ítem tiene ventana: un Start posterior a la apertura queda como observación, y uno anterior sí es posible discrepancia. Sin ICAM no hay Start que revisar.
+Un T/A con otro intervalo es otro trabajo sobre el mismo ítem ("NLG STRUT COMPRESSED UNDER 5 INCHES" en 4 FC) y empieza en la apertura. En los ítems con vencimiento (UNTIL DUE DATE) no se revisa el Start: manda la fecha del ítem. En un ítem sin ventana, un Start posterior a la apertura con eso descontado del intervalo (más ciclos en el Start, menos en el T/A) se acepta si vence dentro del TA de la tabla: lo que importa es que no se pase. En un DIP SIN FUENTE EN DIPS REFERENCES no se sabe si el ítem tiene ventana: un Start posterior a la apertura queda con estado OK, y uno anterior sí es posible discrepancia. Sin ICAM no hay Start que revisar.
 
 **RIR (inspecciones repetitivas).** Archivo: `dips_audit/rir.py`. En ICAM, las RIR son Follow-on Tasks del DIP de clase ADHOC; las de clase REQ (por ejemplo, el servicio de taller) no son RIR. La página de Fault Information trae dos tablas: las tareas abiertas y las históricas (cerradas o canceladas). Se leen las dos, y también la página de cada RIR vigente.
 
@@ -421,7 +421,7 @@ Los controles de referencia técnica, adjuntos y Parent Assembly siguen aplicán
 
 El intervalo de la RIR sale de su página en ICAM (Scheduling). Si no se pudo leer, se calcula como la diferencia entre la RIR vigente y la siguiente (594 -> 1394 CYCLES = 800 FC). Sin ICAM, se usa el RIR activo de las columnas `Rir …` del Excel. La columna `RIR EN ICAM` muestra cada RIR con su intervalo. Un `Rir Driver Usage Rem` menor que el negativo de un intervalo completo, o mayor que el intervalo más 10 % (mínimo 5 unidades), indica un valor inverosímil que debe revisarse en ICAM.
 
-La tabla pide RIR en freno de parqueo (1 día), DPI (100 FH), VCD seal (1 día), mensajes long time (200 FH), short time, EGT (50 FH) y sellante de ventanas (2 días). Un RIR **más seguido** que el de la tabla (cada 1 día cuando pide 2) es más conservador: observación. Un Start del RIR que difiere del T/A solo por redondeo (50890.3 y 50890.29) no se marca.
+La tabla pide RIR en freno de parqueo (1 día), DPI (100 FH), VCD seal (1 día), mensajes long time (200 FH), short time, EGT (50 FH) y sellante de ventanas (2 días). Un RIR **más seguido** que el de la tabla (cada 1 día cuando pide 2) es más conservador: OK. Un Start del RIR que difiere del T/A solo por redondeo (50890.3 y 50890.29) no se marca.
 
 **Límite dual de la tabla.** Si la tabla pide "45 DAYS OR 225 FC" y se leyó ICAM, el T/A debe tener los dos límites (`limite_faltante`); sin ICAM queda para verificar.
 
@@ -432,9 +432,9 @@ La tabla pide RIR en freno de parqueo (1 día), DPI (100 FH), VCD seal (1 día),
 | Generators del DIP | Los que tienen su barcode en DIP Barcode y los de los S/N de la descripción |
 | Vencimiento | Último día del mes de Exp. Date ("01-2029" = 31-JAN-2029). Con varios generators manda el que vence primero. La fecha que escribe la descripción no cuenta |
 | Due date después del Exp. Date | Posible discrepancia (`due_date_posterior_a_vencimiento_item`) |
-| Due date antes del Exp. Date | Observación |
+| Due date antes del Exp. Date | OK |
 | S/N del DIP que no está en el PDF | Posible discrepancia (`sn_fuera_de_inventario`) |
-| Sin PDF en los attachments (con ICAM) | En DIPs diferidos desde el 9-jul-2026, observación (`sin_inventario_generadores`); el vencimiento se toma de la descripción |
+| Sin PDF en los attachments (con ICAM) | En DIPs diferidos desde el 9-jul-2026, OK (`sin_inventario_generadores`); el vencimiento se toma de la descripción |
 | PDF sin formulario (escaneado) o que no se pudo leer; sin ICAM | Verificación manual; el vencimiento se toma de la descripción |
 
 **Otras reglas generales:**
@@ -442,9 +442,9 @@ La tabla pide RIR en freno de parqueo (1 día), DPI (100 FH), VCD seal (1 día),
 | Regla | Cuándo |
 | --- | --- |
 | Paquete programado después del due date | DIP activo cuyo `Scheduled Date` (Work Package) es posterior al due date: va a vencer si no se reprograma |
-| Attachment de otro avión | El nombre del attachment tiene otra matrícula ('PASS OXY GEN HP1830.png' en un DIP del HP-1836): observación |
+| Attachment de otro avión | El nombre del attachment tiene otra matrícula ('PASS OXY GEN HP1830.png' en un DIP del HP-1836): OK |
 | Solo capturas de barcode | Sin referencia cargada, sin cita en la descripción y todos los attachments son la captura de un barcode de trabajo ("T40S00993NB 2 DAY INTERVALS.png"): sin referencia técnica. La captura de una task card sí es referencia |
-| Referencia que la tabla no tiene | Posible discrepancia si la tabla pide una EC/ECRA y el DIP no la cita, o si el DIP solo cita una task card JIC. Si cita la ECRA que lo originó y la tabla da la AMM del procedimiento (lavado de motor), observación |
+| Referencia que la tabla no tiene | Posible discrepancia si la tabla pide una EC/ECRA y el DIP no la cita, o si el DIP solo cita una task card JIC. Si cita la ECRA que lo originó y la tabla da la AMM del procedimiento (lavado de motor), OK |
 
 ---
 
@@ -456,8 +456,8 @@ Se aplica además a los DIPs COMPLETE.
 | --- | --- |
 | Fecha de cierre | En un DIP cerrado, `Usage Remaining` es lo que le quedaba al cerrarlo (ICAM): negativo es cierre tarde. Sin ese dato, `Complete Dt` (o la fecha real de cierre de ICAM) no puede pasar el due date, con 5 horas de tolerancia (`tolerancias.horas_cierre`), porque el cierre viene en UTC y el due date en hora de Panamá (UTC-5). Si la acción correctiva dice que el trabajo se hizo en otra tarea, queda para verificar la fecha en esa tarea |
 | Deadline extendido | Si el due date es posterior al original (`Orig Fault Due Date`) y el DIP cerró después del original, queda en posible discrepancia para verificar el sustento de la extensión |
-| Acción correctiva | Sin acción correctiva no es discrepancia (en ICAM queda vacía si se cerró por la validación de QC o solo con partes): observación. Si no cita el manual, se anota como observación (el 23-sep-2026 los auditores lo aceptaron). No se anota si la acción remite a otra tarea ("CLOSED IN REFERENCE BARCODE T40S009H0DK"): la referencia está en esa tarea. Tampoco si no hubo trabajo ("OPEN BY MISTAKE", "PREVIOUSLY ACCOMPLISHED", "NO FURTHER ACTION REQUIRED"). En ambos casos queda una nota para verificar |
-| S/N removido | Si el número no es el de la descripción, observación. En un cambio (botella, generator) vale el S/N removido o el instalado de Part Requirements |
+| Acción correctiva | Sin acción correctiva no es discrepancia (en ICAM queda vacía si se cerró por la validación de QC o solo con partes): OK. Si no cita el manual, se anota con estado OK (el 23-sep-2026 los auditores lo aceptaron). No se anota si la acción remite a otra tarea ("CLOSED IN REFERENCE BARCODE T40S009H0DK"): la referencia está en esa tarea. Tampoco si no hubo trabajo ("OPEN BY MISTAKE", "PREVIOUSLY ACCOMPLISHED", "NO FURTHER ACTION REQUIRED"). En ambos casos queda una nota para verificar |
+| S/N removido | Si el número no es el de la descripción, OK. En un cambio (botella, generator) vale el S/N removido o el instalado de Part Requirements |
 | Attachments | Sin adjuntos es posible discrepancia si `Defer Dt` es del 9-jul-2026 o posterior (en ICAM o, sin ICAM, en el Excel). La mayoría de los DIPs cerrados sin attachments se abrió antes de la auditoría manual y el auditor solo revisó el cierre |
 | Cambios de deadline | Si el historial muestra cambios, se listan para verificar |
 
@@ -472,14 +472,14 @@ El programa da **cinco resultados**:
 | POSIBLE DISCREPANCIA | Falló al menos una regla o falta un dato |
 | REVISAR | La tabla da el TA o el RIR según el daño, la medición o el tipo (el texto dice DEPENDING, DEPENDS, CONSULT o SEGÚN) y no falló ninguna otra regla. El programa no compara ese TA o RIR: el hallazgo cita el texto de la tabla y el manual donde verificarlo. `python -m dips_audit referencias` muestra cuáles son |
 | SIN FUENTE EN DIPS REFERENCES | El DIP no está en la tabla de referencias y no falló ninguna regla que no dependa de la tabla. Se verifica contra la fuente que cita el DIP |
-| OK | No falló ninguna regla (puede tener observaciones) |
+| OK | No falló ninguna regla (puede incluir detalles adicionales) |
 | CORREGIDO EN CIERRE | El DIP está COMPLETE, la apertura tiene POSIBLE DISCREPANCIA y el cierre está OK |
 
 Además, un DIP de un tipo excluido con `--tipos-dip` (o `tipos_auditados` en `config.yaml`) queda **FUERA DE ALCANCE** y no se revisa.
 
 El auditor confirma o descarta las posibles discrepancias que señala el programa.
 
-Cada hallazgo se muestra como `[POSIBLE DISCREPANCIA]`, `[REVISAR]`, `[SIN FUENTE EN DIPS REFERENCES]` u `[OBSERVACIÓN]`. Una observación se anota, pero no cambia el resultado. Qué reglas se revisan y cuáles son solo observación se configura en `config/discrepancias.yaml`. Los valores configurados coinciden con los resultados mostrados; OBSERVACION informa sin cambiar el resultado. Un hallazgo de cierre aparece con `[CIERRE]` y tiene su propio resultado en la columna `ESTADO CIERRE`.
+Cada hallazgo se muestra como `[POSIBLE DISCREPANCIA]`, `[REVISAR]`, `[SIN FUENTE EN DIPS REFERENCES]` u `[OK]`. Los casos aceptados se registran como `[OK]` y no desplazan un hallazgo de mayor prioridad. Las reglas activas y sus resultados se configuran en `config/discrepancias.yaml`. Los valores configurados coinciden con los resultados mostrados. Un hallazgo de cierre aparece con `[CIERRE]` y tiene su propio resultado en la columna `ESTADO CIERRE`.
 
 ---
 
@@ -492,7 +492,7 @@ Archivo: `dips_audit/reporte.py`. Se crea en `salida/<archivo>_AUDITORIA_<fecha>
 | Dashboard | Indicadores por resultado y gráficos: resultado, apertura y cierre, DIPs por tipo, DIPs por flota (MAX 8, MAX 9, 700 y 800), referencias y aviones con posible discrepancia. Los datos de cada gráfico están a la derecha (columna W) |
 | Resumen | Archivo, fecha y conteos |
 | Auditoría | Un DIP por fila: resultado, hallazgos, comentario sugerido, referencia, TA, referencia técnica, RIR, adjuntos, apertura/cierre y las columnas originales |
-| Hallazgos | Un hallazgo por fila: posible discrepancia u observación, y si es de apertura o de cierre |
+| Hallazgos | Un hallazgo por fila, con su resultado y la etapa de apertura o cierre |
 
 ---
 
@@ -500,7 +500,7 @@ Archivo: `dips_audit/reporte.py`. Se crea en `salida/<archivo>_AUDITORIA_<fecha>
 
 | Archivo | Qué se ajusta |
 | --- | --- |
-| `config/discrepancias.yaml` | Reglas activas y cuáles son solo observación |
+| `config/discrepancias.yaml` | Reglas activas y el resultado de cada una |
 | `config/config.yaml` | Tolerancias, tipos de DIP auditados, manuales sin REV/fecha e ICAM (lectura en paralelo, reintentos) |
 | `config/catalogo_others.yaml` | Palabras clave de cada ítem (Others, Powerplant y Structures) y variantes de intervalo |
 | `DIPs References.xlsx` | TA, Parent Assembly, referencia técnica y RIR de cada ítem |
@@ -621,7 +621,7 @@ Pruebas: `.venv\Scripts\python -m pytest` (carpeta `tests/`).
 ## 12. Pendientes
 
 - **Completar la tabla de referencias** con los ítems que faltan (CNR de vibración, aire y combustible; cables de spoiler; ULB del FDR; PBE). Es lo que más reduce los DIPs SIN FUENTE EN DIPS REFERENCES.
-- **SHORT TIME (ECRA 7300-0142C):** la tabla dice Parent Assembly AIRCRAFT y los DIPs de mensajes short time están en ENGINE. Está en el catálogo con `parent_assy_flexible` (observación) hasta confirmarlo.
+- **SHORT TIME (ECRA 7300-0142C):** la tabla dice Parent Assembly AIRCRAFT y los DIPs de mensajes short time están en ENGINE. Está en el catálogo con `parent_assy_flexible` (OK) hasta confirmarlo.
 - **TA a confirmar en la tabla:** P-STATIC BONDING JUMPER ("NEXT MAINTENANCE INTERVAL (CONFIRMAR)") y TIRE PRESSURE RECHECK, que dice NG pero los DIPs MAX citan la misma AMM (se acepta en las dos flotas).
 - **Sellante de ventanas:** los auditores aceptan 7 días desde la apertura y también Start + 3 días con 4 días (22 DIPs); el programa acepta las dos. Confirmar con Ingeniería.
 - **Pitot MAX:** el sellante después de reemplazar el pitot (AMM 27-31-94-400-801) pide 10 días; la tabla solo tiene el del NG (7 días).

@@ -55,7 +55,7 @@ def test_ta_segun_el_dano_queda_en_revisar(catalogo, ctx):
 def test_revisar_pesa_menos_que_una_posible_discrepancia():
     manual = Hallazgo("intervalo_segun_manual", "Incorrect DIP Interval", "REVISAR", "")
     assert estado_final([manual]) == "REVISAR"
-    assert estado_final([manual, Hallazgo("x", "", "OBSERVACION", "")]) == "REVISAR"
+    assert estado_final([manual, Hallazgo("x", "", "OK", "")]) == "REVISAR"
     assert estado_final([manual, Hallazgo("x", "", "POSIBLE DISCREPANCIA", "")]) == "POSIBLE DISCREPANCIA"
     assert estado_final([manual, Hallazgo("x", "", "SIN FUENTE EN DIPS REFERENCES", "")]) == "REVISAR"
 

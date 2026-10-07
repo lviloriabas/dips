@@ -46,8 +46,8 @@ def test_cambiar_severidad(ctx, catalogo):
     r = auditar_fdr(catalogo, c)
     assert next(h for h in r.hallazgos if h.codigo == "intervalo_excedido").severidad == "REVISAR"
     assert estado_final(r.hallazgos) == "REVISAR"
-    # Como observación, el hallazgo se anota pero el DIP queda OK.
-    c = con(ctx, {"Incorrect DIP Interval": {"reglas": {"intervalo_excedido": "OBSERVACION"}}})
+    # Como OK, el hallazgo se anota pero el DIP queda OK.
+    c = con(ctx, {"Incorrect DIP Interval": {"reglas": {"intervalo_excedido": "OK"}}})
     assert estado_final(auditar_fdr(catalogo, c).hallazgos) == "OK"
 
 
@@ -159,7 +159,7 @@ def test_documento_del_proyecto_es_valido():
 
 
 @pytest.mark.parametrize("valor", ["CRITICA", "NO CRITICA", "CONSULTAR MANUAL", "SIN FUENTE",
-                                  "CORREGIDO EN CIERRE", "OK"])
+                                  "CORREGIDO EN CIERRE", "OBSERVACION", "OBSERVACIÓN"])
 def test_configuracion_rechaza_valores_retirados_y_resultados_calculados(valor):
     with pytest.raises(ValueError, match="no válida"):
         Discrepancias.desde_dict({"A": {"reglas": {"x": valor}}})
@@ -211,7 +211,7 @@ def test_validar_reglas_detecta_codigo_mal_escrito(tmp_path, capsys):
 
 def test_cargar_reglas_rechaza_claves_repetidas_y_campos_incorrectos(tmp_path):
     ruta = tmp_path / "reglas.yaml"
-    ruta.write_text("tipos:\n  A:\n    reglas:\n      x: POSIBLE DISCREPANCIA\n      x: OBSERVACION\n",
+    ruta.write_text("tipos:\n  A:\n    reglas:\n      x: POSIBLE DISCREPANCIA\n      x: OK\n",
                     encoding="utf-8")
     with pytest.raises(ValueError, match="Clave repetida 'x'"):
         cargar_discrepancias(ruta)

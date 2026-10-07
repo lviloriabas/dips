@@ -29,7 +29,7 @@ from .reglas import MOSTRAR_SEVERIDAD, SIN_FUENTE
 COLORES_RESULTADO = {"POSIBLE DISCREPANCIA": "FCE3B0", "REVISAR": "FFF59D", SIN_FUENTE: "D6E4F0",
                      "OK": "C9E7C9", CORREGIDO_EN_CIERRE: "CCEDE8", "FUERA DE ALCANCE": "E4E4E4"}
 COLORES_SEVERIDAD = {"POSIBLE DISCREPANCIA": "FCE3B0", "REVISAR": "FFF59D", SIN_FUENTE: "D6E4F0",
-                     "OBSERVACIÓN": "EFEFEF"}
+                     "OK": "C9E7C9"}
 # Mismos tonos que las celdas, pero saturados (colores del tema de Office): en los gráficos los
 # pasteles no se distinguen.
 COLORES_GRAFICO = {"POSIBLE DISCREPANCIA": "ED7D31", "REVISAR": "FFC000", SIN_FUENTE: "4472C4",
@@ -137,7 +137,7 @@ def exportar_excel(resultado: ResultadoAuditoria, ruta: Path) -> Path:
 
 
 def hallazgos_para_mostrar(h: pd.DataFrame) -> pd.DataFrame:
-    """Hallazgos con su resultado (posible discrepancia u observación), sin tipo de discrepancia."""
+    """Hallazgos con su resultado, sin tipo de discrepancia."""
     h = h.drop(columns=["Tipo de discrepancia"], errors="ignore")
     h = h.assign(Severidad=h["Severidad"].map(MOSTRAR_SEVERIDAD).fillna(h["Severidad"]))
     h = h.rename(columns={"Severidad": "Resultado"})

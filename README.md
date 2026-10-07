@@ -128,7 +128,7 @@ o el periodo que declare la descripción; si faltan datos, queda para verificaci
 
 | Qué | Dónde |
 | --- | --- |
-| Reglas activas y observaciones | `config/discrepancias.yaml` |
+| Reglas activas y detalles adicionales | `config/discrepancias.yaml` |
 | Tolerancias, lectura de ICAM, manuales sin REV/fecha | `config/config.yaml` |
 | Palabras clave de referencias Others | `config/catalogo_others.yaml` |
 | TA, Parent Assembly, AMM/ECRA, RIR | `DIPs References.xlsx`, un PDF de la misma tabla o el enlace de SharePoint |

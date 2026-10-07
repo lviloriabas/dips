@@ -21,7 +21,7 @@ FILAS = [
     # Sin referencia en la tabla
     ["T3", 25, "Others", "DEFIBRILLATOR DUE DATE", 38, "DAY", "ACTV", "HP-1837CMP", AVION, "DIP",
      "25-DIP", datetime(2026, 9, 25, 23, 59), datetime(2026, 8, 18, 9, 0), None, 36],
-    # Duplicado del oxígeno siguiente: observación, no discrepancia
+    # Duplicado del oxígeno siguiente: OK, no discrepancia
     ["T4", 35, "Others", "CREW OXYGEN 850 PSI", 3, "DAY", "ACTV", "HP-1837CMP", AVION, "DIP",
      "35-DIP", datetime(2026, 8, 21, 23, 59), datetime(2026, 8, 18, 9, 0), None, 2],
     ["T5", 35, "Others", "DIP-CREW OXYGEN BOTTLE", 3, "DAY", "ACTV", "HP-1837CMP", AVION, "DIP",
@@ -52,7 +52,8 @@ def test_auditoria_de_punta_a_punta(auditor_others, export, tmp_path):
         "T6": "FUERA DE ALCANCE",
     }
     h = resultado.hallazgos
-    assert set(h[(h["Fault Barcode"] == "T5") & (h["Código"] == "duplicado")]["Severidad"]) == {"OBSERVACION"}
+    assert set(h[(h["Fault Barcode"] == "T5") & (h["Código"] == "duplicado")]["Severidad"]) == {"OK"}
+
     comentario = resultado.filas.set_index("Fault Barcode").loc["T1", "COMENTARIO SUGERIDO"]
     assert comentario == "T/A aperturado correctamente"
 
@@ -79,6 +80,25 @@ def test_auditoria_de_punta_a_punta(auditor_others, export, tmp_path):
     assert [c.value for c in wb["Hallazgos"][1]][-1] == "Fila Excel"
     # El archivo original no se modifica.
     assert openpyxl.load_workbook(export).sheetnames == ["Export"]
+
+
+def test_casos_aceptados_se_muestran_como_ok(auditor_others, export, tmp_path):
+    resultado = auditor_others.auditar_archivo(export)
+    fila = resultado.filas.set_index("Fault Barcode").loc["T5"]
+    assert fila["RESULTADO"] == "OK"
+    assert "[OK]" in fila["HALLAZGOS"]
+    assert "duplicado" not in fila["COMENTARIO SUGERIDO"].lower()
+    reporte = exportar_excel(resultado, tmp_path / "salida.xlsx")
+    libro = openpyxl.load_workbook(reporte)
+    hoja = libro["Hallazgos"]
+    columnas = {c.value: c.column for c in hoja[1]}
+    aceptados = [fila for fila in hoja.iter_rows(min_row=2)
+                 if fila[columnas["Código"] - 1].value == "duplicado"]
+    assert aceptados
+    for fila in aceptados:
+        celda = fila[columnas["Resultado"] - 1]
+        assert celda.value == "OK"
+        assert celda.fill.fgColor.rgb == "00C9E7C9"
 
 
 @pytest.mark.parametrize("estado, remanente, esperado", [
@@ -150,7 +170,7 @@ def test_cierre_conserva_sin_fuente_y_discrepancias_del_cierre(auditor, tmp_path
 def test_cierre_ok_sin_discrepancias_de_apertura_permanece_ok(auditor, tmp_path):
     fila = list(FILAS[0])
     fila[6] = "COMPLETE"
-    fila[1] = 31  # ATA distinto: solo observación en apertura.
+    fila[1] = 31  # ATA distinto: OK en apertura.
     entrada = crear_export(tmp_path / "entrada.xlsx", [[*fila, datetime(2026, 8, 20)]],
                            encabezado=[*ENCABEZADO_ENTRADA, "Complete Dt"])
     resultado = auditor.auditar_archivo(entrada)

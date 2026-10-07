@@ -160,7 +160,7 @@ def test_attachment_de_otro_avion(catalogo, ctx):
     r = auditar(catalogo, ctx, "OXIGENO_TRIPULACION", avion="HP-1836CMP",
                 adjuntos=["OXI GEN INVENTORYHP1836.png", "PASS OXY GEN HP1830.png"])
     h = next(h for h in r.hallazgos if h.codigo == "adjunto_otro_avion")
-    assert "HP1830" in h.mensaje and h.severidad == "OBSERVACION"
+    assert "HP1830" in h.mensaje and h.severidad == "OK"
 
 
 def test_limite_dual_de_la_tabla_con_icam(catalogo, ctx):
@@ -273,10 +273,10 @@ def test_referencia_distinta_segun_lo_que_pide_la_tabla(auditor, ctx):
     h = _referencia(auditor, ctx, "HYDRAULIC DECONTAMINATION - TERMINAL",
                     "resample the hydraulic fluid within 300FH per AMM 29-11-00-200-801")
     assert h.get("referencia_tecnica_distinta") == "POSIBLE DISCREPANCIA"
-    # El DIP cita la ECRA que lo originó y la tabla da la AMM del procedimiento: observación.
+    # El DIP cita la ECRA que lo originó y la tabla da la AMM del procedimiento: OK.
     h = _referencia(auditor, ctx, "DIP - ENGINE #2 WATER WASH",
                     "PERFORM ENGINE WATER WASH IAW ECRA 7200-0641C IN NO MORE THAN 100FH,50FC OR 10 DAYS")
-    assert h.get("referencia_tecnica_distinta") == "OBSERVACION"
+    assert h.get("referencia_tecnica_distinta") == "OK"
 
 
 def test_la_task_card_es_referencia_tecnica(auditor, ctx):

@@ -204,14 +204,14 @@ def test_fdr_debe_empezar_7_dias_despues(catalogo, ctx):
 
 
 def test_sin_fuente_con_start_posterior_queda_para_verificar(ctx):
-    """Sin fila en la tabla no se sabe si el ítem tiene ventana: observación."""
+    """Sin fila en la tabla no se sabe si el ítem tiene ventana: OK."""
     from dips_audit.reglas import auditar_dip
     from tests.conftest import hacer_dip
 
     dip = hacer_dip(nombre="DIP- NLG SWIVEL LEAK CHECK", intervalo=15.0, unidad="FC",
                     uso_encontrado={"CYCLES": 11974.0}, icam_intervalos=_ta_ciclos(11979, 15))
     r = auditar_dip(dip, None, ctx)
-    assert "inicio_ta_incorrecto" in codigos(r, "OBSERVACION")
+    assert "inicio_ta_incorrecto" in codigos(r, "OK")
     dip["icam_intervalos"] = _ta_ciclos(11970, 15)   # antes de encontrar la falla
     assert "inicio_ta_incorrecto" in codigos(auditar_dip(dip, None, ctx), "POSIBLE DISCREPANCIA")
 

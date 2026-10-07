@@ -145,7 +145,7 @@ def test_auditoria_con_referencia_tecnica_en_el_excel(config, tmp_path):
     # El nombre no alcanza, pero la tarea AMM del radomo identifica la referencia.
     assert f.loc["R4", "ASOCIACIÓN"] == "REF_TECNICA (ALTA)"
     assert f.loc["R4", "REFERENCIA TÉCNICA DEL DIP"] == "AMM 05-51-18-210-801"
-    assert f.loc["R4", "RESULTADO"] == "OK"  # sin revisión ni fecha: solo observación
+    assert f.loc["R4", "RESULTADO"] == "OK"  # sin revisión ni fecha: OK
 
 
 def test_cli_auditar_con_archivo_de_icam(tmp_path, capsys):
@@ -259,7 +259,7 @@ def test_opcion_revision_opcional_en_la_auditoria(config, tmp_path):
     estricto = {**config, "referencia_tecnica": {"revision_opcional": []}}
     f = (Auditor(estricto, fecha_auditoria=date(2026, 8, 20)).auditar_archivo(ruta)
          .filas.set_index("Fault Barcode"))
-    assert "[OBSERVACIÓN] Referencia técnica sin REV ni fecha de la REV" in f.loc["M2", "HALLAZGOS"]
+    assert "[OK] Referencia técnica sin REV ni fecha de la REV" in f.loc["M2", "HALLAZGOS"]
 
 
 def test_fecha_de_vencimiento_no_es_fecha_de_revision():

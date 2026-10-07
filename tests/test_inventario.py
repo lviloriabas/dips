@@ -133,7 +133,7 @@ def test_varios_generators_manda_el_primero_que_vence(catalogo, ctx):
     assert "31-DEC-2028" in h.mensaje and "BEFA-F041-199" in h.mensaje
 
 
-def test_due_date_antes_del_inventario_es_observacion(catalogo, ctx):
+def test_due_date_antes_del_inventario_queda_ok(catalogo, ctx):
     r = _auditar(catalogo, ctx, due_date=datetime(2028, 12, 31, 23, 59))
     assert "due_date_anterior_a_vencimiento_item" in _codigos(r)
     assert estado_final(r.hallazgos) == "OK"

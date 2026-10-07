@@ -61,7 +61,7 @@ En la auditoría los dos modos fueron idénticos. La diferencia apareció solo e
 
 ## Histórico de 528 DIPs Others (GPU)
 
-DIPs Others con veredicto e intervalo, auditados entre el 13-jul y el 21-ago-2026: 464 OK, 53 con discrepancia no crítica y 11 críticas. Las reglas asociaron 468 (88.6%); los 60 restantes se consultaron al agente. De esos 60, solo 2 tenían referencia Others en `DIPs References.xlsx` (fumigación con error de escritura y radomo).
+DIPs Others con veredicto e intervalo, auditados entre el 13-jul y el 21-ago-2026: 464 OK y 64 con discrepancia. Las reglas asociaron 468 (88.6%); los 60 restantes se consultaron al agente. De esos 60, solo 2 tenían referencia Others en `DIPs References.xlsx` (fumigación con error de escritura y radomo).
 
 | Método | Referencias correctas (de 2) | Equivocadas aceptadas (de 58) | DIPs cuyo estado cambia (de 528) |
 | --- | ---: | ---: | ---: |

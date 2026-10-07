@@ -435,7 +435,7 @@
 # Filas de la tabla con TYPE POWERPLANT o STRUCTURES.
 
 # Mensaje SHORT TIME genérico (ECRA 7300-0142C). La tabla dice AIRCRAFT y los DIPs están en
-# ENGINE: se anota como observación hasta confirmar el Parent Assembly.
+# ENGINE: se anota con estado OK hasta confirmar el Parent Assembly.
 - id: SHORT_TIME
   nombre: SHORT TIME
   referencias: ["SHORT TIME"]

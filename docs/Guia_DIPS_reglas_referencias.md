@@ -48,7 +48,7 @@ tipos:
   Incorrect DIP Interval:
     reglas:
       intervalo_excedido: POSIBLE DISCREPANCIA
-      intervalo_menor: OBSERVACION
+      intervalo_menor: OK
 ```
 
 **Desactivar una regla:** sustituya su línea por:
@@ -64,9 +64,9 @@ Para reactivarla, cambie `false` por `true`. Para desactivar un tipo completo, a
 | `POSIBLE DISCREPANCIA` | POSIBLE DISCREPANCIA |
 | `REVISAR` | REVISAR |
 | `SIN FUENTE EN DIPS REFERENCES` | SIN FUENTE EN DIPS REFERENCES |
-| `OBSERVACION` | Informa sin cambiar el resultado |
+| `OK` | Caso aceptado; el DIP queda OK si no hay otro hallazgo |
 
-Prevalece POSIBLE DISCREPANCIA, después REVISAR y luego SIN FUENTE EN DIPS REFERENCES. OBSERVACION no cambia el resultado: sin otros hallazgos, el DIP queda OK. En un DIP COMPLETE, una apertura con POSIBLE DISCREPANCIA y un cierre OK produce CORREGIDO EN CIERRE; este resultado se calcula y no se asigna a una regla.
+Prevalece POSIBLE DISCREPANCIA, después REVISAR y luego SIN FUENTE EN DIPS REFERENCES. OK registra un caso aceptado y no desplaza otros hallazgos. En un DIP COMPLETE, una apertura con POSIBLE DISCREPANCIA y un cierre OK produce CORREGIDO EN CIERRE; este resultado se calcula y no se asigna a una regla.
 
 **La configuración de los chequeos disponibles está en el YAML.** Edite `config/discrepancias.yaml` para cambiar su activación o severidad y guarde. La siguiente auditoría utiliza esta configuración.
 

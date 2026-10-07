@@ -189,7 +189,7 @@ class Auditor:
             if i in duplicados:
                 otro_barcode, _ = duplicados[i]
                 # Si uno de los dos ya se cerró a la hora de la auditoría, el duplicado ya
-                # se corrigió: queda como observación.
+                # se corrigió: queda con estado OK.
                 cerrado = next((d for d in (por_barcode.get(otro_barcode), dip)
                                 if d and d["estado"] not in ACTIVOS and d.get("complete_date")
                                 and d["complete_date"] <= como_fecha_hora(ctx.fecha_referencia)),
@@ -197,7 +197,7 @@ class Auditor:
                 r.agregar(ctx, "duplicado", "Duplicated DIP",
                           f"Posible duplicado de {otro_barcode}."
                           + (f" {cerrado['barcode']} ya se cerró." if cerrado else ""),
-                          "OBSERVACION" if cerrado else None)
+                          "OK" if cerrado else None)
             elif i in sn_repetidos:
                 r.agregar(ctx, "sn_repetido", "Incorrect S/N",
                           f"S/N repetido en otro DIP activo: {', '.join(sn_repetidos[i])}.")
@@ -239,7 +239,7 @@ class Auditor:
 
         Como la acepta el auditor, sirve cualquiera de estas: cargada en ICAM (Technical
         References), una captura adjunta o citada en la descripción. Si falta la revisión o
-        su fecha, se anota como observación (salvo en los manuales de revision_opcional de
+        su fecha, se anota con estado OK (salvo en los manuales de revision_opcional de
         config.yaml). El MGM no es referencia técnica. Las task cards (JIC) sí son
         referencia técnica, en ICAM, en la descripción o en un attachment; para comparar
         con la tabla, las de la descripción se toman como la tarea donde se encontró la
@@ -303,7 +303,7 @@ class Auditor:
                     grave = ((any(c.startswith("EC ") for c in esperada or ()) and
                               not set(citados) & set(esperada or ()))
                              or (citados and all(c.startswith("JIC") for c in citados)))
-                    severidad = None if grave else "OBSERVACION"
+                    severidad = None if grave else "OK"
                 r.agregar(ctx, revision.codigo, "Incorrect Technical Reference",
                           revision.mensaje, severidad)
 
@@ -400,13 +400,13 @@ class Auditor:
     @staticmethod
     def _por_error(dip: dict, ctx, r) -> None:
         """DIP que el técnico marcó como duplicado o creado por error: no se audita, basta
-        con anotarlo. Cerrado, ya está corregido (observación); abierto, falta cerrarlo."""
+        con anotarlo. Cerrado, ya está corregido (OK); abierto, falta cerrarlo."""
         mensaje = dip_por_error(dip)
         if not mensaje or not ctx.discrepancias.activa("duplicado_declarado", "Duplicated DIP"):
             return
         r.hallazgos, r.manuales, r.intervalo_ok = [], [], False
         r.agregar(ctx, "duplicado_declarado", "Duplicated DIP", mensaje,
-                  None if dip["estado"] in ACTIVOS else "OBSERVACION")
+                  None if dip["estado"] in ACTIVOS else "OK")
 
     @staticmethod
     def _comentario(r, hallazgos: list[Hallazgo] | None = None) -> str:
@@ -418,7 +418,7 @@ class Auditor:
             partes.append("T/A aperturado correctamente")
         # "Revisar en el manual" es para el auditor, no un comentario de discrepancia.
         hallazgos = [h for h in (r.hallazgos if hallazgos is None else hallazgos)
-                     if h.severidad not in {"OBSERVACION", REVISAR}]
+                     if h.severidad not in {"OK", REVISAR}]
         codigos = {h.codigo for h in hallazgos}
         for h in hallazgos:
             # Cerrado sin attachments también es "sin attachments" de la apertura: el
