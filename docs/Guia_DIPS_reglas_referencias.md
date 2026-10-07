@@ -1,5 +1,7 @@
 # DIPS: guía rápida de uso y configuración
 
+Esta misma guía está en [PowerPoint](Guia_DIPS_reglas_referencias.pptx) y [PDF](Guia_DIPS_reglas_referencias.pdf). El orden es: uso del programa, resultados y colores, referencias del Excel y YAML de discrepancias.
+
 ## Ejecutar el programa
 
 Abra una **terminal (CMD o PowerShell)** en la carpeta DIPS. En esta guía, `$` indica un comando y se omite al escribirlo. Cambie `entrada.xlsx` por el nombre o la ruta de su Excel, entre comillas. Conserve `.\` delante del comando para ejecutarlo desde esa carpeta.
@@ -33,9 +35,48 @@ $ .\auditar.bat T40S0099V9C
 
 Sustituya el barcode de ejemplo por el real. El programa consulta el DIP en ICAM y muestra los datos, el resultado y los hallazgos en la terminal. Esta consulta no genera un Excel de resultado.
 
-Los resultados de auditoría quedan en **`salida/`**. Revise `RESULTADO`, `HALLAZGOS` y `VERIFICACIÓN MANUAL`: **POSIBLE DISCREPANCIA** requiere revisar el hallazgo, **REVISAR** consultar el manual, **SIN FUENTE EN DIPS REFERENCES** comprobar la referencia y **OK** completar las verificaciones manuales.
+Los resultados de auditoría quedan en **`salida/`**. Revise `RESULTADO`, `HALLAZGOS` y `VERIFICACIÓN MANUAL`. Complete las verificaciones manuales indicadas en cada DIP.
 
-## Configurar los chequeos desde el YAML
+## Resultados y colores
+
+La columna `RESULTADO` usa estos colores en el Excel de salida. Cada resultado indica qué revisar. Lea también `HALLAZGOS` y `VERIFICACIÓN MANUAL` para conocer la evidencia y los pasos pendientes.
+
+1. **POSIBLE DISCREPANCIA, naranja (`#FCE3B0`).** El programa detectó una posible discrepancia. Revise el hallazgo y su evidencia antes de registrar la auditoría.
+2. **CORREGIDO EN CIERRE, turquesa (`#CCEDE8`).** DIP COMPLETE: la apertura tuvo una posible discrepancia y el cierre quedó OK. Revise ambos estados y complete la verificación manual.
+3. **REVISAR, amarillo (`#FFF59D`).** El TA o el RIR depende del daño, de una condición o del manual. Consulte la fuente técnica para definir el límite aplicable.
+4. **SIN FUENTE EN DIPS REFERENCES, azul (`#D6E4F0`).** El DIP no tiene una referencia asociada en el Excel de referencias. Compruebe la fuente y complete los datos aprobados de la tabla.
+5. **OK, verde (`#C9E7C9`).** La auditoría automática no detectó una posible discrepancia. Complete los puntos pendientes en `VERIFICACIÓN MANUAL`.
+6. **FUERA DE ALCANCE, gris (`#E4E4E4`).** El tipo de DIP quedó fuera de los tipos elegidos para auditar. El programa no evaluó ese DIP en esta ejecución.
+
+En cada etapa prevalece **POSIBLE DISCREPANCIA**, luego **REVISAR** y después **SIN FUENTE EN DIPS REFERENCES**. Los demás hallazgos siguen visibles. **CORREGIDO EN CIERRE** se calcula al comparar las etapas de apertura y cierre.
+
+## Referencias del Excel
+
+El programa usa **`DIPs References.xlsx` como tabla de referencias**. Cada fila describe una referencia. Para cada DIP busca la fila aplicable y compara sus datos con el TA, el RIR y la fuente técnica de esa fila.
+
+- **Archivo local:** `DIPs References.xlsx`, en la carpeta DIPS. Hoja **`References`**.
+- **Archivo compartido:** [DIPs References.xlsx en SharePoint](https://copaairlines.sharepoint.com/:x:/r/teams/VP_Tecnica/dacre/records/_layouts/15/doc2.aspx?sourcedoc=%7B71427FA7-2DB0-4851-A5BA-63F30401684E%7D&file=DIPs%20References.xlsx&action=default&mobileredirect=true).
+- **Configuración:** `config/config.yaml`. `referencias` indica el archivo local, `hoja_referencias` la hoja y `referencias_sharepoint` el enlace compartido.
+
+Cada referencia tiene los siguientes campos:
+
+| Campo del Excel | Contenido de la referencia |
+| --- | --- |
+| `TYPE` | Tipo de referencia o de DIP. |
+| `AREA` | Área a la que pertenece la referencia. |
+| `ATA` | Capítulo ATA del sistema o componente. |
+| `FLEET` | Flota o modelo al que aplica. |
+| `DESCRIPTION` | Descripción para identificar la condición o el componente. |
+| `PARENT ASSY` | Conjunto al que se asocia el DIP, como AIRCRAFT o ENGINE. |
+| `REFERENCES` | Manual o documento técnico que respalda la referencia. |
+| `TA` | Plazo o límite permitido para corregir la condición. |
+| `RIR` | Intervalo de la inspección repetitiva, cuando aplica. |
+
+Para agregar o corregir una referencia, edite una fila con valores aprobados y conserve los encabezados. Use una descripción precisa. **TA y RIR incluyen valor y unidad**, por ejemplo `30 DAYS`, `100 FH` o `50 FC`.
+
+La auditoría intenta actualizar desde SharePoint. Si pide sesión, iníciela en Edge. Si falla, usa la última copia válida descargada o el archivo local inicial. **La terminal indica qué copia usó y su fecha.** Si ninguna es válida, se detiene.
+
+## YAML de discrepancias
 
 1. Abra **`config/discrepancias.yaml`** en un editor de texto.
 2. Busque la regla y cambie su severidad o activación. Conserve los códigos y la sangría con espacios.
@@ -66,20 +107,6 @@ Para reactivarla, cambie `false` por `true`. Para desactivar un tipo completo, a
 | `SIN FUENTE EN DIPS REFERENCES` | SIN FUENTE EN DIPS REFERENCES |
 | `OK` | Caso aceptado; el DIP queda OK si no hay otro hallazgo |
 
-Prevalece POSIBLE DISCREPANCIA, después REVISAR y luego SIN FUENTE EN DIPS REFERENCES. OK registra un caso aceptado y no desplaza otros hallazgos. En un DIP COMPLETE, una apertura con POSIBLE DISCREPANCIA y un cierre OK produce CORREGIDO EN CIERRE; este resultado se calcula y no se asigna a una regla.
+Se aplica la prioridad explicada en la lista de resultados. **CORREGIDO EN CIERRE** se calcula y no se asigna a una regla.
 
 **La configuración de los chequeos disponibles está en el YAML.** Edite `config/discrepancias.yaml` para cambiar su activación o severidad y guarde. La siguiente auditoría utiliza esta configuración.
-
-## Usar y actualizar las referencias
-
-La tabla aporta el **TA, RIR, Parent Assembly y la fuente técnica** con los que el programa revisa cada DIP.
-
-- **Archivo local:** `DIPs References.xlsx`, en la carpeta DIPS. Hoja **`References`**.
-- **Archivo compartido:** [DIPs References.xlsx en SharePoint](https://copaairlines.sharepoint.com/:x:/r/teams/VP_Tecnica/dacre/records/_layouts/15/doc2.aspx?sourcedoc=%7B71427FA7-2DB0-4851-A5BA-63F30401684E%7D&file=DIPs%20References.xlsx&action=default&mobileredirect=true).
-- **Configuración:** `config/config.yaml`. `referencias` indica el archivo local, `hoja_referencias` la hoja y `referencias_sharepoint` el enlace compartido.
-
-Para agregar o corregir una referencia, edite una fila de la tabla con los valores aprobados. Conserve los encabezados **TYPE, AREA, ATA, FLEET, DESCRIPTION, PARENT ASSY, REFERENCES, TA y RIR**. Use una descripción precisa y escriba TA/RIR con su unidad, por ejemplo `30 DAYS`.
-
-La auditoría intenta actualizar desde SharePoint. Si pide sesión, iníciela en Edge. Si falla, usa la última copia válida descargada o el archivo local inicial. **La consola indica qué copia usó y su fecha.** Si ninguna es válida, se detiene.
-
-Esta misma guía está en [PowerPoint](Guia_DIPS_reglas_referencias.pptx) y [PDF](Guia_DIPS_reglas_referencias.pdf).
