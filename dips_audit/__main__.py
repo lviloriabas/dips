@@ -38,7 +38,7 @@ from .benchmark import DATOS as DATOS_BENCHMARK
 from .cargador import ErrorCarga
 from .extractor_icam import ErrorExtraccion
 from .referencias import ErrorCatalogo
-from .reglas import SEVERIDAD_SIN_FUENTE, SIN_FUENTE
+from .reglas import POSIBLE_DISCREPANCIA, SIN_FUENTE
 
 consola = Console()
 ESTILOS = {
@@ -66,7 +66,7 @@ def _duracion(segundos: float) -> str:
 def _tabla_hallazgos(resultado) -> Table | None:
     """Tipos de discrepancia: cuántos hallazgos y en cuántos DIPs (% de los auditados)."""
     h = resultado.hallazgos_auditoria_actual()
-    h = h[~h["Severidad"].isin(["OBSERVACION", SEVERIDAD_SIN_FUENTE, "CONSULTAR MANUAL"])]
+    h = h[h["Severidad"] == POSIBLE_DISCREPANCIA]
     if h.empty:
         return None
     auditados = int((resultado.filas["RESULTADO"] != "FUERA DE ALCANCE").sum())
@@ -108,7 +108,7 @@ def _resumen(resultado, tiempos: dict[str, float]) -> Panel:
     auditados = len(en_alcance)
     cierre = int((en_alcance["AUDITORÍA"] == "CIERRE").sum())
     h = resultado.hallazgos_auditoria_actual()
-    hallazgos = int((~h["Severidad"].isin(["OBSERVACION", SEVERIDAD_SIN_FUENTE, "CONSULTAR MANUAL"])).sum())
+    hallazgos = int((h["Severidad"] == POSIBLE_DISCREPANCIA).sum())
 
     tipos = dict(zip(resultado.lote.datos["fila"], resultado.lote.datos["tipo"]))
     fuera = filas.loc[filas["RESULTADO"] == "FUERA DE ALCANCE", "Fila Excel"].map(tipos)

@@ -418,7 +418,7 @@ class Auditor:
             partes.append("T/A aperturado correctamente")
         # "Revisar en el manual" es para el auditor, no un comentario de discrepancia.
         hallazgos = [h for h in (r.hallazgos if hallazgos is None else hallazgos)
-                     if h.severidad not in {"OBSERVACION", "CONSULTAR MANUAL"}]
+                     if h.severidad not in {"OBSERVACION", REVISAR}]
         codigos = {h.codigo for h in hallazgos}
         for h in hallazgos:
             # Cerrado sin attachments también es "sin attachments" de la apertura: el

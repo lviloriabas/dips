@@ -29,10 +29,10 @@ def test_comentario_intervalo_incompleto_pide_verificar_en_icam(auditor, catalog
     assert "Verificar el intervalo y el tipo de intervalo del T/A en ICAM." in comentario
 
 
-def test_intervalo_excedido_es_critico(catalogo, ctx):
+def test_intervalo_excedido_es_posible_discrepancia(catalogo, ctx):
     r = auditar(catalogo, ctx, "FDR", nombre="FDR - REPORT", intervalo=45.0, ata=31,
                 deferral_ref="31-DIP", due_date=datetime(2026, 10, 2, 23, 59))
-    assert "intervalo_excedido" in codigos(r, "CRITICA")
+    assert "intervalo_excedido" in codigos(r, "POSIBLE DISCREPANCIA")
     assert estado_final(r.hallazgos) == "POSIBLE DISCREPANCIA"
 
 
@@ -53,14 +53,14 @@ def test_variante_condicional_anota_psi(catalogo, ctx):
 def test_tipo_de_intervalo_incorrecto(catalogo, ctx):
     r = auditar(catalogo, ctx, "BLEED_CTRL_CARD", nombre="AHM - BLEED CTRL CARD", intervalo=1.0,
                 ata=36, deferral_ref="36-DIP")
-    assert "tipo_intervalo_incorrecto" in codigos(r, "CRITICA")
+    assert "tipo_intervalo_incorrecto" in codigos(r, "POSIBLE DISCREPANCIA")
 
 
 def test_intervalo_cero(catalogo, ctx):
     r = auditar(catalogo, ctx, "DESGASTE_FRENOS", nombre="DIP - BRAKE #3", intervalo=0.0,
                 unidad="FC", tipo_intervalo_original="CYCLES", ata=32, deferral_ref="32-DIP",
                 due_date=None)
-    assert "intervalo_cero" in codigos(r, "NO CRITICA")
+    assert "intervalo_cero" in codigos(r, "POSIBLE DISCREPANCIA")
 
 
 def test_intervalo_por_flota(catalogo, ctx):
@@ -96,19 +96,19 @@ def test_due_date_posterior_al_vencimiento_del_item(catalogo, ctx):
                 nombre="DIP HALON EXTINGUISHER S/N X-1 DUE DATE 20-SEP-2026", intervalo=39.0,
                 ata=26, deferral_ref="26-DIP", due_date=datetime(2026, 9, 26, 23, 59),
                 usage_remaining=37.0)
-    assert "due_date_posterior_a_vencimiento_item" in codigos(r, "CRITICA")
+    assert "due_date_posterior_a_vencimiento_item" in codigos(r, "POSIBLE DISCREPANCIA")
 
 
 def test_due_date_inconsistente_con_intervalo(catalogo, ctx):
     r = auditar(catalogo, ctx, "OXIGENO_TRIPULACION", due_date=datetime(2026, 8, 30, 23, 59))
-    assert "due_date_posterior_a_intervalo" in codigos(r, "REVISAR")
+    assert "due_date_posterior_a_intervalo" in codigos(r, "POSIBLE DISCREPANCIA")
     assert estado_final(r.hallazgos) == "POSIBLE DISCREPANCIA"
 
 
 def test_dip_vencido(catalogo, ctx):
     r = auditar(catalogo, ctx, "OXIGENO_TRIPULACION", found_date=datetime(2026, 8, 10),
                 due_date=datetime(2026, 8, 13, 23, 59))
-    assert "dip_vencido" in codigos(r, "CRITICA")
+    assert "dip_vencido" in codigos(r, "POSIBLE DISCREPANCIA")
 
 
 def test_dip_completado_no_se_marca_vencido(catalogo, ctx):
@@ -121,7 +121,7 @@ def test_completado_fuera_de_plazo(catalogo, ctx):
     """En un DIP cerrado, Usage Remaining es lo que le quedaba al cerrarlo: negativo = tarde."""
     cierre = dict(estado="COMPLETE", complete_date=datetime(2026, 8, 23))
     r = auditar(catalogo, ctx, "OXIGENO_TRIPULACION", usage_remaining=-1.0, **cierre)
-    assert "completado_fuera_de_plazo" in codigos(r, "CRITICA")
+    assert "completado_fuera_de_plazo" in codigos(r, "POSIBLE DISCREPANCIA")
     # Caso T40S0095NQC: cerrado 06:29 UTC del día siguiente, con 0 remanente en ICAM.
     r = auditar(catalogo, ctx, "OXIGENO_TRIPULACION", usage_remaining=0.0, estado="COMPLETE",
                 complete_date=datetime(2026, 8, 22, 6, 29),
@@ -149,7 +149,7 @@ def test_vencido_segun_la_hora_de_auditoria(catalogo, ctx):
     ctx.fecha_referencia = datetime(2026, 8, 21, 0, 30)
     r = auditar(catalogo, ctx, "OXIGENO_TRIPULACION", found_date=datetime(2026, 8, 17),
                 due_date=datetime(2026, 8, 20, 23, 59))
-    assert "dip_vencido" in codigos(r, "CRITICA")
+    assert "dip_vencido" in codigos(r, "POSIBLE DISCREPANCIA")
 
 
 def test_cierre_con_tolerancia_de_horas(catalogo, ctx):
@@ -159,7 +159,7 @@ def test_cierre_con_tolerancia_de_horas(catalogo, ctx):
     r = auditar(catalogo, ctx, "OXIGENO_TRIPULACION", complete_date=datetime(2026, 8, 22, 4, 12), **cierre)
     assert "completado_fuera_de_plazo" not in codigos(r)
     r = auditar(catalogo, ctx, "OXIGENO_TRIPULACION", complete_date=datetime(2026, 8, 22, 6, 0), **cierre)
-    assert "completado_fuera_de_plazo" in codigos(r, "CRITICA")
+    assert "completado_fuera_de_plazo" in codigos(r, "POSIBLE DISCREPANCIA")
 
 
 def test_cierre_despues_del_due_original(catalogo, ctx):
@@ -275,7 +275,7 @@ def test_due_date_desde_el_start_del_ta_en_icam(catalogo, ctx):
     assert not codigos(r) & (fechas | {"inicio_ta_incorrecto"})
     # Con el due date de otro mes, sí.
     r = auditar(catalogo, ctx, "FDR", **{**fdr, "due_date": datetime(2026, 11, 19, 23, 59)})
-    assert "due_date_posterior_a_intervalo" in codigos(r, "REVISAR")
+    assert "due_date_posterior_a_intervalo" in codigos(r, "POSIBLE DISCREPANCIA")
 
 
 def test_due_date_de_items_con_vencimiento_no_se_cuenta_por_intervalo(catalogo, ctx):
@@ -294,7 +294,7 @@ def test_parent_assy_incorrecto(catalogo, ctx):
     r = auditar(catalogo, ctx, "BLEED_PRSOV", nombre="AHM - BLEED PRSOV CTRL", intervalo=2902.0,
                 unidad="FH", tipo_intervalo_original="HOUR", ata=36, deferral_ref="36-DIP",
                 due_date=None, usage_remaining=None)
-    assert "parent_assy_incorrecto" in codigos(r, "CRITICA")
+    assert "parent_assy_incorrecto" in codigos(r, "POSIBLE DISCREPANCIA")
 
 
 def test_parent_assy_flexible_es_observacion(catalogo, ctx):

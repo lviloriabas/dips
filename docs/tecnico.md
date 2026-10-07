@@ -30,7 +30,7 @@ El programa hace lo mismo que un auditor, en este orden:
 | **ICAM se lee y se interpreta por separado** | `extractor_icam.py` guarda el texto de las pestañas en `data/icam.json`; `icam.py` lo interpreta después. Se puede volver a auditar o corregir la interpretación sin volver a leer ICAM (`--datos-icam`). Y la lectura es solo de lectura: nunca escribe en ICAM |
 | **"Sin dato" no es "cero"** | `None` significa que no se leyó (por ejemplo, `adjuntos` sin ICAM); `[]` significa que se leyó y no hay nada. Sin dato, la regla no marca discrepancia: usa lo que dice el Excel o deja una verificación manual |
 | **La fecha de auditoría es un parámetro** | `Contexto.fecha_referencia` dice "auditar como si fuera tal día y hora". Con eso `comparar` audita cada DIP a la hora en que lo auditó la persona, y se puede calibrar contra la auditoría manual |
-| **Severidad interna ≠ resultado mostrado** | Cada regla guarda una severidad (CRITICA, NO CRITICA...), pero hoy el auditor solo ve POSIBLE DISCREPANCIA. Los niveles se conservan para cuando se definan con los auditores |
+| **Valores de las reglas y resultados** | Cada regla usa POSIBLE DISCREPANCIA, REVISAR, SIN FUENTE EN DIPS REFERENCES u OBSERVACION. CORREGIDO EN CIERRE se calcula al combinar apertura y cierre |
 | **Benchmark con línea base** | Cambiar una regla puede arreglar un caso y romper diez. `benchmark` mide contra DIPs ya auditados y falla si algún indicador empeora |
 | **Datos sensibles fuera de Git** | El Excel de entrada, `data/`, `pruebas/` y `salida/` tienen nombres del personal y datos operativos: están en `.gitignore`. El benchmark usa una copia sin nombres (`anonimizar.py`) |
 
@@ -103,9 +103,9 @@ Cada hallazgo tiene una severidad, que sale de `discrepancias.yaml`. El resultad
 
 | Severidad del hallazgo | Se muestra como | Resultado del DIP |
 | --- | --- | --- |
-| CRITICA, NO CRITICA, REVISAR | `[POSIBLE DISCREPANCIA]` | POSIBLE DISCREPANCIA |
-| CONSULTAR MANUAL | `[REVISAR]` | REVISAR |
-| SIN FUENTE | `[SIN FUENTE EN DIPS REFERENCES]` | SIN FUENTE EN DIPS REFERENCES |
+| POSIBLE DISCREPANCIA | `[POSIBLE DISCREPANCIA]` | POSIBLE DISCREPANCIA |
+| REVISAR | `[REVISAR]` | REVISAR |
+| SIN FUENTE EN DIPS REFERENCES | `[SIN FUENTE EN DIPS REFERENCES]` | SIN FUENTE EN DIPS REFERENCES |
 | OBSERVACION | `[OBSERVACIÓN]` | No cambia el resultado |
 | (sin hallazgos) | | OK |
 
@@ -354,7 +354,7 @@ Archivos: `dips_audit/reglas.py` y `dips_audit/auditor.py`. Se aplica a todo DIP
 | Intervalo | Se compara con el TA de la tabla (o la variante que corresponda a la flota o la presión). Mayor (si de verdad vence después: con el Start de ICAM, uno que empieza antes de la apertura y vence dentro del TA no se marca) o en otra unidad -> posible discrepancia; menor -> observación |
 | Start del T/A | Ver abajo (**Incorrect DIP Start Values**) |
 | Due date | Debe ser el Start del T/A en ICAM más el intervalo (1 día de tolerancia); sin ICAM, la apertura más el intervalo (o la apertura + 7 días en un FDR armado con 23 días). En ítems con vencimiento (UNTIL DUE DATE) no se cuenta por intervalo: el due date no puede pasar la fecha que dice la descripción. En generators de oxígeno, la fecha es la del PDF de inventario (ver abajo) |
-| DIP vencido | Un DIP abierto con due date anterior al **momento de la auditoría** (día y hora) es crítico. Un due date sin hora vence al final del día |
+| DIP vencido | Un DIP abierto con due date anterior al **momento de la auditoría** (día y hora) es una posible discrepancia. Un due date sin hora vence al final del día |
 | Usage Remaining | Mayor que el intervalo se anota como observación: pasa cuando el T/A empieza después de la apertura, y los auditores lo aceptan |
 | Parent Assembly | Avión o motor, según la tabla |
 | ATA y Deferral Reference | El ATA del DIP no es relevante: un Deferral Reference que no empieza con el ATA, o un ATA distinto del de la tabla, es observación |
@@ -477,9 +477,9 @@ El programa da **cinco resultados**:
 
 Además, un DIP de un tipo excluido con `--tipos-dip` (o `tipos_auditados` en `config.yaml`) queda **FUERA DE ALCANCE** y no se revisa.
 
-No clasifica la discrepancia en crítica o no crítica ni en tipos, porque esos criterios todavía no coinciden con el proceso de los auditores. El auditor decide si la posible discrepancia lo es y de qué nivel.
+El auditor confirma o descarta las posibles discrepancias que señala el programa.
 
-Cada hallazgo se muestra como `[POSIBLE DISCREPANCIA]`, `[REVISAR]`, `[SIN FUENTE EN DIPS REFERENCES]` u `[OBSERVACIÓN]`. Una observación se anota, pero no cambia el resultado. Qué reglas se revisan y cuáles son solo observación se configura en `config/discrepancias.yaml`. Ese archivo conserva además una gravedad interna por regla (crítica, no crítica, revisar); hoy no se muestra, pero permitirá volver a separar niveles cuando se definan. Un hallazgo de cierre aparece con `[CIERRE]` y tiene su propio resultado en la columna `ESTADO CIERRE`.
+Cada hallazgo se muestra como `[POSIBLE DISCREPANCIA]`, `[REVISAR]`, `[SIN FUENTE EN DIPS REFERENCES]` u `[OBSERVACIÓN]`. Una observación se anota, pero no cambia el resultado. Qué reglas se revisan y cuáles son solo observación se configura en `config/discrepancias.yaml`. Los valores configurados coinciden con los resultados mostrados; OBSERVACION informa sin cambiar el resultado. Un hallazgo de cierre aparece con `[CIERRE]` y tiene su propio resultado en la columna `ESTADO CIERRE`.
 
 ---
 
@@ -630,6 +630,6 @@ Pruebas: `.venv\Scripts\python -m pytest` (carpeta `tests/`).
 - **Filtro de combustible del motor:** la tabla dice 75 FH; la ventana de 10 FH (Start + 10, 65 FH) sale de la AMM citada en las descripciones y de un DIP aceptado. Confirmar con los auditores y, si corresponde, escribirla en la tabla.
 - **Contenido de los attachments:** el programa cuenta los attachments, no sabe si uno es la captura de la referencia o una foto. El auditor marcó Missing Technical Reference en un UPK cuyo único attachment era la captura de la task card del Service Visit; desde el 28-sep la task card cuenta como referencia técnica, así que el programa ya no lo marca.
 - **Criterio del auditor no uniforme:** T40S009H0QN y T40S009H0QR citan la misma AMM 28-11-11-420-006; uno se marcó como referencia no específica y el otro no. Igual con los FDR antes y después del 10-sep.
-- **Definir con los auditores** los niveles (crítica / no crítica) y los tipos de discrepancia del proceso. Hasta entonces el programa solo da posible discrepancia.
+- **Revisar con los auditores** los criterios de las reglas que señalan posibles discrepancias.
 - **Criterio de cierre tarde:** T40S009H94W cerró con Usage Remaining −1 (31 h tarde) y el auditor lo dio OK. T40S00992SM (5 días) se hizo en otra tarea y queda para verificar.
 - **Motivo de las discrepancias manuales:** el Excel solo marca "Y", pero el motivo está en ICAM (ver 9.1). La comparación podría leerlo de los datos de ICAM y mostrarlo junto al resultado del programa.

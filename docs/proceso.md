@@ -180,7 +180,7 @@ Si en un DIP con REVISAR además falla otra regla, queda en POSIBLE DISCREPANCIA
 | Sin referencia en la tabla                                                                         | SIN FUENTE EN DIPS REFERENCES             |
 | DIP SIN FUENTE EN DIPS REFERENCES con T/A mayor que el plazo de su descripción, o sin el RIR que pide                | POSIBLE DISCREPANCIA   |
 
-Qué tipos de discrepancia y reglas se revisan, y cuáles son solo observación, se configura en `config/discrepancias.yaml`. Ese archivo guarda además una severidad interna por regla (CRITICA, NO CRITICA, REVISAR) que hoy solo ordena los hallazgos: los niveles de discrepancia todavía no están definidos con los auditores.
+Qué tipos de discrepancia y reglas se revisan, y cuáles son solo observación, se configura en `config/discrepancias.yaml`. Sus valores son POSIBLE DISCREPANCIA, REVISAR, SIN FUENTE EN DIPS REFERENCES y OBSERVACION. La prioridad sigue ese orden; OBSERVACION no cambia el resultado. CORREGIDO EN CIERRE se calcula a partir de los resultados de apertura y cierre.
 
 ## RIR en ICAM
 

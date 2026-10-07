@@ -12,9 +12,9 @@ import pandas as pd
 
 from .auditor import CORREGIDO_EN_CIERRE, Auditor, ResultadoAuditoria
 from .cargador import cargar_export, parse_fecha
-from .reglas import SIN_FUENTE
+from .reglas import POSIBLE_DISCREPANCIA, SIN_FUENTE
 
-ESTADOS_HUMANOS = ["OK", "DISCREPANCIA NO CRÍTICA", "DISCREPANCIA CRÍTICA"]
+ESTADOS_HUMANOS = ["OK", "DISCREPANCIA"]
 # Resultados del programa (ver reglas.ESTADOS). SIN FUENTE y REVISAR no son OK ni discrepancia.
 ESTADOS_IA = ["OK", CORREGIDO_EN_CIERRE, "REVISAR", SIN_FUENTE, "POSIBLE DISCREPANCIA"]
 # Temas de los comentarios humanos (en orden de prioridad). Los primeros dependen
@@ -27,6 +27,14 @@ TEMAS = [
     ("Intervalo / due date", re.compile(r"T/A|INTERVAL|FECHA|DEBE SER|DEBE TENER|DAY|FH|FC", re.I)),
 ]
 _NO_DETECTABLE = {"Attachments / ref. técnica", "RIR"}
+
+
+def normalizar_veredicto(estado: object) -> str:
+    """Agrupa los veredictos del histórico sin subdividir las discrepancias."""
+    valor = str(estado).strip().upper()
+    if valor == "DISCREPANCIA" or valor.startswith("DISCREPANCIA "):
+        return "DISCREPANCIA"
+    return valor
 
 
 def tema(comentario: object) -> str:
@@ -70,7 +78,7 @@ def evaluar(auditor: Auditor, ruta_historico: Path, hoja_entrada: str = "DIPs",
     resultado = auditor.auditar_lote(lote, fechas)
 
     filas = resultado.filas.copy()
-    filas["ESTADO HUMANO"] = filas["Fault Barcode"].map(humanos["STATUS - Apertura"])
+    filas["ESTADO HUMANO"] = filas["Fault Barcode"].map(humanos["STATUS - Apertura"]).map(normalizar_veredicto)
     filas["COMENTARIO HUMANO"] = filas["Fault Barcode"].map(humanos["COMMENTS - Apertura"])
     comp = filas[(filas["ESTADO IA"] != "FUERA DE ALCANCE")
                  & filas["ESTADO HUMANO"].isin(ESTADOS_HUMANOS)].copy()
@@ -103,7 +111,7 @@ def evaluar(auditor: Auditor, ruta_historico: Path, hoja_entrada: str = "DIPs",
 
     h = resultado.hallazgos
     h = h[h["Fault Barcode"].isin(humano_ok["Fault Barcode"])
-          & h["Severidad"].isin(["CRITICA", "NO CRITICA"])]
+          & (h["Severidad"] == POSIBLE_DISCREPANCIA)]
     metricas = {
         "dips_comparados": len(comp),
         "coinciden": int((comp["IA MARCA"] == comp["HUMANO DISCREPANCIA"]).sum()),

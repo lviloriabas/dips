@@ -26,7 +26,7 @@ from openpyxl.utils import get_column_letter
 
 from .auditor import FUERA_DE_ALCANCE, Auditor
 from .cargador import ErrorCarga, Lote, cargar_export, completar_con_icam, parse_fecha, parse_texto
-from .reglas import SEVERIDAD_SIN_FUENTE, SIN_FUENTE
+from .reglas import POSIBLE_DISCREPANCIA, SEVERIDAD_SIN_FUENTE, SIN_FUENTE
 
 COLUMNAS_MANUALES = {
     "apertura": "DIP Open - RT Audit Completed",
@@ -41,9 +41,9 @@ COLUMNAS_MANUALES = {
 POSIBLE = "Posible discrepancia"
 REVISAR = "Revisar en el manual"
 RESULTADOS = ["OK", SIN_FUENTE, REVISAR, POSIBLE]
-# Gravedad interna del hallazgo -> cómo se muestra.
-SEVERIDADES = {"CRITICA": POSIBLE, "NO CRITICA": POSIBLE, "REVISAR": POSIBLE,
-               "CONSULTAR MANUAL": REVISAR, SEVERIDAD_SIN_FUENTE: SIN_FUENTE, "OBSERVACION": "Observación"}
+# Valor configurado del hallazgo -> cómo se muestra en la comparación.
+SEVERIDADES = {POSIBLE_DISCREPANCIA: POSIBLE, "REVISAR": REVISAR,
+               SEVERIDAD_SIN_FUENTE: SIN_FUENTE, "OBSERVACION": "Observación"}
 # Código del hallazgo -> motivo en palabras simples.
 MOTIVOS = {
     "sin_referencia": f"{SIN_FUENTE}: el DIP no está en la tabla de referencias",
@@ -300,7 +300,7 @@ def _tablas_resumen(d: pd.DataFrame, h: pd.DataFrame, n_apertura: int,
     marcados = set(sin_disc.loc[sin_disc["Programa: resultado"] == POSIBLE, "Fault Barcode"])
     for auditoria in ("APERTURA", "CIERRE"):
         x = h[(h["Auditoría"] == auditoria) & h["Fault Barcode"].isin(marcados)
-              & h["Severidad"].isin(["CRITICA", "NO CRITICA", "REVISAR"])]
+              & (h["Severidad"] == POSIBLE_DISCREPANCIA)]
         filas = []
         for motivo, g in x.groupby("Motivo"):
             dips = list(g["Fault Barcode"].unique())

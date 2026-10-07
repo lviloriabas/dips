@@ -38,15 +38,14 @@ def test_todas_las_reglas_del_programa_estan_en_el_documento(auditor):
 def test_el_documento_mantiene_la_severidad_de_cada_regla(ctx, catalogo):
     r = auditar_fdr(catalogo, ctx)
     h = next(h for h in r.hallazgos if h.codigo == "intervalo_excedido")
-    assert (h.categoria, h.severidad) == ("Incorrect DIP Interval", "CRITICA")
+    assert (h.categoria, h.severidad) == ("Incorrect DIP Interval", "POSIBLE DISCREPANCIA")
 
 
 def test_cambiar_severidad(ctx, catalogo):
-    c = con(ctx, {"Incorrect DIP Interval": {"reglas": {"intervalo_excedido": "NO CRITICA"}}})
+    c = con(ctx, {"Incorrect DIP Interval": {"reglas": {"intervalo_excedido": "REVISAR"}}})
     r = auditar_fdr(catalogo, c)
-    assert next(h for h in r.hallazgos if h.codigo == "intervalo_excedido").severidad == "NO CRITICA"
-    # Por ahora toda severidad que no es observación da POSIBLE DISCREPANCIA.
-    assert estado_final(r.hallazgos) == "POSIBLE DISCREPANCIA"
+    assert next(h for h in r.hallazgos if h.codigo == "intervalo_excedido").severidad == "REVISAR"
+    assert estado_final(r.hallazgos) == "REVISAR"
     # Como observación, el hallazgo se anota pero el DIP queda OK.
     c = con(ctx, {"Incorrect DIP Interval": {"reglas": {"intervalo_excedido": "OBSERVACION"}}})
     assert estado_final(auditar_fdr(catalogo, c).hallazgos) == "OK"
@@ -58,12 +57,12 @@ def test_sin_fuente(ctx):
     from dips_audit.reglas import ResultadoReglas
     r = ResultadoReglas()
     r.agregar(ctx, "sin_referencia", "Missing Reference in Table", "Sin fuente.")
-    assert r.hallazgos[0].severidad == "SIN FUENTE"
+    assert r.hallazgos[0].severidad == "SIN FUENTE EN DIPS REFERENCES"
     assert estado_final(r.hallazgos) == "SIN FUENTE EN DIPS REFERENCES"
     r.agregar(ctx, "dip_vencido", "Overdue DIP", "Vencido.")
     assert estado_final(r.hallazgos) == "POSIBLE DISCREPANCIA"
-    # Con REVISAR en el documento, vuelve a ser posible discrepancia.
-    c = con(ctx, {"Missing Reference in Table": {"reglas": {"sin_referencia": "REVISAR"}}})
+    # Configurar la regla como posible discrepancia cambia el resultado.
+    c = con(ctx, {"Missing Reference in Table": {"reglas": {"sin_referencia": "POSIBLE DISCREPANCIA"}}})
     r = ResultadoReglas()
     r.agregar(c, "sin_referencia", "Missing Reference in Table", "Sin fuente.")
     assert estado_final(r.hallazgos) == "POSIBLE DISCREPANCIA"
@@ -71,7 +70,7 @@ def test_sin_fuente(ctx):
 
 def test_desactivar_regla(ctx, catalogo):
     c = con(ctx, {"Incorrect DIP Interval": {"reglas": {
-        "intervalo_excedido": {"activa": False, "severidad": "CRITICA"}}}})
+        "intervalo_excedido": {"activa": False, "severidad": "POSIBLE DISCREPANCIA"}}}})
     r = auditar_fdr(catalogo, c)
     assert "intervalo_excedido" not in {h.codigo for h in r.hallazgos}
     assert estado_final(r.hallazgos) == "OK"
@@ -79,15 +78,15 @@ def test_desactivar_regla(ctx, catalogo):
 
 def test_desactivar_tipo(ctx, catalogo):
     c = con(ctx, {"Incorrect DIP Interval": {"activo": False, "reglas": {
-        "intervalo_excedido": "CRITICA"}}})
+        "intervalo_excedido": "POSIBLE DISCREPANCIA"}}})
     r = auditar_fdr(catalogo, c)
     assert not [h for h in r.hallazgos if h.categoria == "Incorrect DIP Interval"]
 
 
-def test_regla_fuera_del_documento_es_no_critica(ctx, catalogo):
+def test_regla_fuera_del_documento_es_posible_discrepancia(ctx, catalogo):
     r = auditar_fdr(catalogo, con(ctx, {}))
     h = next(h for h in r.hallazgos if h.codigo == "intervalo_excedido")
-    assert (h.categoria, h.severidad) == ("Incorrect DIP Interval", "NO CRITICA")
+    assert (h.categoria, h.severidad) == ("Incorrect DIP Interval", "POSIBLE DISCREPANCIA")
 
 
 def test_documento_en_la_auditoria_completa(config, tmp_path):
@@ -95,16 +94,16 @@ def test_documento_en_la_auditoria_completa(config, tmp_path):
     texto = (RAIZ / "config" / "discrepancias.yaml").read_text(encoding="utf-8")
     texto = texto.replace("  Duplicated DIP:\n    reglas:",
                           "  Duplicated DIP:\n    activo: false\n    reglas:")
-    texto = texto.replace("intervalo_excedido:                CRITICA",
-                          "intervalo_excedido:                NO CRITICA")
+    texto = texto.replace("intervalo_excedido:                POSIBLE DISCREPANCIA",
+                          "intervalo_excedido:                REVISAR")
     ruta = tmp_path / "discrepancias.yaml"
     ruta.write_text(texto, encoding="utf-8")
     auditor = Auditor({**config, "discrepancias": ruta}, fecha_auditoria=date(2026, 8, 20))
     resultado = auditor.auditar_archivo(crear_export(tmp_path / "export.xlsx", FILAS))
     estados = dict(zip(resultado.filas["Fault Barcode"], resultado.filas["RESULTADO"]))
     h = resultado.hallazgos
-    assert set(h[(h["Fault Barcode"] == "T2") & (h["Código"] == "intervalo_excedido")]["Severidad"])         == {"NO CRITICA"}                               # intervalo excedido, ahora no crítico
-    assert estados["T2"] == "POSIBLE DISCREPANCIA"
+    assert set(h[(h["Fault Barcode"] == "T2") & (h["Código"] == "intervalo_excedido")]["Severidad"]) == {"REVISAR"}
+    assert estados["T2"] == "REVISAR"
     assert estados["T5"] == "OK"                        # duplicado, tipo desactivado
     assert "duplicado" not in set(resultado.hallazgos["Código"])
 
@@ -144,7 +143,7 @@ def test_cli_categorias(config, tmp_path, capsys):
 
 @pytest.mark.parametrize("datos, error", [
     ({"A": {"reglas": {"x": "GRAVE"}}}, "severidad 'GRAVE'"),
-    ({"A": {"reglas": {"x": "CRITICA"}}, "B": {"reglas": {"x": "CRITICA"}}}, "en 'A' y en 'B'"),
+    ({"A": {"reglas": {"x": "POSIBLE DISCREPANCIA"}}, "B": {"reglas": {"x": "POSIBLE DISCREPANCIA"}}}, "en 'A' y en 'B'"),
     ({"A": {"activo": "no", "reglas": {}}}, "true o false"),
     ({"A": {"reglas": {"x": {"activa": "si"}}}}, "true o false"),
 ])
@@ -157,6 +156,38 @@ def test_documento_del_proyecto_es_valido():
     d = cargar_discrepancias(Path(RAIZ / "config" / "discrepancias.yaml"))
     assert all(d.tipos.values()) and all(r.activa for r in d.reglas.values())
     validar_cobertura(d)
+
+
+@pytest.mark.parametrize("valor", ["CRITICA", "NO CRITICA", "CONSULTAR MANUAL", "SIN FUENTE",
+                                  "CORREGIDO EN CIERRE", "OK"])
+def test_configuracion_rechaza_valores_retirados_y_resultados_calculados(valor):
+    with pytest.raises(ValueError, match="no válida"):
+        Discrepancias.desde_dict({"A": {"reglas": {"x": valor}}})
+
+
+def test_revisar_no_se_cuenta_como_posible_discrepancia_en_consola(config, tmp_path):
+    from dips_audit.__main__ import _resumen, _tabla_hallazgos
+    from rich.console import Console
+    import io
+
+    texto = (RAIZ / "config" / "discrepancias.yaml").read_text(encoding="utf-8")
+    texto = texto.replace("intervalo_excedido:                POSIBLE DISCREPANCIA",
+                          "intervalo_excedido:                REVISAR")
+    ruta = tmp_path / "discrepancias.yaml"
+    ruta.write_text(texto, encoding="utf-8")
+    auditor = Auditor({**config, "discrepancias": ruta}, fecha_auditoria=date(2026, 8, 20))
+    resultado = auditor.auditar_archivo(crear_export(tmp_path / "export.xlsx", [FILAS[1]]))
+    assert resultado.filas.iloc[0]["RESULTADO"] == "REVISAR"
+    assert _tabla_hallazgos(resultado) is None
+    salida = io.StringIO()
+    Console(file=salida, width=160).print(_resumen(resultado, {"Total": 0.0}))
+    assert "hallazgos)" not in salida.getvalue()
+    vencido = list(FILAS[2])
+    vencido[-1] = -1
+    resultado = auditor.auditar_archivo(crear_export(tmp_path / "mixto.xlsx", [FILAS[1], vencido]))
+    salida = io.StringIO()
+    Console(file=salida, width=160).print(_resumen(resultado, {"Total": 0.0}))
+    assert "(1 hallazgos)" in salida.getvalue()
 
 
 def test_validar_reglas_detecta_codigo_mal_escrito(tmp_path, capsys):
@@ -180,10 +211,10 @@ def test_validar_reglas_detecta_codigo_mal_escrito(tmp_path, capsys):
 
 def test_cargar_reglas_rechaza_claves_repetidas_y_campos_incorrectos(tmp_path):
     ruta = tmp_path / "reglas.yaml"
-    ruta.write_text("tipos:\n  A:\n    reglas:\n      x: CRITICA\n      x: OBSERVACION\n",
+    ruta.write_text("tipos:\n  A:\n    reglas:\n      x: POSIBLE DISCREPANCIA\n      x: OBSERVACION\n",
                     encoding="utf-8")
     with pytest.raises(ValueError, match="Clave repetida 'x'"):
         cargar_discrepancias(ruta)
     with pytest.raises(ValueError, match="campos desconocidos"):
         Discrepancias.desde_dict({"A": {"reglas": {"x": {"activia": False,
-                                                            "severidad": "CRITICA"}}}})
+                                                            "severidad": "POSIBLE DISCREPANCIA"}}}})

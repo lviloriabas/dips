@@ -29,7 +29,7 @@ import yaml
 from . import __version__
 from .asociacion import Asociacion, _equivalentes, asociar
 from .auditor import RAIZ, Auditor
-from .evaluacion import INDICADORES, Evaluacion, evaluar, indicadores
+from .evaluacion import ESTADOS_HUMANOS, INDICADORES, Evaluacion, evaluar, indicadores
 from .referencias import normalizar_unidad
 from .reglas import SIN_FUENTE
 
@@ -60,7 +60,6 @@ METODOS = {
 }
 _ACUERDO = {"Ambos marcan": "Ambos marcan", "Ambos OK": "Ambos OK",
             "Solo humano": "Solo el auditor marca", "Solo IA": "Solo el programa marca"}
-_CORTO = {"DISCREPANCIA CRÍTICA": "CRÍTICA", "DISCREPANCIA NO CRÍTICA": "NO CRÍTICA"}
 
 
 # --------------------------------------------------------------------------
@@ -165,8 +164,7 @@ def ejecutar(config: dict) -> dict:
         "version_programa": __version__,
         "datos": {
             "archivo": _relativa(DATOS), "dips": len(ev.comparacion),
-            "veredictos_auditor": {e: int(humanos.get(e, 0)) for e in
-                                   ["OK", "DISCREPANCIA NO CRÍTICA", "DISCREPANCIA CRÍTICA"]},
+            "veredictos_auditor": {e: int(humanos.get(e, 0)) for e in ESTADOS_HUMANOS},
             "archivo_casos": _relativa(CASOS), "casos": len(casos),
             "dips_sin_referencia_por_reglas": sum(d["metodo"] == "sin_referencia" for d in dips),
         },
@@ -361,8 +359,7 @@ def como_se_audita(r: dict) -> str:
     v = datos["veredictos_auditor"]
     return "\n".join([
         f"1. **Datos.** {datos['dips']} DIPs Others ya auditados por personas (jul-ago 2026): "
-        f"{v['OK']} OK, {v['DISCREPANCIA NO CRÍTICA']} con discrepancia no crítica y "
-        f"{v['DISCREPANCIA CRÍTICA']} con discrepancia crítica, en `{datos['archivo']}` "
+        f"{v['OK']} OK y {v['DISCREPANCIA']} con discrepancia, en `{datos['archivo']}` "
         "(copia anónima). Son los datos del Excel de entrada del día de la auditoría: en ICAM "
         "esos DIPs ya están corregidos, así que no se completan desde ICAM. Solo entran DIPs "
         "con intervalo y tipo de intervalo, y cada uno se audita con la fecha en que lo "
@@ -445,8 +442,8 @@ def _seccion_auditor(r: dict, base: dict | None) -> list[str]:
         "## 1. Resultado frente al auditor",
         _tabla_indicadores(r, base, "auditoria"),
         "**Matriz** (filas: auditor; columnas: programa)",
-        _tabla(["Auditor \\ Programa"] + [_CORTO.get(c, c) for c in columnas],
-               [[_CORTO.get(h, h)] + [fila[c] for c in columnas]
+        _tabla(["Auditor \\ Programa"] + [c for c in columnas],
+               [[h] + [fila[c] for c in columnas]
                 for h, fila in aud["matriz"].items()], set(range(1, len(columnas) + 1))),
     ]
     if aud["por_tema"]:
@@ -472,7 +469,7 @@ def _seccion_metodos(r: dict) -> list[str]:
         partes += ["**DIPs que no asocian las reglas**", _tabla(
             ["Barcode", "Fault Name", "Intervalo", "Programa", "Auditor"],
             [[d["barcode"], d["fault_name"][:60], d["intervalo"],
-              _CORTO.get(d["programa"], d["programa"]), _CORTO.get(d["auditor"], d["auditor"])]
+              d["programa"], d["auditor"]]
              for d in sin_reglas])]
     return partes
 

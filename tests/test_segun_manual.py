@@ -45,7 +45,7 @@ def _plataforma(**cambios):
 def test_ta_segun_el_dano_queda_en_revisar(catalogo, ctx):
     r = auditar_dip(_plataforma(), catalogo.por_id("PLATAFORMA_ALABE"), ctx)
     h = next(h for h in r.hallazgos if h.codigo == "intervalo_segun_manual")
-    assert h.severidad == "CONSULTAR MANUAL"
+    assert h.severidad == "REVISAR"
     assert "DEPENDING ON MEASUREMENTS" in h.mensaje and "72-00-00-200-818" in h.mensaje
     # No se compara con los 25 FC de la tabla: depende de la medición.
     assert not {x.codigo for x in r.hallazgos} & {"intervalo_excedido", "intervalo_menor"}
@@ -53,11 +53,11 @@ def test_ta_segun_el_dano_queda_en_revisar(catalogo, ctx):
 
 
 def test_revisar_pesa_menos_que_una_posible_discrepancia():
-    manual = Hallazgo("intervalo_segun_manual", "Incorrect DIP Interval", "CONSULTAR MANUAL", "")
+    manual = Hallazgo("intervalo_segun_manual", "Incorrect DIP Interval", "REVISAR", "")
     assert estado_final([manual]) == "REVISAR"
     assert estado_final([manual, Hallazgo("x", "", "OBSERVACION", "")]) == "REVISAR"
-    assert estado_final([manual, Hallazgo("x", "", "NO CRITICA", "")]) == "POSIBLE DISCREPANCIA"
-    assert estado_final([manual, Hallazgo("x", "", "REVISAR", "")]) == "POSIBLE DISCREPANCIA"
+    assert estado_final([manual, Hallazgo("x", "", "POSIBLE DISCREPANCIA", "")]) == "POSIBLE DISCREPANCIA"
+    assert estado_final([manual, Hallazgo("x", "", "SIN FUENTE EN DIPS REFERENCES", "")]) == "REVISAR"
 
 
 def test_rir_segun_el_dano_no_se_compara(auditor, catalogo, ctx):
@@ -67,7 +67,7 @@ def test_rir_segun_el_dano_no_se_compara(auditor, catalogo, ctx):
     r = ResultadoReglas(manuales=["Verificar RIR cada 7 DAYS."])
     auditor._rir(dip, Asociacion(entrada, "REGLAS"), ctx, r)
     assert [h.codigo for h in r.hallazgos] == ["rir_segun_manual"]
-    assert r.hallazgos[0].severidad == "CONSULTAR MANUAL"
+    assert r.hallazgos[0].severidad == "REVISAR"
     assert "DAMAGE ZONE" in r.hallazgos[0].mensaje and "3 DAY" in r.hallazgos[0].mensaje
     assert r.manuales == []
     # "Revisar en el manual" no va en el comentario sugerido.

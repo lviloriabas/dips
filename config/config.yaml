@@ -29,7 +29,7 @@ tolerancias:
   inicio_fh: 2
   inicio_fc: 0
 
-# Tipos de discrepancia y reglas: cuáles se revisan y cuándo son críticas.
+# Tipos de discrepancia y reglas: cuáles se revisan y qué resultado producen.
 discrepancias: "config/discrepancias.yaml"
 
 referencia_tecnica:

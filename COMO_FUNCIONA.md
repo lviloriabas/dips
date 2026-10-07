@@ -469,12 +469,14 @@ Cada hallazgo tiene la severidad que le asigna `config/discrepancias.yaml` a su 
 
 | Severidad | Se muestra como | Da el resultado |
 | --- | --- | --- |
-| CRITICA, NO CRITICA o REVISAR | `[POSIBLE DISCREPANCIA]` | POSIBLE DISCREPANCIA |
-| CONSULTAR MANUAL | `[REVISAR]` | REVISAR |
-| SIN FUENTE | `[SIN FUENTE EN DIPS REFERENCES]` | SIN FUENTE EN DIPS REFERENCES |
+| POSIBLE DISCREPANCIA | `[POSIBLE DISCREPANCIA]` | POSIBLE DISCREPANCIA |
+| REVISAR | `[REVISAR]` | REVISAR |
+| SIN FUENTE EN DIPS REFERENCES | `[SIN FUENTE EN DIPS REFERENCES]` | SIN FUENTE EN DIPS REFERENCES |
 | OBSERVACION | `[OBSERVACIÓN]` | Ninguno: no cambia el resultado |
 
-Sin hallazgos, o solo con observaciones, el DIP es OK. Los nombres confunden un poco: la severidad REVISAR da POSIBLE DISCREPANCIA, y el resultado REVISAR sale de CONSULTAR MANUAL. CRITICA, NO CRITICA y REVISAR se mantienen separadas para cuando se definan los niveles de discrepancia con los auditores; hoy solo sirven para ordenar los hallazgos.
+Sin hallazgos, o solo con observaciones, el DIP es OK. Los valores configurados coinciden con el resultado: POSIBLE DISCREPANCIA, REVISAR o SIN FUENTE EN DIPS REFERENCES. OBSERVACION informa el hallazgo sin cambiar el resultado. La prioridad es POSIBLE DISCREPANCIA, REVISAR y SIN FUENTE EN DIPS REFERENCES.
+
+CORREGIDO EN CIERRE se calcula para un DIP COMPLETE con POSIBLE DISCREPANCIA en apertura y OK en cierre; no se asigna a una regla.
 
 Algunos casos fijan la severidad en el código, siempre como observación: Parent Assembly flexible, Start posterior en un SIN FUENTE EN DIPS REFERENCES y referencia técnica distinta cuando no es grave. Si la regla, su tipo de discrepancia o su categoría (con `--categorias`) están desactivados, el hallazgo directamente no se agrega. Por eso, con `--categorias`, un DIP sin referencia puede salir OK: SIN FUENTE EN DIPS REFERENCES es del tipo "Missing Reference in Table" y también quedó afuera. La consola y el Excel lo avisan.
 
@@ -608,11 +610,11 @@ Agrupa las reglas por tipo de discrepancia, con los nombres que usa el departame
 tipos:
   Incorrect DIP Interval:
     reglas:
-      intervalo_excedido: CRITICA
+      intervalo_excedido: POSIBLE DISCREPANCIA
       intervalo_menor: OBSERVACION
 ```
 
-Todas las reglas y tipos están activos por defecto. `intervalo_excedido: {activa: false, severidad: CRITICA}` desactiva una regla y `activo: false` debajo del tipo desactiva todo ese tipo; una regla desactivada no aparece en ningún lado. La severidad decide qué pasa con el DIP (ver [El resultado](#el-resultado)). Ejecute `python -m dips_audit validar-reglas` antes de auditar: detecta valores, campos y códigos inválidos. Para revisar solo algunos tipos en una corrida sin tocar el archivo están `--categorias` y `--excluir-categorias`. El procedimiento completo está en [configurar_reglas.md](docs/configurar_reglas.md).
+Todas las reglas y tipos están activos por defecto. `intervalo_excedido: {activa: false, severidad: POSIBLE DISCREPANCIA}` desactiva una regla y `activo: false` debajo del tipo desactiva todo ese tipo; una regla desactivada no aparece en ningún lado. La severidad decide qué pasa con el DIP (ver [El resultado](#el-resultado)). Ejecute `python -m dips_audit validar-reglas` antes de auditar: detecta valores, campos y códigos inválidos. Para revisar solo algunos tipos en una corrida sin tocar el archivo están `--categorias` y `--excluir-categorias`. El procedimiento completo está en [configurar_reglas.md](docs/configurar_reglas.md).
 
 ### `config/catalogo_others.yaml`
 

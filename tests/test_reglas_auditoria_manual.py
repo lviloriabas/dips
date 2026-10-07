@@ -19,7 +19,7 @@ def test_sin_attachments_es_discrepancia(catalogo, ctx):
     """T40S009ELDX: sin attachments ni referencia cargada; el auditor la marcó aunque la
     descripción cite el AMM."""
     r = auditar(catalogo, ctx, "OXIGENO_TRIPULACION", adjuntos=[])
-    assert "sin_adjuntos" in codigos(r, "NO CRITICA")
+    assert "sin_adjuntos" in codigos(r, "POSIBLE DISCREPANCIA")
     assert estado_final(r.hallazgos) == "POSIBLE DISCREPANCIA"
     assert "sin_adjuntos" not in codigos(auditar(catalogo, ctx, "OXIGENO_TRIPULACION",
                                                  adjuntos=["captura.png"]))
@@ -64,7 +64,7 @@ def test_sin_attachments_segun_el_excel(catalogo, ctx):
     assert "PENDING" in h.mensaje
     cerrado = auditar(catalogo, ctx, "OXIGENO_TRIPULACION", adjuntos_excel=0, estado="COMPLETE",
                       complete_date=datetime(2026, 8, 20, 10, 0))
-    assert "cierre_sin_adjuntos" in codigos(cerrado, "NO CRITICA")
+    assert "cierre_sin_adjuntos" in codigos(cerrado, "POSIBLE DISCREPANCIA")
     assert "sin_adjuntos" not in codigos(auditar(catalogo, ctx, "OXIGENO_TRIPULACION",
                                                  adjuntos_excel=2))
 
@@ -154,7 +154,7 @@ def test_start_posterior_con_el_intervalo_descontado(catalogo, ctx):
     r = auditar(catalogo, ctx, "DPI", intervalo=380.0, icam_intervalos=_ta_horas(1020, 380), **DPI)
     assert not codigos(r) & {"inicio_ta_incorrecto", "intervalo_excedido"}
     r = auditar(catalogo, ctx, "DPI", intervalo=400.0, icam_intervalos=_ta_horas(1020, 400), **DPI)
-    assert "inicio_ta_incorrecto" in codigos(r, "NO CRITICA")
+    assert "inicio_ta_incorrecto" in codigos(r, "POSIBLE DISCREPANCIA")
 
 
 def test_intervalo_excedido_solo_si_vence_despues(catalogo, ctx):
@@ -162,12 +162,12 @@ def test_intervalo_excedido_solo_si_vence_despues(catalogo, ctx):
     (el Start antes de la apertura sí se marca). Desde la apertura, 420 FH se pasa."""
     r = auditar(catalogo, ctx, "DPI", intervalo=420.0, icam_intervalos=_ta_horas(980, 420), **DPI)
     assert "intervalo_excedido" not in codigos(r)
-    assert "inicio_ta_incorrecto" in codigos(r, "NO CRITICA")
+    assert "inicio_ta_incorrecto" in codigos(r, "POSIBLE DISCREPANCIA")
     r = auditar(catalogo, ctx, "DPI", intervalo=420.0, icam_intervalos=_ta_horas(1000, 420), **DPI)
-    assert "intervalo_excedido" in codigos(r, "CRITICA")
+    assert "intervalo_excedido" in codigos(r, "POSIBLE DISCREPANCIA")
     # Sin el Start de ICAM se cuenta desde la apertura.
     r = auditar(catalogo, ctx, "DPI", intervalo=420.0, **{**DPI, "uso_encontrado": {}})
-    assert "intervalo_excedido" in codigos(r, "CRITICA")
+    assert "intervalo_excedido" in codigos(r, "POSIBLE DISCREPANCIA")
 
 
 def _ta_dias(start, intervalo):
@@ -179,7 +179,7 @@ def test_start_antes_de_la_apertura(catalogo, ctx):
     r = auditar(catalogo, ctx, "CRECIMIENTO_MICROBIANO", nombre="TANK 1 MICROBIAL SAMPLE", ata=28,
                 deferral_ref="28-DIP", intervalo=4.0, found_date=datetime(2026, 9, 11, 22, 39),
                 due_date=datetime(2026, 9, 12, 23, 59), icam_intervalos=_ta_dias("08-SEP-2026", 4))
-    assert "inicio_ta_incorrecto" in codigos(r, "NO CRITICA")
+    assert "inicio_ta_incorrecto" in codigos(r, "POSIBLE DISCREPANCIA")
 
 
 def test_start_en_el_defer_date(catalogo, ctx):
@@ -213,7 +213,7 @@ def test_sin_fuente_con_start_posterior_queda_para_verificar(ctx):
     r = auditar_dip(dip, None, ctx)
     assert "inicio_ta_incorrecto" in codigos(r, "OBSERVACION")
     dip["icam_intervalos"] = _ta_ciclos(11970, 15)   # antes de encontrar la falla
-    assert "inicio_ta_incorrecto" in codigos(auditar_dip(dip, None, ctx), "NO CRITICA")
+    assert "inicio_ta_incorrecto" in codigos(auditar_dip(dip, None, ctx), "POSIBLE DISCREPANCIA")
 
 
 def test_items_con_vencimiento_no_revisan_el_start(catalogo, ctx):
@@ -242,7 +242,7 @@ def test_sn_distinto_de_las_notas_de_la_descripcion(catalogo, ctx):
         assert "sn_inconsistente" not in codigos(r), notas
     r = auditar(catalogo, ctx, "OXIGENO_HYDRO", nombre=nombre, ata=35,
                 notas_descripcion="AFT PORTABLE OXYGEN BOTTLE S/N 11101998")
-    assert "sn_inconsistente" in codigos(r, "NO CRITICA")
+    assert "sn_inconsistente" in codigos(r, "POSIBLE DISCREPANCIA")
 
 
 def test_sn_de_mas_en_un_texto_no_es_inconsistente(catalogo, ctx):

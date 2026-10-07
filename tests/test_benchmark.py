@@ -13,6 +13,7 @@ from dips_audit.__main__ import main
 from dips_audit.anonimizar import (COLUMNAS_PERSONAL, HOJA, MARCA, Tachador, anonimizar,
                                    muestrear, nombres_del_personal)
 from tests.conftest import HISTORICO
+from dips_audit.evaluacion import normalizar_veredicto
 
 
 def test_tachador_reemplaza_nombre_y_apellidos():
@@ -36,7 +37,7 @@ def test_muestrear_solo_others_con_veredicto_datos_y_proporcional():
     tabla = pd.DataFrame({
         "Fault Barcode": [f"T{i}" for i in range(42)],
         "Type DIP": ["Others"] * 32 + ["Powerplant"] * 10,
-        "STATUS - Apertura": ["OK"] * 20 + ["DISCREPANCIA CRÍTICA"] * 8 + ["PENDIENTES"] * 2
+        "STATUS - Apertura": ["OK"] * 20 + ["DISCREPANCIA"] * 8 + ["PENDIENTES"] * 2
                              + ["OK"] * 12,
         "DIP Interval": [3] * 30 + [None, 3] + [3] * 10,
         "Interval Type": ["DAY"] * 31 + [None] + ["DAY"] * 10,
@@ -44,10 +45,16 @@ def test_muestrear_solo_others_con_veredicto_datos_y_proporcional():
     muestra = muestrear(tabla, 7)
     assert len(muestra) == 7 and set(muestra["Type DIP"]) == {"Others"}
     assert muestra["STATUS - Apertura"].value_counts().to_dict() == {
-        "OK": 5, "DISCREPANCIA CRÍTICA": 2}
+        "OK": 5, "DISCREPANCIA": 2}
     assert muestra.equals(muestrear(tabla, 7))      # misma semilla, misma muestra
     # Sin cantidad: todos los Others con veredicto e intervalo (los dos últimos no tienen).
     assert len(muestrear(tabla, None)) == 28
+
+
+@pytest.mark.parametrize("valor", ["DISCREPANCIA", "DISCREPANCIA CRÍTICA",
+                                  "DISCREPANCIA NO CRÍTICA"])
+def test_historico_agrupa_discrepancias_sin_niveles(valor):
+    assert normalizar_veredicto(valor) == "DISCREPANCIA"
 
 
 def test_benchmark_sin_columnas_del_personal():

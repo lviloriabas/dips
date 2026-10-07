@@ -64,7 +64,7 @@ def test_intervalo_mayor_que_la_descripcion():
     """TRF7N0093QRX: 'replacement of the buckle within 180 days of this inspection', T/A 184 días."""
     r = _revisar(nombre="DIP-FIRST OFFICER ROTARY BUCKLE", intervalo=184.0,
                  descripcion="Open a deferral item for replacement of the buckle within 180 days of this inspection")
-    assert "intervalo_mayor_a_descripcion" in codigos(r, "CRITICA")
+    assert "intervalo_mayor_a_descripcion" in codigos(r, "POSIBLE DISCREPANCIA")
     r = _revisar(nombre="DIP-FIRST OFFICER ROTARY BUCKLE", intervalo=180.0,
                  descripcion="replacement of the buckle within 180 days of this inspection")
     assert not codigos(r) and any("coincide" in m for m in r.manuales)
@@ -151,7 +151,7 @@ def test_paquete_programado_despues_del_due(catalogo, ctx):
     r = auditar(catalogo, ctx, "OXIGENO_TRIPULACION", scheduled_date=datetime(2026, 8, 23, 3, 0),
                 work_package="T40S009DA0Q")
     h = next(h for h in r.hallazgos if h.codigo == "programado_despues_del_due")
-    assert "T40S009DA0Q" in h.mensaje and h.severidad == "REVISAR"
+    assert "T40S009DA0Q" in h.mensaje and h.severidad == "POSIBLE DISCREPANCIA"
     assert "programado_despues_del_due" not in codigos(
         auditar(catalogo, ctx, "OXIGENO_TRIPULACION", scheduled_date=datetime(2026, 8, 20, 13, 0)))
 
@@ -272,7 +272,7 @@ def test_referencia_distinta_segun_lo_que_pide_la_tabla(auditor, ctx):
     # La tabla pide la ECRA 2901-0036C y el DIP solo cita la AMM: posible discrepancia.
     h = _referencia(auditor, ctx, "HYDRAULIC DECONTAMINATION - TERMINAL",
                     "resample the hydraulic fluid within 300FH per AMM 29-11-00-200-801")
-    assert h.get("referencia_tecnica_distinta") == "REVISAR"
+    assert h.get("referencia_tecnica_distinta") == "POSIBLE DISCREPANCIA"
     # El DIP cita la ECRA que lo originó y la tabla da la AMM del procedimiento: observación.
     h = _referencia(auditor, ctx, "DIP - ENGINE #2 WATER WASH",
                     "PERFORM ENGINE WATER WASH IAW ECRA 7200-0641C IN NO MORE THAN 100FH,50FC OR 10 DAYS")

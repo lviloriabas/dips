@@ -118,7 +118,7 @@ def test_manda_el_inventario_y_no_la_descripcion(catalogo, ctx):
                  descripcion="ASU AFT LH P/N E72220-10 S/N BEFA-F016-171 DUE DATE 28 FEB 2029.",
                  nombre="DIP - ASU AFT LH OXYGEN GENERATOR DUE DATE 28 FEB 2029")
     h = next(h for h in r.hallazgos if h.codigo == "due_date_posterior_a_vencimiento_item")
-    assert h.severidad == "CRITICA"
+    assert h.severidad == "POSIBLE DISCREPANCIA"
     assert "31-JAN-2029" in h.mensaje and "S/N BEFA-F016-171" in h.mensaje
     # Al revés: la descripción trae otra fecha, pero el due date es el del PDF.
     r = _auditar(catalogo, ctx, descripcion="ASU AFT LH S/N BEFA-F016-171 DUE DATE 30 SEP 2026")

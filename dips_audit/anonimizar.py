@@ -15,10 +15,12 @@ from pathlib import Path
 
 import pandas as pd
 
+from .evaluacion import ESTADOS_HUMANOS, normalizar_veredicto
+
 HOJA = "DIPs"
 MARCA = "[PERSONA]"
 TIPO_DIP = "Others"
-VEREDICTOS = ["OK", "DISCREPANCIA NO CRÍTICA", "DISCREPANCIA CRÍTICA"]
+VEREDICTOS = ESTADOS_HUMANOS
 CANTIDAD = 50    # DIPs del benchmark
 SEMILLA = 2026   # fija la muestra: la misma semilla da los mismos DIPs
 # Datos de entrada sin los cuales el DIP no se puede auditar. Algunos DIPs de la
@@ -220,15 +222,19 @@ def muestrear(tabla: pd.DataFrame, cantidad: int | None, semilla: int = SEMILLA)
     """DIPs Others con veredicto del auditor y con los datos mínimos de entrada; si hay
     `cantidad`, una muestra de ese tamaño.
 
-    La muestra respeta la proporción de cada veredicto (OK, no crítica, crítica) y
+    La muestra respeta la proporción de cada veredicto (OK o discrepancia) y
     siempre es la misma para la misma semilla.
     """
+    tabla = tabla.copy()
     tipo = tabla["Type DIP"].astype(str).str.strip().str.upper()
     tabla = tabla[(tipo == TIPO_DIP.upper())
-                  & tabla["STATUS - Apertura"].isin(VEREDICTOS)
+                  & tabla["STATUS - Apertura"].map(normalizar_veredicto).isin(VEREDICTOS)
                   & tabla[DATOS_MINIMOS].notna().all(axis=1)].reset_index(drop=True)
     if not cantidad or cantidad >= len(tabla):
+        tabla["STATUS - Apertura"] = tabla["STATUS - Apertura"].map(normalizar_veredicto)
         return tabla
+    # Conserva la selección reproducible de las muestras ya usadas como línea base.
+    # Los valores del archivo de origen solo sirven para el reparto de la muestra.
     grupos = tabla.groupby("STATUS - Apertura")
     # Reparto proporcional; los lugares sobrantes van a los restos más grandes.
     cuota = grupos.size() * cantidad / len(tabla)
@@ -236,6 +242,7 @@ def muestrear(tabla: pd.DataFrame, cantidad: int | None, semilla: int = SEMILLA)
     faltan = cantidad - int(asignado.sum())
     asignado[(cuota - asignado).sort_values(ascending=False).index[:faltan]] += 1
     muestra = pd.concat(g.sample(n=int(asignado[v]), random_state=semilla) for v, g in grupos)
+    muestra["STATUS - Apertura"] = muestra["STATUS - Apertura"].map(normalizar_veredicto)
     return muestra.sort_index().reset_index(drop=True)
 
 

@@ -12,7 +12,7 @@ from pathlib import Path
 
 import yaml
 
-SEVERIDADES = ("CRITICA", "NO CRITICA", "REVISAR", "CONSULTAR MANUAL", "SIN FUENTE", "OBSERVACION")
+SEVERIDADES = ("POSIBLE DISCREPANCIA", "REVISAR", "SIN FUENTE EN DIPS REFERENCES", "OBSERVACION")
 
 
 class _SinDuplicados(yaml.SafeLoader):
@@ -83,7 +83,7 @@ class Discrepancias:
 
     def severidad(self, codigo: str) -> str:
         r = self.reglas.get(codigo)
-        return r.severidad if r else "NO CRITICA"
+        return r.severidad if r else "POSIBLE DISCREPANCIA"
 
     def tipo(self, codigo: str, defecto: str) -> str:
         r = self.reglas.get(codigo)
@@ -117,7 +117,7 @@ class Discrepancias:
                 if codigo in d.reglas:
                     raise ValueError(f"{origen}: la regla '{codigo}' está en "
                                      f"'{d.reglas[codigo].tipo}' y en '{tipo}'.")
-                if isinstance(regla, str):  # forma corta: codigo: CRITICA
+                if isinstance(regla, str):  # forma corta: codigo: POSIBLE DISCREPANCIA
                     regla = {"severidad": regla}
                 if not isinstance(regla, dict):
                     raise ValueError(f"{origen}: '{codigo}' debe indicar una severidad.")

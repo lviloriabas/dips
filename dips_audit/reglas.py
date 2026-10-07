@@ -15,13 +15,6 @@ from .referencias import EntradaCatalogo, Limite, Variante
 from .rir import solo_rir
 from .texto import clave_sn, extraer_fechas, extraer_psi, extraer_sn, normalizar, posiciones
 
-SEVERIDAD_SIN_FUENTE = "SIN FUENTE"  # Valor de configuración; separado de la etiqueta del resultado.
-ORDEN_SEVERIDAD = {"CRITICA": 6, "NO CRITICA": 5, "REVISAR": 4, "CONSULTAR MANUAL": 3,
-                   SEVERIDAD_SIN_FUENTE: 2, "OBSERVACION": 1}
-# El resultado de un DIP es OK, REVISAR, SIN FUENTE o POSIBLE DISCREPANCIA: los niveles (crítica /
-# no crítica) y los tipos de discrepancia todavía no coinciden con el proceso de los
-# auditores. La severidad de cada regla (config/discrepancias.yaml) solo ordena los hallazgos
-# y decide si un hallazgo es una observación, que no cambia el resultado.
 POSIBLE_DISCREPANCIA = "POSIBLE DISCREPANCIA"
 # El DIP no está en la tabla de referencias: no hay contra qué auditarlo. Una posible
 # discrepancia que no depende de la tabla (vencido, cierre tarde...) pesa más.
@@ -29,18 +22,17 @@ SIN_FUENTE = "SIN FUENTE EN DIPS REFERENCES"
 # La tabla da el TA o el RIR según el daño o el tipo ("DEPENDING ON...", "CONSULT REF."):
 # el auditor lo revisa en el manual. Una posible discrepancia pesa más.
 REVISAR = "REVISAR"
+SEVERIDAD_SIN_FUENTE = SIN_FUENTE
+# Prioridad del resultado: una posible discrepancia pesa más que una consulta al manual
+# o la falta de fuente. Las observaciones se anotan sin cambiar el resultado.
+ORDEN_SEVERIDAD = {POSIBLE_DISCREPANCIA: 4, REVISAR: 3, SIN_FUENTE: 2, "OBSERVACION": 1}
 ESTADOS = {
-    "CRITICA": POSIBLE_DISCREPANCIA,
-    "NO CRITICA": POSIBLE_DISCREPANCIA,
-    "REVISAR": POSIBLE_DISCREPANCIA,
-    "CONSULTAR MANUAL": REVISAR,
-    SEVERIDAD_SIN_FUENTE: SIN_FUENTE,
+    POSIBLE_DISCREPANCIA: POSIBLE_DISCREPANCIA,
+    REVISAR: REVISAR,
+    SIN_FUENTE: SIN_FUENTE,
 }
 # Cómo se muestra cada hallazgo según su severidad.
-MOSTRAR_SEVERIDAD = {"CRITICA": POSIBLE_DISCREPANCIA, "NO CRITICA": POSIBLE_DISCREPANCIA,
-                     "REVISAR": POSIBLE_DISCREPANCIA, "CONSULTAR MANUAL": REVISAR,
-                     SEVERIDAD_SIN_FUENTE: SIN_FUENTE,
-                     "OBSERVACION": "OBSERVACIÓN"}
+MOSTRAR_SEVERIDAD = {**ESTADOS, "OBSERVACION": "OBSERVACIÓN"}
 # Cada DIP se audita dos veces: al abrirse (APERTURA) y al cerrarse (CIERRE). Estos códigos
 # son de la auditoría de cierre; todos los demás, de la de apertura.
 CODIGOS_CIERRE = {
@@ -58,7 +50,7 @@ def etapa(codigo: str) -> str:
 class Hallazgo:
     codigo: str       # regla en config/discrepancias.yaml (p. ej. intervalo_excedido)
     categoria: str    # tipo de discrepancia (nomenclatura del departamento)
-    severidad: str    # CRITICA, NO CRITICA, REVISAR, CONSULTAR MANUAL, OBSERVACION
+    severidad: str    # Valor en config/discrepancias.yaml; OBSERVACION no cambia el resultado.
     mensaje: str
 
 
