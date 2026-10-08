@@ -35,7 +35,7 @@ $ .\auditar.bat T40S0099V9C
 
 Sustituya el barcode de ejemplo por el real. El programa consulta el DIP en ICAM y muestra los datos, el resultado y los hallazgos en la terminal. Esta consulta no genera un Excel de resultado.
 
-Los resultados de auditoría quedan en **`salida/`**. Revise `RESULTADO`, `HALLAZGOS` y `VERIFICACIÓN MANUAL`. Complete las verificaciones manuales indicadas en cada DIP.
+Los **resultados** quedan en **`salida/`**. El Excel incluye los resultados de la auditoría y la hoja **Dashboard**, que muestra indicadores y gráficos del resultado. La sección siguiente explica los seis resultados y sus colores.
 
 ## Resultados y colores
 
