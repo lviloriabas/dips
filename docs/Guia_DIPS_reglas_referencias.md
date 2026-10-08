@@ -43,7 +43,7 @@ La columna `RESULTADO` usa estos colores en el Excel de salida. Cada resultado i
 
 1. **POSIBLE DISCREPANCIA, naranja (`#FCE3B0`).** El programa detectó una posible discrepancia. Revise el hallazgo y su evidencia antes de registrar la auditoría.
 2. **CORREGIDO EN CIERRE, turquesa (`#CCEDE8`).** DIP COMPLETE: la apertura tuvo una posible discrepancia y el cierre quedó OK. Revise ambos estados y complete la verificación manual.
-3. **REVISAR, amarillo (`#FFF59D`).** El TA o el RIR depende del daño, de una condición o del manual. Consulte la fuente técnica para definir el límite aplicable.
+3. **REVISAR, amarillo (`#FFF59D`).** El TA o el RIR depende del daño, de una condición o del manual. Consulte la referencia técnica para definir el límite aplicable.
 4. **SIN FUENTE EN DIPS REFERENCES, azul (`#D6E4F0`).** El DIP no tiene una referencia asociada en el Excel de referencias. Compruebe la fuente y complete los datos aprobados de la tabla.
 5. **OK, verde (`#C9E7C9`).** La auditoría automática no detectó una posible discrepancia. Complete los puntos pendientes en `VERIFICACIÓN MANUAL`.
 6. **FUERA DE ALCANCE, gris (`#E4E4E4`).** El tipo de DIP quedó fuera de los tipos elegidos para auditar. El programa no evaluó ese DIP en esta ejecución.
@@ -78,6 +78,8 @@ La auditoría intenta actualizar desde SharePoint. Si pide sesión, iníciela en
 
 ## YAML de discrepancias
 
+El programa ya está configurado para funcionar correctamente. **No necesita modificar el YAML por ahora.** Esta sección sirve de referencia para cambios futuros. Si necesita ajustar algún chequeo más adelante:
+
 1. Abra **`config/discrepancias.yaml`** en un editor de texto.
 2. Busque la regla y cambie su severidad o activación. Conserve los códigos y la sangría con espacios.
 3. Guarde. La siguiente auditoría usa el cambio y comprueba el YAML automáticamente.
@@ -109,4 +111,4 @@ Para reactivarla, cambie `false` por `true`. Para desactivar un tipo completo, a
 
 Se aplica la prioridad explicada en la lista de resultados. **CORREGIDO EN CIERRE** se calcula y no se asigna a una regla.
 
-**La configuración de los chequeos disponibles está en el YAML.** Edite `config/discrepancias.yaml` para cambiar su activación o severidad y guarde. La siguiente auditoría utiliza esta configuración.
+**La configuración de los chequeos disponibles está en el YAML.** Para cambios futuros, edite `config/discrepancias.yaml` y guarde. La siguiente auditoría utiliza esa configuración. **CORREGIDO EN CIERRE** se calcula y no se asigna a una regla.
