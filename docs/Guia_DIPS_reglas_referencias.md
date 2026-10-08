@@ -41,14 +41,14 @@ Los **resultados** quedan en **`salida/`**. El Excel incluye los resultados de l
 
 La columna `RESULTADO` usa estos colores en el Excel de salida. Cada resultado indica qué revisar. Lea también `HALLAZGOS` y `VERIFICACIÓN MANUAL` para conocer la evidencia y los pasos pendientes.
 
-1. **POSIBLE DISCREPANCIA, naranja (`#FCE3B0`).** El programa detectó una posible discrepancia. Revise el hallazgo y su evidencia antes de registrar la auditoría.
-2. **CORREGIDO EN CIERRE, turquesa (`#CCEDE8`).** DIP COMPLETE: la apertura tuvo una posible discrepancia y el cierre quedó OK. Revise ambos estados y complete la verificación manual.
-3. **REVISAR, amarillo (`#FFF59D`).** El TA o el RIR depende del daño, de una condición o del manual. Consulte la referencia técnica para definir el límite aplicable.
-4. **SIN FUENTE EN DIPS REFERENCES, azul (`#D6E4F0`).** El DIP no tiene una referencia asociada en el Excel de referencias. Compruebe la fuente y complete los datos aprobados de la tabla.
-5. **OK, verde (`#C9E7C9`).** La auditoría automática no detectó una posible discrepancia. Complete los puntos pendientes en `VERIFICACIÓN MANUAL`.
-6. **FUERA DE ALCANCE, gris (`#E4E4E4`).** El tipo de DIP quedó fuera de los tipos elegidos para auditar. El programa no evaluó ese DIP en esta ejecución.
+1. **POSIBLE DISCREPANCIA.** El programa detectó una posible discrepancia. Revise el hallazgo y su evidencia antes de registrar la auditoría.
+2. **CORREGIDO EN CIERRE.** DIP COMPLETE: la apertura tuvo una posible discrepancia y el cierre quedó OK. Revise ambos estados y complete la verificación manual.
+3. **REVISAR.** El TA o el RIR depende del daño, de una condición o del manual. Consulte la referencia técnica para definir el límite aplicable.
+4. **SIN FUENTE EN DIPS REFERENCES.** El DIP no tiene una referencia asociada en el Excel de referencias. Compruebe la fuente y complete los datos aprobados de la tabla.
+5. **OK.** La auditoría automática no detectó una posible discrepancia. Complete los puntos pendientes en `VERIFICACIÓN MANUAL`.
+6. **FUERA DE ALCANCE.** El tipo de DIP quedó fuera de los tipos elegidos para auditar. El programa no evaluó ese DIP en esta ejecución.
 
-En cada etapa prevalece **POSIBLE DISCREPANCIA**, luego **REVISAR** y después **SIN FUENTE EN DIPS REFERENCES**. Los demás hallazgos siguen visibles. **CORREGIDO EN CIERRE** se calcula al comparar las etapas de apertura y cierre.
+En cada etapa de auditoría prevalece **POSIBLE DISCREPANCIA**, luego **REVISAR** y después **SIN FUENTE EN DIPS REFERENCES**. Los demás hallazgos siguen visibles. **CORREGIDO EN CIERRE** se calcula al comparar las etapas de auditoría (apertura y cierre).
 
 ## Referencias del Excel
 
