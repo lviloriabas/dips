@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import os
+import shutil
 from datetime import date, datetime
 from pathlib import Path
 
@@ -11,6 +13,22 @@ from dips_audit.reglas import Contexto
 
 RAIZ = Path(__file__).resolve().parent.parent
 HISTORICO = RAIZ / "02 - HISTORY - DIPs AUDIT (From 09Jul 15_45).xlsx"
+# La carpeta temporal del sistema puede estar restringida en equipos corporativos: se usa
+# una dentro del proyecto. Cada corrida tiene la suya, para que dos corridas a la vez no se
+# borren los archivos entre sí.
+TEMPORALES = RAIZ / ".pytest_tmp"
+
+
+@pytest.hookimpl(tryfirst=True)
+def pytest_configure(config):
+    if not config.option.basetemp:
+        config.option.basetemp = str(TEMPORALES / str(os.getpid()))
+        config._temporal_propia = True
+
+
+def pytest_unconfigure(config):
+    if getattr(config, "_temporal_propia", False):
+        shutil.rmtree(config.option.basetemp, ignore_errors=True)
 
 
 @pytest.fixture(scope="session")

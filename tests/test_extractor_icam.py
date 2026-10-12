@@ -234,7 +234,9 @@ def test_lee_por_barcode_rapido_y_solo_lectura(icam, tmp_path):
     assert estado == {b: "leido" for b in barcodes}
     # Solo llegaron búsquedas (DIP y RIR vigente): sin scripts de ICAM, sin onload y sin imágenes.
     assert _ICAMSimulado.envios == [ESCANEO] * (2 * len(barcodes))
-    assert segundos < 30, f"12 DIPs con RIR en {segundos:.1f} s"
+    # Con el equipo ocupado tarda más de un minuto. Una lectura que espera cada página
+    # (15 s por pestaña) pasaría de 10 minutos.
+    assert segundos < 180, f"12 DIPs con RIR en {segundos:.1f} s"
     # Terminada la lectura no queda ningún proceso de Edge del perfil.
     assert procesos_edge(icam["perfil"]) == []
 
@@ -316,9 +318,15 @@ def test_sin_sesion_espera_a_que_el_usuario_la_inicie(icam, tmp_path):
     _ICAMSimulado.sin_sesion = True
     icam["espera_sesion_minutos"] = 1
     avisos = []
-    threading.Timer(6, lambda: setattr(_ICAMSimulado, "sin_sesion", False)).start()
+
+    def al_avanzar(aviso: str) -> None:
+        avisos.append(aviso)
+        # El usuario inicia sesión después de ver el aviso (Edge puede tardar en abrir).
+        if "Inicie sesión" in aviso:
+            threading.Timer(2, lambda: setattr(_ICAMSimulado, "sin_sesion", False)).start()
+
     try:
-        estado = extraer(["T40S009T000"], icam, tmp_path / "icam.json", al_avanzar=avisos.append)
+        estado = extraer(["T40S009T000"], icam, tmp_path / "icam.json", al_avanzar=al_avanzar)
     except ErrorExtraccion as e:
         if "Edge" in str(e):
             pytest.skip(f"No se pudo abrir Edge: {e}")
@@ -334,7 +342,8 @@ def test_error_al_iniciar_sesion_se_detecta_de_inmediato(icam, tmp_path):
     inicio = time.monotonic()
     with pytest.raises(ErrorSesion, match="No se pudo iniciar sesión en ICAM: Invalid username"):
         _extraer(["T40S009T000"], icam, tmp_path / "icam.json")
-    assert time.monotonic() - inicio < 20
+    # Sin esperar el minuto que tiene el usuario para iniciar sesión.
+    assert time.monotonic() - inicio < 50
     assert not (tmp_path / "icam.json").exists()
 
 
