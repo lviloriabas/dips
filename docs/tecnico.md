@@ -356,7 +356,7 @@ Archivos: `dips_audit/reglas.py` y `dips_audit/auditor.py`. Se aplica a todo DIP
 | Due date | Debe ser el Start del T/A en ICAM más el intervalo (1 día de tolerancia); sin ICAM, la apertura más el intervalo (o la apertura + 7 días en un FDR armado con 23 días). En ítems con vencimiento (UNTIL DUE DATE) no se cuenta por intervalo: el due date no puede pasar la fecha que dice la descripción. En generators de oxígeno, la fecha es la del PDF de inventario (ver abajo) |
 | DIP vencido | Un DIP abierto con due date anterior al **momento de la auditoría** (día y hora) es una posible discrepancia. Un due date sin hora vence al final del día |
 | Usage Remaining | Mayor que el intervalo se anota con estado OK: pasa cuando el T/A empieza después de la apertura, y los auditores lo aceptan |
-| Parent Assembly | Avión o motor, según la tabla |
+| Parent Assembly | Avión o motor, según la tabla. Un mensaje LONG TIME del reversor (REVERSER en el Fault Name o la descripción) va en el avión |
 | ATA y Deferral Reference | El ATA del DIP no es relevante: un Deferral Reference que no empieza con el ATA, o un ATA distinto del de la tabla, queda OK |
 | Referencia técnica | Ver abajo |
 | S/N | Si la tabla lo pide, debe estar en la descripción. Un S/N repetido en otro DIP abierto del mismo avión es señal de un duplicado: OK. El S/N del Fault Name y la descripción debe ser el de las notas de la descripción en ICAM: se compara el número (P11101989 y 11101989 son el mismo S/N); si el número difiere (11101989 / 11101998) es posible discrepancia. Un S/N de más en uno de los dos textos no cuenta |

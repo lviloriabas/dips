@@ -101,6 +101,9 @@ class EntradaCatalogo:
     parent_flexible: bool = False
     # El vencimiento del ítem es el del PDF de inventario adjunto (generators de oxígeno).
     inventario: bool = False
+    # (frases, Parent Assembly): si el DIP tiene alguna de las frases, ese es el Parent
+    # Assembly correcto y no el de la tabla (mensaje LONG TIME del reversor: AIRCRAFT).
+    parent_segun_texto: list[tuple[list[str], str]] = field(default_factory=list)
 
     @property
     def parent_assy(self) -> set[str]:
@@ -109,6 +112,15 @@ class EntradaCatalogo:
     @property
     def parent_assy_flexible(self) -> bool:
         return self.parent_flexible or any(r.parent_assy.endswith("*") for r in self.referencias)
+
+    def parent_por_texto(self, texto_normalizado: str) -> tuple[str, str] | None:
+        """(Parent Assembly, frase que lo decide) si el texto del DIP tiene alguna de las
+        frases de `parent_assy_segun_texto`; None si manda la tabla."""
+        for frases, parent in self.parent_segun_texto:
+            for frase in frases:
+                if contiene_frase(texto_normalizado, frase):
+                    return parent, frase
+        return None
 
     @property
     def referencias_tecnicas(self) -> str:
@@ -356,6 +368,8 @@ def cargar_catalogo(ruta_catalogo: Path, referencias: list[FilaReferencia],
             ta_segun_manual=ta_manual, rir_segun_manual=rir_manual,
             parent_flexible=bool(d.get("parent_assy_flexible", False)),
             inventario=bool(d.get("inventario", False)),
+            parent_segun_texto=[(list(p["contiene"]), str(p["parent_assy"]).upper())
+                                for p in d.get("parent_assy_segun_texto", [])],
         ))
 
     # Filas de la tabla (de cualquier tipo) que el catálogo no tiene: entrada automática.

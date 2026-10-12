@@ -396,6 +396,8 @@ El ATA del DIP no es relevante para la auditoría: un Deferral Reference que emp
 
 El tipo de Parent Assy del DIP (AIRCRAFT, ENGINE o APU) tiene que ser el de la tabla; si no, es posible discrepancia. Si la tabla tiene asterisco, o la entrada tiene `parent_assy_flexible` (ítems que se transfieren al robar el motor), queda con estado OK. Un Parent Assy vacío queda para verificación manual.
 
+El texto del DIP puede cambiar el Parent Assy de la tabla (`parent_assy_segun_texto` en el catálogo). Un mensaje LONG TIME va en el motor, como dice la tabla, salvo el del reversor: si el Fault Name o la descripción dicen REVERSER, REVERSE, THRUST REV o T/R ("78-11482 THE L REVERSER SLEEVE POSITION SIGNAL IS OUT OF RANGE"), el DIP tiene que estar en el avión, y en el motor es posible discrepancia.
+
 #### Referencia técnica
 
 Se revisa en DIPs con `Defer Dt` desde el 9 de julio de 2026, solo si hay con qué: una descripción, una columna de referencias en el Excel o datos de ICAM.
@@ -630,6 +632,7 @@ Una entrada por ítem:
 | `intervalos` | Variantes de TA cuando la tabla es condicional: `variante` (texto), `limites` (`valor` y `unidad`), `flotas` (NG, NG-700, MAX...), `rir`, `inicio` (ventana "AFTER A") e `inicio_opcional` |
 | `requiere_sn` | El DIP debe citar el S/N |
 | `parent_assy_flexible` | Otro Parent Assembly queda con estado OK |
+| `parent_assy_segun_texto` | Parent Assembly correcto cuando el DIP tiene ciertas frases, en vez del de la tabla: `contiene` (frases) y `parent_assy` |
 | `inventario` | El vencimiento sale del PDF de inventario de generators |
 
 ### Cambios frecuentes

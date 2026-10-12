@@ -759,12 +759,23 @@ def regla_parent_assy(dip: dict, entrada: EntradaCatalogo, ctx: Contexto,
                       r: ResultadoReglas) -> None:
     esperado = entrada.parent_assy
     actual = dip["parent_tipo"]
+    # El texto del DIP puede cambiar el Parent Assembly de la tabla: un mensaje LONG TIME
+    # va en el motor, salvo el del reversor (REVERSER), que va en el avión.
+    por_texto = entrada.parent_por_texto(normalizar(" ".join(
+        str(dip.get(c) or "") for c in ("nombre", "descripcion", "notas_descripcion"))))
+    if por_texto:
+        esperado = {por_texto[0]}
     if not esperado:
         return
     if not actual:
         r.manuales.append("Parent assy vacío en el Excel de entrada: verificar asignación.")
         return
-    if actual not in esperado:
+    if por_texto and actual not in esperado:
+        asignado = actual if actual == "AIRCRAFT" else f"{actual} ({dip['parent_assy']})"
+        r.agregar(ctx, "parent_assy_incorrecto", "Incorrect Parent Assembly",
+                  f"Asignado a {asignado}; el DIP dice '{por_texto[1]}' y ese ítem va en "
+                  f"{por_texto[0]}.")
+    elif actual not in esperado:
         texto_esp = "/".join(sorted(esperado))
         if entrada.parent_assy_flexible:
             r.agregar(ctx, "parent_assy_incorrecto", "Incorrect Parent Assembly",

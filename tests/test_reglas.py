@@ -306,6 +306,40 @@ def test_parent_assy_flexible_queda_ok(catalogo, ctx):
     assert "parent_assy_incorrecto" in codigos(r, "OK")
 
 
+_LONG_TIME = dict(intervalo=400.0, unidad="FH", tipo_intervalo_original="HOURS", ata=78,
+                  deferral_ref="78-DIP", due_date=None, usage_remaining=None, flota="NG-800")
+_MOTOR = dict(parent_assy="(RH) CFM56-7B26/3 Engine (PN: CFM56-7B26/3, SN: 805540)",
+              parent_tipo="ENGINE")
+
+
+def test_long_time_del_reversor_va_en_el_avion(catalogo, ctx):
+    """T40S009L5CA: la tabla dice ENGINE, pero el reversor es del avión."""
+    reversor = ("During engine 2 bite check MSG NBR 78-11482 was shows. 78-11482 THE L REVERSER "
+                "SLEEVE POSITION SIGNAL IS OUT OF RANGE 78-36 TASK 802.")
+    nombre = "DIP- ENG 2 LONG TIME MSG NBR 78-11482"
+    en_avion = auditar(catalogo, ctx, "MENSAJE_LONG_TIME", nombre=nombre, descripcion=reversor,
+                       parent_assy="Boeing 737-86N - HP-1824CMP", **_LONG_TIME)
+    assert "parent_assy_incorrecto" not in codigos(en_avion)
+    en_motor = auditar(catalogo, ctx, "MENSAJE_LONG_TIME", nombre=nombre, descripcion=reversor,
+                       **_LONG_TIME, **_MOTOR)
+    assert "parent_assy_incorrecto" in codigos(en_motor, "POSIBLE DISCREPANCIA")
+    # "REVERSE SLEEVE" en el Fault Name (T40S009JB2T).
+    r = auditar(catalogo, ctx, "MENSAJE_LONG_TIME", **_LONG_TIME, **_MOTOR,
+                nombre="MAREP - ENG 1 LONG TIME MESSAGE L REVERSE SLEEVE")
+    assert "parent_assy_incorrecto" in codigos(r, "POSIBLE DISCREPANCIA")
+
+
+def test_long_time_de_otro_sistema_sigue_en_el_motor(catalogo, ctx):
+    tbv = "MSG NBR 75-20592 THE TBV POSITION SIGNAL IS OUT OF RANGE 75-23 TASK 802"
+    nombre = "DIP- ENG 2 LONG TIME MSG NUMBER 75-20592"
+    en_motor = auditar(catalogo, ctx, "MENSAJE_LONG_TIME", nombre=nombre, descripcion=tbv,
+                       **_LONG_TIME, **_MOTOR)
+    assert "parent_assy_incorrecto" not in codigos(en_motor)
+    en_avion = auditar(catalogo, ctx, "MENSAJE_LONG_TIME", nombre=nombre, descripcion=tbv,
+                       parent_assy="Boeing 737-86N - HP-1824CMP", **_LONG_TIME)
+    assert "parent_assy_incorrecto" in codigos(en_avion, "POSIBLE DISCREPANCIA")
+
+
 def test_deferral_reference_distinta_al_ata(catalogo, ctx):
     """El ATA del DIP no es relevante para la auditoría: OK."""
     r = auditar(catalogo, ctx, "OXIGENO_TRIPULACION", deferral_ref="25-DIP")

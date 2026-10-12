@@ -18,6 +18,9 @@
 #   requiere_sn: el Fault Name debería mencionar el S/N del componente.
 #   inventario: el vencimiento del ítem es el Exp. Date del PDF de inventario adjunto (por
 #               S/N o DIP Barcode), no la fecha que escribe la descripción.
+#   parent_assy_segun_texto: (opcional) lista de {contiene, parent_assy}. Si el Fault Name o
+#               la descripción tienen alguna de las frases de "contiene", el Parent Assembly
+#               correcto es ese y no el de la tabla.
 #
 # Las frases se escriben en MAYÚSCULAS y sin acentos. Antes de comparar, el
 # texto se normaliza (ver dips_audit/texto.py: sinónimos y errores comunes como
@@ -508,6 +511,11 @@
   nombre: LONG TIME MSG 78-11481
   referencias: ["LONG TIME MSG 78-11481"]
   requiere: [[LONG TIME, LONGTIME, 78 11481]]
+  # La tabla dice ENGINE, pero el reversor es del avión: un mensaje LONG TIME del reversor
+  # (78-11482 THE L REVERSER SLEEVE POSITION SIGNAL IS OUT OF RANGE) va en AIRCRAFT.
+  parent_assy_segun_texto:
+    - contiene: [REVERSER, REVERSERS, REVERSE, THRUST REV, T/R]
+      parent_assy: AIRCRAFT
 
 - id: MENSAJE_SHORT_TIME_73_30311
   nombre: SHORT TIME MSG 73-30311
