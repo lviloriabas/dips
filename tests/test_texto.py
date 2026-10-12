@@ -71,6 +71,11 @@ def test_pn_numerado_se_distingue_del_serial():
     ("near to expired date (19 Jul 2026)", [date(2026, 7, 19)]),
     ("less than 4 month to expiration date (Sep-2026", [date(2026, 9, 30)]),
     ("Fecha de vencimiento of the fumigation certificate:03 AUG-2026", [date(2026, 8, 3)]),
+    # Fecha exacta con la letra O en vez de cero: no se infiere el fin de mes.
+    ("DUE DATE:31-MAR-2036 WEIGHT DUE DATE:O3-FEB-2027", [date(2036, 3, 31), date(2027, 2, 3)]),
+    ("WEIGHT DUE DATE: 1O FEB 2027", [date(2027, 2, 10)]),
+    ("ORIGINAL DATED09-OCT-2026", [date(2026, 10, 9)]),
+    ("BATTERY DUE: NO SEP-2026", [date(2026, 9, 30)]),
     ("DIP - PORTABLE ELT", []),
 ])
 def test_extraer_fechas(texto, esperado):

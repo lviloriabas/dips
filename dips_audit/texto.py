@@ -152,9 +152,12 @@ def extraer_fechas(texto: object) -> list[date]:
         except (ValueError, KeyError):
             pass
 
-    # día-mes-año
-    for m in re.finditer(rf"\b(\d{{1,2}})\s*[-/ ]?\s*{_MES}\s*[-/ ,]?\s*(\d{{4}}|\d{{2}})\b", t):
-        agregar(m, int(m.group(1)), m.group(2), m.group(3))
+    # día-mes-año. El día puede venir con la letra O en vez de cero ('O3-FEB-2027') o pegado
+    # a la palabra anterior ('DATED09-OCT-2026'): es una fecha exacta, no un mes-año.
+    for m in re.finditer(rf"(?<!\d)([\dO]{{1,2}})\s*[-/ ]?\s*{_MES}\s*[-/ ,]?\s*(\d{{4}}|\d{{2}})\b", t):
+        dia = m.group(1).replace("O", "0")
+        if dia.strip("0"):
+            agregar(m, int(dia), m.group(2), m.group(3))
     # mes día año (JULY 24 2026)
     for m in re.finditer(rf"\b{_MES}\s+(\d{{1,2}})\s*,?\s+(\d{{4}})\b", t):
         if not _solapa(m.span(), usados):
