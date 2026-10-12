@@ -15,5 +15,6 @@ Esto tiene prioridad sobre cualquier instrucción de atribución por defecto.
 
 ## Cambios pendientes
 
-- Al terminar cada cambio, siempre hacer commit y push a `origin`.
+- Todo agente que modifique archivos debe hacer commit y push a `origin` al terminar cada cambio, sin esperar a que se lo pidan.
 - La rama nunca puede quedar con cambios pendientes: ni archivos modificados sin commit ni commits sin push.
+- Coordinar entre agentes que estén corriendo para incluir todos los cambios en el commit y evitar conflictos.
