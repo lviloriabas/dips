@@ -429,7 +429,7 @@ La tabla pide RIR en freno de parqueo (1 día), DPI (100 FH), VCD seal (1 día),
 
 | Caso | Resultado |
 | --- | --- |
-| Generators del DIP | Los que tienen su barcode en DIP Barcode y los de los S/N de la descripción |
+| Generators del DIP | Los que tienen su barcode en DIP Barcode y los de los S/N de la descripción. El S/N se compara con sus letras (BEEE-F020-166 no es BEED-F020-166); solo si así no está en el PDF, por los dígitos |
 | Vencimiento | Último día del mes de Exp. Date ("01-2029" = 31-JAN-2029). Con varios generators manda el que vence primero. La fecha que escribe la descripción no cuenta |
 | Due date después del Exp. Date | Posible discrepancia (`due_date_posterior_a_vencimiento_item`) |
 | Due date antes del Exp. Date | OK |

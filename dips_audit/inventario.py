@@ -109,14 +109,28 @@ class CruceInventario:
         return min(con_fecha, key=lambda g: g.vence) if con_fecha else None
 
 
+def _sn_exacto(sn: str) -> str:
+    """El S/N con sus letras, sin guiones ni espacios: BEEE-F020-166 y BEED-F020-166 son
+    dos generators con los mismos dígitos."""
+    return re.sub(r"[^A-Z0-9]", "", sin_acentos(str(sn or "")).upper())
+
+
 def cruzar(inventario: list[Generador], barcode: str, texto: str) -> CruceInventario:
     """Generators del DIP en el inventario: los que tienen su barcode en DIP Barcode y los
-    que tienen un S/N que menciona el DIP."""
+    que tienen un S/N que menciona el DIP. El S/N se compara con sus letras; solo si así no
+    está en el PDF se compara por los dígitos (escrito sin el prefijo)."""
     sn_dip = list(dict.fromkeys(extraer_sn(texto)))
-    claves = {clave_sn(s) for s in sn_dip} - {""}
+    exactos = {_sn_exacto(g.sn) for g in inventario}
+    del_dip, claves, sn_fuera = set(), set(), []
+    for sn in sn_dip:
+        if _sn_exacto(sn) in exactos:
+            del_dip.add(_sn_exacto(sn))
+        elif clave_sn(sn) and any(clave_sn(g.sn) == clave_sn(sn) for g in inventario):
+            claves.add(clave_sn(sn))
+        else:
+            sn_fuera.append(sn)
     barcode = (barcode or "").upper()
     propios = [g for g in inventario
-               if (barcode and g.dip == barcode) or clave_sn(g.sn) in claves]
-    en_pdf = {clave_sn(g.sn) for g in inventario}
-    return CruceInventario(generadores=list(dict.fromkeys(propios)),
-                           sn_fuera=[s for s in sn_dip if clave_sn(s) not in en_pdf])
+               if (barcode and g.dip == barcode) or _sn_exacto(g.sn) in del_dip
+               or clave_sn(g.sn) in claves]
+    return CruceInventario(generadores=list(dict.fromkeys(propios)), sn_fuera=sn_fuera)

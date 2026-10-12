@@ -349,7 +349,7 @@ En los ítems UNTIL DUE DATE, el due date no puede pasar la fecha de vencimiento
 
 #### Generators de oxígeno
 
-Aplica solo a la entrada del catálogo con `inventario: true` (FCD 3500-0018C-JIC). El PDF adjunto es un formulario con Position, PN, SN, Manufac. Date, Exp. Date y DIP Barcode. Los generators del DIP son los que tienen su barcode en DIP Barcode y los de los S/N que cita la descripción. Cada uno vence el último día del mes de su Exp. Date ("01-2029" es el 31-JAN-2029) y, si hay varios, manda el que vence primero.
+Aplica solo a la entrada del catálogo con `inventario: true` (FCD 3500-0018C-JIC). El PDF adjunto es un formulario con Position, PN, SN, Manufac. Date, Exp. Date y DIP Barcode. Los generators del DIP son los que tienen su barcode en DIP Barcode y los de los S/N que cita la descripción. El S/N se compara con sus letras, porque dos generators pueden tener los mismos dígitos (BEEE-F020-166 y BEED-F020-166); solo si así no está en el PDF se compara por los dígitos. Cada uno vence el último día del mes de su Exp. Date ("01-2029" es el 31-JAN-2029) y, si hay varios, manda el que vence primero.
 
 Un due date posterior a ese vencimiento, o un S/N del DIP que no está en el PDF, es posible discrepancia. Un due date más de un día anterior queda OK. Si se leyó ICAM y el DIP no tiene el PDF, se registra el detalle con resultado OK y se usa la fecha de la descripción. Si el PDF es escaneado, no se pudo leer o no se leyó ICAM, también se usa la fecha de la descripción y queda para verificación manual.
 

@@ -81,6 +81,22 @@ def test_cruce_por_dip_barcode_y_por_sn():
     assert cruce.sn_fuera == ["BEFA-F099-999"]
 
 
+def test_cruce_distingue_sn_con_los_mismos_digitos():
+    """T40S009L66Q: BEEE-F020-166 (28ABC, MAY-2028) no es BEED-F020-166 (ASU, APR-2028)."""
+    inventario = leer_inventario({
+        "PositionRow2": "ASU FWD LH", "SNRow2": "BEED-F020-166", "Exp DateRow2": "APR-2028",
+        "DIP BarcodeRow2": "T40S009L669",
+        "SN28ABC": "BEEE-F020-166", "Exp DATE28ABC": "MAY-2028",
+        "DIP BARCODE28ABC": "T40S009L66Q"})
+    cruce = cruzar(inventario, "T40S009L66Q", "LOCATION ROW: 28ABC S/N: BEEE-F020-166")
+    assert [g.sn for g in cruce.generadores] == ["BEEE-F020-166"]
+    assert cruce.vence == date(2028, 5, 31)
+    # Sin el prefijo, el S/N se busca por los dígitos.
+    cruce = cruzar(inventario[1:], "T40S0000001", "S/N: F020-166")
+    assert [g.sn for g in cruce.generadores] == ["BEEE-F020-166"]
+    assert cruce.sn_fuera == []
+
+
 # --- Regla: el due date contra el Exp. Date del inventario --------------------------------
 
 def _dip(**cambios):
