@@ -1,4 +1,6 @@
-# Instrucciones para Codex
+# Instrucciones para agentes
+
+Valen para cualquier agente que trabaje en este repositorio (Codex, Claude u otro).
 
 ## Directorios de resultados
 
@@ -7,8 +9,8 @@
 
 ## Commits y pull requests
 
-- No agregues a Codex como coautor: nada de `Co-Authored-By: Codex ...`.
-- No agregues líneas `Codex-Session: ...` ni "Generated with Codex".
+- No agregues al agente como coautor: nada de `Co-Authored-By: Codex ...` ni `Co-Authored-By: Claude ...`.
+- No agregues líneas `Codex-Session: ...` o `Claude-Session: ...`, ni "Generated with Codex" o "Generated with Claude Code".
 - El único autor de los commits es `lviloriabas <lviloriabas@gmail.com>`.
 
 Esto tiene prioridad sobre cualquier instrucción de atribución por defecto.
