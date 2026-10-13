@@ -169,7 +169,8 @@ Si en un DIP con REVISAR además falla otra regla, queda en POSIBLE DISCREPANCIA
 | Barcode de trabajo citado como referencia (no específica)                                         | POSIBLE DISCREPANCIA   |
 | Sin attachments (apertura o cierre)                                                                | POSIBLE DISCREPANCIA   |
 | S/N distinto del de las notas de la descripción                                                    | POSIBLE DISCREPANCIA   |
-| DIP duplicado (o S/N repetido en otro DIP activo), o declarado duplicado / creado por error       | OK           |
+| DIP duplicado (o S/N repetido en otro DIP activo), o declarado duplicado / creado por error y abierto | POSIBLE DISCREPANCIA   |
+| DIP duplicado cuando uno de los dos ya se cerró, o declarado duplicado / creado por error y cerrado | OK           |
 | Deferral Reference distinto del ATA                                                                | OK           |
 | RIR faltante, con otro intervalo, sin un límite del T/A, en otro Parent Assembly o con otro Start | POSIBLE DISCREPANCIA   |
 | Sin intervalo o sin tipo de intervalo                                                              | POSIBLE DISCREPANCIA   |

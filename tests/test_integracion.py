@@ -21,7 +21,7 @@ FILAS = [
     # Sin referencia en la tabla
     ["T3", 25, "Others", "DEFIBRILLATOR DUE DATE", 38, "DAY", "ACTV", "HP-1837CMP", AVION, "DIP",
      "25-DIP", datetime(2026, 9, 25, 23, 59), datetime(2026, 8, 18, 9, 0), None, 36],
-    # Duplicado del oxígeno siguiente: OK, no discrepancia
+    # El segundo duplica al primero: posible discrepancia
     ["T4", 35, "Others", "CREW OXYGEN 850 PSI", 3, "DAY", "ACTV", "HP-1837CMP", AVION, "DIP",
      "35-DIP", datetime(2026, 8, 21, 23, 59), datetime(2026, 8, 18, 9, 0), None, 2],
     ["T5", 35, "Others", "DIP-CREW OXYGEN BOTTLE", 3, "DAY", "ACTV", "HP-1837CMP", AVION, "DIP",
@@ -48,14 +48,15 @@ def test_auditoria_de_punta_a_punta(auditor_others, export, tmp_path):
         "T2": "POSIBLE DISCREPANCIA",
         "T3": "SIN FUENTE EN DIPS REFERENCES",
         "T4": "OK",
-        "T5": "OK",
+        "T5": "POSIBLE DISCREPANCIA",
         "T6": "FUERA DE ALCANCE",
     }
     h = resultado.hallazgos
-    assert set(h[(h["Fault Barcode"] == "T5") & (h["Código"] == "duplicado")]["Severidad"]) == {"OK"}
-
-    comentario = resultado.filas.set_index("Fault Barcode").loc["T1", "COMENTARIO SUGERIDO"]
-    assert comentario == "T/A aperturado correctamente"
+    assert set(h[(h["Fault Barcode"] == "T5") & (h["Código"] == "duplicado")]["Severidad"]) == {
+        "POSIBLE DISCREPANCIA"}
+    comentarios = resultado.filas.set_index("Fault Barcode")["COMENTARIO SUGERIDO"]
+    assert "Posible duplicado de T4." in comentarios["T5"]
+    assert comentarios["T1"] == "T/A aperturado correctamente"
 
     salida = exportar_excel(resultado, tmp_path / "salida.xlsx")
     wb = openpyxl.load_workbook(salida)
@@ -84,21 +85,63 @@ def test_auditoria_de_punta_a_punta(auditor_others, export, tmp_path):
 
 def test_casos_aceptados_se_muestran_como_ok(auditor_others, export, tmp_path):
     resultado = auditor_others.auditar_archivo(export)
-    fila = resultado.filas.set_index("Fault Barcode").loc["T5"]
+    fila = resultado.filas.set_index("Fault Barcode").loc["T4"]
     assert fila["RESULTADO"] == "OK"
     assert "[OK]" in fila["HALLAZGOS"]
-    assert "duplicado" not in fila["COMENTARIO SUGERIDO"].lower()
+    assert "condición" not in fila["COMENTARIO SUGERIDO"].lower()
     reporte = exportar_excel(resultado, tmp_path / "salida.xlsx")
     libro = openpyxl.load_workbook(reporte)
     hoja = libro["Hallazgos"]
     columnas = {c.value: c.column for c in hoja[1]}
     aceptados = [fila for fila in hoja.iter_rows(min_row=2)
-                 if fila[columnas["Código"] - 1].value == "duplicado"]
+                 if fila[columnas["Código"] - 1].value == "variante_condicional"]
     assert aceptados
     for fila in aceptados:
         celda = fila[columnas["Resultado"] - 1]
         assert celda.value == "OK"
         assert celda.fill.fgColor.rgb == "00C9E7C9"
+
+
+def test_dip_repetido_es_discrepancia_hasta_que_uno_se_cierra(auditor_others, tmp_path):
+    """Dos DIPs del mismo ítem abiertos a la vez: posible discrepancia. Si uno de los dos ya
+    se cerró a la hora de la auditoría, el repetido está corregido y queda OK."""
+    encabezado = [*ENCABEZADO_ENTRADA, "Complete Dt"]
+    primero, segundo = list(FILAS[3]), list(FILAS[4])
+
+    def duplicado(cierre_del_primero):
+        primero[6] = "COMPLETE" if cierre_del_primero else "ACTV"
+        ruta = crear_export(tmp_path / f"export_{primero[6]}.xlsx",
+                            [[*primero, cierre_del_primero], [*segundo, None]], encabezado=encabezado)
+        resultado = auditor_others.auditar_archivo(ruta)
+        h = resultado.hallazgos
+        return (resultado.filas.set_index("Fault Barcode").loc["T5", "RESULTADO"],
+                h[(h["Fault Barcode"] == "T5") & (h["Código"] == "duplicado")].iloc[0])
+
+    estado, hallazgo = duplicado(None)
+    assert (estado, hallazgo["Severidad"]) == ("POSIBLE DISCREPANCIA", "POSIBLE DISCREPANCIA")
+    estado, hallazgo = duplicado(datetime(2026, 8, 19, 10, 0))
+    assert (estado, hallazgo["Severidad"]) == ("OK", "OK")
+    assert "T4 ya se cerró" in hallazgo["Detalle"]
+
+
+def test_sn_repetido_y_duplicado_declarado_abiertos_son_discrepancia(auditor_others, tmp_path):
+    """El mismo S/N en dos DIPs activos del avión y el DIP que el técnico declaró duplicado y
+    sigue abierto también son DIPs repetidos."""
+    encabezado = [*ENCABEZADO_ENTRADA, "Fault Description"]
+    fak = ["T7", 25, "Others", "FAK 1 S/N 12345 DUE DATE", 30, "DAY", "ACTV", "HP-1837CMP", AVION,
+           "DIP", "25-DIP", datetime(2026, 9, 17, 23, 59), datetime(2026, 8, 18, 9, 0), None, 28]
+    filas = [[*fak, ""],
+             ["T8", *fak[1:3], "FAK 2 S/N 12345 DUE DATE", *fak[4:], ""],
+             [*FILAS[0], "DIP DUPLICADO DEL T40S009J3HP"]]
+    resultado = auditor_others.auditar_archivo(
+        crear_export(tmp_path / "export.xlsx", filas, encabezado=encabezado))
+    h = resultado.hallazgos
+    severidades = {(b, c): s for b, c, s in zip(h["Fault Barcode"], h["Código"], h["Severidad"])}
+    assert severidades[("T7", "sn_repetido")] == severidades[("T8", "sn_repetido")] ==         "POSIBLE DISCREPANCIA"
+    assert severidades[("T1", "duplicado_declarado")] == "POSIBLE DISCREPANCIA"
+    fila = resultado.filas.set_index("Fault Barcode").loc["T1"]
+    assert fila["RESULTADO"] == "POSIBLE DISCREPANCIA"
+    assert fila["COMENTARIO SUGERIDO"] == "DIP duplicado (ver T40S009J3HP); sigue abierto."
 
 
 @pytest.mark.parametrize("estado, remanente, esperado", [

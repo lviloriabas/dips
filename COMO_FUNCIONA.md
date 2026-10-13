@@ -299,9 +299,9 @@ La columna `REFERENCIA ASOCIADA` dice con qué ítem se reconoció el DIP, y `AS
 
 Antes de revisar cada DIP por separado se buscan duplicados, S/N repetidos y Parent Assembly distintos de sus pares, mirando todos los DIPs en alcance a la vez.
 
-Dos DIPs son posibles duplicados si están en el mismo avión, son el mismo ítem del catálogo, citan las mismas posiciones (FWD/AFT, LH/RH, #1/#2...) en el nombre y en la descripción, y estuvieron abiertos al mismo tiempo (sin fecha de cierre, basta con que se hayan abierto el mismo día). Además, si los dos citan S/N tienen que compartir alguno, y si citan mensajes de mantenimiento tienen que ser los mismos: 75-20451 y 75-10451 son dos fallas. En un ítem con varias etapas deben tener el mismo intervalo (un re-torque a 60 días y otro a 12 meses son etapas distintas), y en un ítem con vencimiento, el mismo due date. Se marca el que se abrió después. Un duplicado es un duplicado, no una discrepancia: queda con estado OK.
+Dos DIPs son posibles duplicados si están en el mismo avión, son el mismo ítem del catálogo, citan las mismas posiciones (FWD/AFT, LH/RH, #1/#2...) en el nombre y en la descripción, y estuvieron abiertos al mismo tiempo (sin fecha de cierre, basta con que se hayan abierto el mismo día). Además, si los dos citan S/N tienen que compartir alguno, y si citan mensajes de mantenimiento tienen que ser los mismos: 75-20451 y 75-10451 son dos fallas. En un ítem con varias etapas deben tener el mismo intervalo (un re-torque a 60 días y otro a 12 meses son etapas distintas), y en un ítem con vencimiento, el mismo due date. Se marca el que se abrió después. Un DIP repetido es una posible discrepancia mientras los dos sigan abiertos; si uno ya se cerró a la hora de la auditoría, está corregido y queda con estado OK.
 
-Hay S/N repetido cuando dos o más DIPs activos del mismo avión citan el mismo S/N, como un FAK 1 y un FAK 2 con el mismo número. Es la señal de un duplicado: también queda con estado OK, y no se anota si ya se anotó el duplicado.
+Hay S/N repetido cuando dos o más DIPs activos del mismo avión citan el mismo S/N, como un FAK 1 y un FAK 2 con el mismo número. Es la señal de un duplicado: también es una posible discrepancia, y no se anota si ya se anotó el duplicado.
 
 La regla de Parent Assembly distinto de sus pares es solo para DIPs SIN FUENTE EN DIPS REFERENCES. Si el DIP cita una EC/ECRA y al menos otros dos DIPs del archivo que citan la misma están todos en otro Parent Assembly, se marca. Por ejemplo, cinco cambios de toberas por la ECRA 7300-0132C cargados en el motor y uno en el avión. Solo se hace con EC, porque una AMM puede ser genérica.
 
@@ -463,7 +463,7 @@ Un DIP cerrado sin attachments es posible discrepancia de cierre si su `Defer Dt
 
 #### DIP creado por error o declarado duplicado
 
-Si la acción correctiva dice "DUPLICATED", "BY MISTAKE", "BY ERROR", "POR ERROR"..., o si el nombre, la descripción o las notas lo dicen refiriéndose al DIP ("DIP DUPLICADO", pero no "MASK DEPLOYED BY MISTAKE", que es la falla), el DIP no se audita. Se borran sus hallazgos y verificaciones y queda uno solo: "DIP creado por error." o "DIP duplicado (ver T40S...).". Es OK, esté abierto o cerrado.
+Si la acción correctiva dice "DUPLICATED", "BY MISTAKE", "BY ERROR", "POR ERROR"..., o si el nombre, la descripción o las notas lo dicen refiriéndose al DIP ("DIP DUPLICADO", pero no "MASK DEPLOYED BY MISTAKE", que es la falla), el DIP no se audita. Se borran sus hallazgos y verificaciones y queda uno solo: "DIP creado por error." o "DIP duplicado (ver T40S...).". Cerrado, ya está corregido y queda OK; si sigue abierto, es una posible discrepancia.
 
 ### El resultado
 
@@ -680,11 +680,11 @@ PD significa POSIBLE DISCREPANCIA. La severidad es la que tiene hoy `config/disc
 | `deferral_reference_ata` | Incorrect ATA | Deferral Reference no empieza con el ATA | OK |
 | `ata_distinto_a_referencia` | Incorrect ATA | ATA distinto del de la tabla | OK |
 | `sin_sn_en_descripcion` | Missing S/N | La tabla pide S/N y el DIP no lo cita | OK |
-| `sn_repetido` | Incorrect S/N | Mismo S/N en otro DIP activo del avión (señal de duplicado) | OK |
+| `sn_repetido` | Incorrect S/N | Mismo S/N en otro DIP activo del avión (señal de duplicado) | PD |
 | `sn_inconsistente` | Incorrect S/N | S/N distinto del de las notas de la descripción | PD |
 | `sn_fuera_de_inventario` | Incorrect S/N | Generators: S/N que no está en el PDF | PD |
-| `duplicado` | Duplicated DIP | Mismo avión, ítem y posición, abiertos a la vez | OK |
-| `duplicado_declarado` | Duplicated DIP | El técnico dice que es duplicado o creado por error | OK |
+| `duplicado` | Duplicated DIP | Mismo avión, ítem y posición, abiertos a la vez | PD (OK si uno ya se cerró) |
+| `duplicado_declarado` | Duplicated DIP | El técnico dice que es duplicado o creado por error | PD (OK si ya está cerrado) |
 | `fault_severity` | Incorrect Fault Severity | Fault Severity distinta de DIP | OK |
 | `sin_referencia_tecnica` | Missing Technical Reference | Sin referencia cargada, sin captura y sin cita | PD |
 | `referencia_tecnica_incompleta` | Missing Technical Reference | La cita sin REV o sin fecha | OK |

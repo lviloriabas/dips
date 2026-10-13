@@ -37,12 +37,14 @@
 # relajar una regla. Nuevas: sin attachments, Start del T/A (Incorrect DIP Start Values),
 # referencia no específica (barcode de trabajo) y S/N distinto de las notas de la descripción.
 #
-# Criterios del 30-sep-2026: un duplicado (declarado, detectado o por S/N repetido) no es
-# discrepancia, el cierre sin acción correctiva tampoco y el ATA del DIP no es relevante: los
-# tres quedan como OK. El intervalo excedido solo cuenta si el T/A de verdad vence
-# después del TA; un Start posterior con eso descontado del intervalo es aceptable
+# Criterios del 30-sep-2026: el cierre sin acción correctiva no es discrepancia y el ATA del
+# DIP no es relevante: los dos quedan como OK. El intervalo excedido solo cuenta si el T/A de
+# verdad vence después del TA; un Start posterior con eso descontado del intervalo es aceptable
 # (dips_audit/reglas.py). Las auditorías de DIPs antiguos se hacían de otra forma: no sirven
 # para medir el programa.
+#
+# Criterio del 13-oct-2026: un DIP repetido (declarado, detectado o por S/N repetido) sí es
+# discrepancia mientras los dos sigan abiertos. Si uno ya se cerró, está corregido: OK.
 
 tipos:
 
@@ -111,17 +113,18 @@ tipos:
 
   Incorrect S/N:
     reglas:
-      sn_repetido:                       OK # mismo S/N en otro DIP activo del avión (señal de duplicado)
+      sn_repetido:                       POSIBLE DISCREPANCIA  # mismo S/N en otro DIP activo del avión (señal de duplicado)
       sn_inconsistente:                  POSIBLE DISCREPANCIA  # S/N del DIP distinto del de las notas de la descripción
       cierre_sn_distinto:                OK # cierre: S/N removido distinto del de la descripción
       sn_fuera_de_inventario:            POSIBLE DISCREPANCIA  # generators: S/N del DIP que no está en el PDF de inventario
 
-  # Un duplicado es un duplicado, no una discrepancia: se anota con estado OK.
+  # Un DIP repetido es una discrepancia mientras siga abierto.
   Duplicated DIP:
     reglas:
-      duplicado:                         OK # mismo avión, componente y abiertos a la vez
-      # El técnico lo marcó como duplicado o creado por error.
-      duplicado_declarado:               OK # "DUPLICATED", "ENTERED BY MISTAKE"
+      # Si uno de los dos ya estaba cerrado a la hora de la auditoría, queda con estado OK.
+      duplicado:                         POSIBLE DISCREPANCIA  # mismo avión, componente y abiertos a la vez
+      # El técnico lo marcó como duplicado o creado por error: si ya está cerrado, OK.
+      duplicado_declarado:               POSIBLE DISCREPANCIA  # "DUPLICATED", "ENTERED BY MISTAKE"
 
   Incorrect Fault Severity:
     reglas:
