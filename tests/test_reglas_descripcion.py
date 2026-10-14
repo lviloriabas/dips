@@ -33,6 +33,8 @@ def _lims(texto):
     # Punto de miles: cincuenta mil ciclos.
     ("THRESHOLD INSPECTION IN 50.000 FC", [["50000 FC"]], []),
     ("WITH LESS THAN 130 DAYS REMAIN ON EXPIRE DATE", [], []),
+    ("TO PERFORM BOROSCOPE INSPECTION FOR 25 FHRS OR 10 FC", [["25 FH", "10 FC"]], []),
+    ("BOROSCOPE INSPECTED FOR 25 FLIGHT HOURS OR 10 FLGHT CYCLES", [["25 FH", "10 FC"]], []),
 ])
 def test_extrae_los_limites_que_declara_el_dip(texto, plazos, repetitivos):
     d = extraer_limites(texto)

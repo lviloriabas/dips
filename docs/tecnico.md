@@ -411,6 +411,11 @@ no define RIR, contra el periodo declarado en la descripción. Sin datos de RIR 
 verificar en ICAM; para un DIP cerrado sin histórico, se pide Show Historical Tasks.
 Los controles de referencia técnica, adjuntos y Parent Assembly siguen aplicándose.
 
+La excepción es el DIP de boroscope que declara un plazo en la descripción («in the next
+25FH or 10FC»), tiene TA y no tiene RIR: el boroscope se hace una sola vez y se sigue
+con los deadlines del TA. Ese DIP no se marca por falta de RIR y se audita como cualquier
+otro con TA; si no está en la tabla, el TA debe tener los límites de la descripción.
+
 | Qué se revisa | Si falla |
 | --- | --- |
 | La tabla pide RIR y el DIP abierto no tiene ninguna | Posible discrepancia. Si el DIP ya está cerrado y no se ve ninguna, queda para verificar en "Show Historical Tasks" |

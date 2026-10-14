@@ -21,6 +21,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 
 from .icam import FichaICAM, TareaSiguiente
+from .limites_declarados import extraer_limites
 from .texto import normalizar
 
 # Unidad normalizada de ICAM y de la tabla: DAY, FH, FC, MONTH.
@@ -30,10 +31,16 @@ _UNIDADES = {"CDY": "DAY", "DAY": "DAY", "DAYS": "DAY", "D": "DAY", "HOUR": "FH"
 
 
 def solo_rir(dip: dict) -> bool:
-    """Los DIPs que mencionan boroscope/borescope se siguen solo por RIR, sin T/A."""
+    """Los DIPs que mencionan boroscope/borescope se siguen solo por RIR, sin TA. Salvo los
+    que piden el boroscope dentro de un plazo ("perform a boroscope in the next 25FH or 10FC")
+    y lo siguen con el TA, sin RIR: esos se auditan como cualquier DIP con TA."""
     texto = " ".join(normalizar(dip.get(c)) for c in
                      ("nombre", "descripcion", "notas_descripcion"))
-    return bool(re.search(r"\bBOR[OE]SCOP\w*\b", texto))
+    if not re.search(r"\bBOR[OE]SCOP\w*\b", texto):
+        return False
+    tiene_ta = bool(dip.get("icam_intervalos")) or (
+        dip.get("intervalo") is not None and dip.get("unidad") is not None)
+    return not (tiene_ta and not dip.get("rirs") and extraer_limites(texto).plazos)
 
 
 def unidad(texto: str) -> str:

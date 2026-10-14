@@ -124,6 +124,11 @@ o sus notas se siguen **solo por RIR, sin T/A**. No se exige ni se valida el int
 el Start o el plazo del T/A. Se revisa que exista el RIR y se valida contra la tabla
 o el periodo que declare la descripción; si faltan datos, queda para verificación manual.
 
+La excepción son los DIPs que piden el boroscope dentro de un plazo, por ejemplo «perform a
+boroscope in the next 25FH or 10FC», y lo siguen con los deadlines del TA en Scheduling,
+sin RIR. Esos no son discrepancia: se auditan como cualquier DIP con TA, y el TA se
+compara con la tabla o con el plazo que declara la descripción.
+
 ## Ajustes
 
 | Qué | Dónde |

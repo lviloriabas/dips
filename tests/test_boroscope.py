@@ -1,4 +1,5 @@
-"""Los DIPs de boroscope se siguen por RIR, sin controles de T/A."""
+"""Los DIPs de boroscope se siguen por RIR, sin controles de TA, salvo los que
+piden el boroscope dentro de un plazo y lo siguen con el TA."""
 
 from datetime import datetime
 
@@ -115,6 +116,37 @@ def test_boroscope_con_tabla_sin_rir_usa_el_periodo_de_la_descripcion(catalogo, 
     r = ResultadoReglas()
     revisar_descripcion(dip, catalogo.por_id("BIRDSTRIKE_MOTOR"), ctx, r)
     assert {h.codigo for h in r.hallazgos} == {"rir_descripcion_distinto"}
+
+
+_PLAZO = ("IN ACCORDANCE TO BC T40S009LALB OPEN DIP TO PERFORM A BOROSCOPE ON ENG 1 IN THE "
+          "NEXT 25FH OR 10FC, WICH OCCURS FIRST IAW AMM 71-00-00-200-802-G00 REV 29")
+_TA_DOBLE = [{"parameter": "CYCLES", "value": 10, "start": "Aircraft 2540"},
+             {"parameter": "HOURS", "value": 25, "start": "Aircraft 7329.84"}]
+
+
+def test_boroscope_con_plazo_y_ta_sin_rir_se_audita_por_el_ta(auditor, ctx):
+    dip = _dip(nombre=_PLAZO, descripcion=_PLAZO, rirs=[], intervalo=10, unidad="FC",
+               tipo_intervalo_original="CYCLES", icam_intervalos=_TA_DOBLE)
+    r = ResultadoReglas()
+    auditor._rir(dip, auditor._asociar(dip), ctx, r)
+    revisar_descripcion(dip, None, ctx, r)
+    assert not r.hallazgos
+    assert any("coincide con el plazo de la descripción" in m for m in r.manuales)
+
+
+def test_boroscope_con_plazo_revisa_que_el_ta_tenga_los_dos_limites(ctx):
+    dip = _dip(nombre=_PLAZO, descripcion=_PLAZO, rirs=[], intervalo=10, unidad="FC",
+               tipo_intervalo_original="CYCLES", icam_intervalos=_TA_DOBLE[:1])
+    r = ResultadoReglas()
+    revisar_descripcion(dip, None, ctx, r)
+    assert {h.codigo for h in r.hallazgos} == {"limite_declarado_faltante"}
+
+
+def test_boroscope_con_plazo_y_rir_se_sigue_por_el_rir(ctx):
+    dip = _dip(nombre=_PLAZO, descripcion=_PLAZO, icam_intervalos=_TA_DOBLE[:1])
+    r = ResultadoReglas()
+    revisar_descripcion(dip, None, ctx, r)
+    assert "limite_declarado_faltante" not in {h.codigo for h in r.hallazgos}
 
 
 @pytest.mark.parametrize("rir_barcode, esperado", [("R1", "OK"),

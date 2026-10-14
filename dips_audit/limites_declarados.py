@@ -19,13 +19,13 @@ from .texto import extraer_fechas, sin_acentos
 # Unidad escrita -> DAY, FH, FC, MONTH.
 _UNIDAD = {
     "DAY": "DAY", "DAYS": "DAY", "CDY": "DAY",
-    "FH": "FH", "FHS": "FH", "HRS": "FH", "HOURS": "FH", "HOUR": "FH", "FLIGHT HOURS": "FH",
-    "FLYING HOURS": "FH", "FLIGHT HOUR": "FH",
+    "FH": "FH", "FHS": "FH", "FHRS": "FH", "HRS": "FH", "HOURS": "FH", "HOUR": "FH",
+    "FLIGHT HOURS": "FH", "FLYING HOURS": "FH", "FLIGHT HOUR": "FH",
     "FC": "FC", "CYCLES": "FC", "CYCLE": "FC", "LANDINGS": "FC", "FLIGHT CYCLES": "FC",
     "MONTHS": "MONTH", "MONTH": "MONTH",
 }
 _NUM = r"(\d{1,3}(?:,\d{3})+|\d+(?:\.\d+)?)"
-_UNI = (r"(FLIGHT\s+HOURS?|FLYING\s+HOURS|FLIGHT\s+CYCLES|DAYS|DAY|CDY|FHS|FH|HRS|HOURS|HOUR|FC"
+_UNI = (r"(FLIGHT\s+HOURS?|FLYING\s+HOURS|FLIGHT\s+CYCLES|DAYS|DAY|CDY|FHRS|FHS|FH|HRS|HOURS|HOUR|FC"
         r"|CYCLES|CYCLE|LANDINGS|MONTHS|MONTH)\b")
 _UN_LIMITE = _NUM + r"\s*" + _UNI
 # Varios límites seguidos: "100FH, 50FC OR 10 DAYS", "45 DAYS OR 225 FC", "25 FH / 10 CYCLES".
@@ -78,6 +78,7 @@ def _limites(fragmento: str) -> list[LimiteDeclarado]:
 
 def extraer_limites(texto: object) -> Declarado:
     t = re.sub(r"\s+", " ", sin_acentos(str(texto or "")).upper())
+    t = re.sub(r"\bFLGHT\b", "FLIGHT", t)  # "10 FLGHT CYCLES"
     d = Declarado()
     inspecciones = {m.span() for m in _INSPECCIONAR.finditer(t)}
     for m in _REPETITIVO.finditer(t):
