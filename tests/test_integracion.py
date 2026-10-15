@@ -222,6 +222,34 @@ def test_cierre_ok_sin_discrepancias_de_apertura_permanece_ok(auditor, tmp_path)
     assert actual["ESTADO APERTURA"] == actual["ESTADO CIERRE"] == actual["RESULTADO"] == "OK"
 
 
+@pytest.mark.parametrize("remanente, marcas, esperado", [
+    (43, ["Apertura: DISCREPANCIA (X)", "Cierre: sin discrepancia"], "OK"),
+    (-1, ["Cierre: sin discrepancia (DIP DUPLICATED)"], "OK"),
+    (43, ["Apertura: sin discrepancia"], "CORREGIDO EN CIERRE"),
+    (-1, ["Cierre: DISCREPANCIA (X)"], "POSIBLE DISCREPANCIA"),
+])
+def test_cierre_auditado_ok_en_icam_queda_ok_con_los_hallazgos(auditor, tmp_path, remanente,
+                                                               marcas, esperado):
+    """DIP COMPLETE con la marca de cierre sin discrepancia en Technical References: queda OK
+    aunque el programa encuentre discrepancias; estados y hallazgos se conservan."""
+    from dips_audit.cargador import cargar_export
+
+    fila = list(FILAS[1])  # FDR con intervalo incorrecto: POSIBLE DISCREPANCIA en apertura.
+    fila[6], fila[-1] = "COMPLETE", remanente
+    completo = datetime(2026, 10, 3, 10, 0) if remanente < 0 else datetime(2026, 8, 20, 10, 0)
+    lote = cargar_export(crear_export(tmp_path / "entrada.xlsx", [[*fila, completo]],
+                                      encabezado=[*ENCABEZADO_ENTRADA, "Complete Dt"]))
+    lote.datos.at[lote.datos.index[0], "auditoria_manual"] = marcas
+    resultado = auditor.auditar_lote(lote)
+    actual = resultado.filas.iloc[0]
+    assert actual["RESULTADO"] == actual["ESTADO IA"] == esperado
+    assert actual["ESTADO APERTURA"] == "POSIBLE DISCREPANCIA"
+    assert actual["ESTADO CIERRE"] == ("OK" if remanente > 0 else "POSIBLE DISCREPANCIA")
+    assert "intervalo_excedido" in set(resultado.hallazgos["Código"])
+    assert actual["HALLAZGOS"]
+    assert ("auditoría manual de cierre" in actual["VERIFICACIÓN MANUAL"]) is (esperado == "OK")
+
+
 def test_evaluacion_cuenta_corregidos_en_cierre_sin_marcarlos_como_discrepancia(auditor, tmp_path):
     from dips_audit.evaluacion import evaluar
 

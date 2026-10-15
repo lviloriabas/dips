@@ -34,6 +34,12 @@ RESULTADOS = {POSIBLE_DISCREPANCIA: POSIBLE_DISCREPANCIA, REVISAR: REVISAR, SIN_
               "OK": "OK", CORREGIDO_EN_CIERRE: CORREGIDO_EN_CIERRE, FUERA_DE_ALCANCE: FUERA_DE_ALCANCE}
 
 
+def cierre_auditado_ok(dip: dict) -> bool:
+    """El auditor marcó el cierre en Technical References ("DIP CLOSED - RT AUDIT
+    COMPLETED") sin discrepancia."""
+    return any(m.startswith("Cierre: sin discrepancia") for m in dip.get("auditoria_manual") or [])
+
+
 def cargar_configuracion(ruta: Path | None = None) -> dict:
     ruta = Path(ruta) if ruta else RAIZ / "config" / "config.yaml"
     config = yaml.safe_load(ruta.read_text(encoding="utf-8"))
@@ -451,6 +457,12 @@ class Auditor:
         estado = (estado_cierre if cierre else estado_apertura) if en_alcance else FUERA_DE_ALCANCE
         if cierre and estado_apertura == POSIBLE_DISCREPANCIA and estado_cierre == "OK":
             estado = CORREGIDO_EN_CIERRE
+        if cierre and estado != "OK" and cierre_auditado_ok(dip):
+            # El auditor ya dio OK el cierre en ICAM: el DIP queda OK aunque el programa
+            # encuentre discrepancias; los estados y hallazgos se conservan para revisarlos.
+            manuales = [*manuales, "Resultado OK por la auditoría manual de cierre en ICAM; "
+                        f"el programa dio {estado}: revisar los hallazgos."]
+            estado = "OK"
         comentario = cls._comentario(r, de_cierre + sin_fuente if cierre else None) if r else ""
         return {
             "Fila Excel": dip["fila"],

@@ -113,6 +113,10 @@ Cada hallazgo es de apertura o de cierre: los códigos de `reglas.CODIGOS_CIERRE
 
 En DIPs COMPLETE, una apertura con **POSIBLE DISCREPANCIA** y un cierre **OK** da
 **CORREGIDO EN CIERRE** en `RESULTADO` y `ESTADO IA`; `ESTADO CIERRE` conserva **OK**.
+Si el auditor ya marcó en ICAM el cierre sin discrepancia (`AUDITORÍA MANUAL EN ICAM` dice
+"Cierre: sin discrepancia"), `RESULTADO` y `ESTADO IA` quedan **OK** aunque el programa dé
+otro resultado; `ESTADO APERTURA`, `ESTADO CIERRE` y `HALLAZGOS` conservan lo que encontró el
+programa, y `VERIFICACIÓN MANUAL` anota qué resultado habría dado.
 En los demás casos, `RESULTADO` corresponde a `ESTADO CIERRE`. Los hallazgos de apertura se conservan como
 historial y se identifican con `[APERTURA]`. El comentario sugerido y los conteos de
 discrepancias de consola usan los hallazgos de la auditoría actual.
@@ -176,7 +180,7 @@ Archivos: `dips_audit/extractor_icam.py` (cómo se lee) y `dips_audit/icam.py` (
 | --- | --- |
 | Task Execution | Descripción, acción correctiva, S/N removido e instalado |
 | Fault Information | Estado, severidad, Deferral Reference, Follow-on Tasks (RIR) |
-| Task Information | Parent Assembly, fecha real de cierre, Technical References, Attachments. Las marcas que pone el auditor al terminar ("DIP OPEN / CLOSED - RT AUDIT COMPLETED", tipo AUDITDIP, AUDITTR o sin tipo) se ignoran: no son referencias. Si hay alguna de tipo AUDITDIP, el DIP ya se auditó manualmente: se audita igual y se anota en VERIFICACIÓN MANUAL. La Description de cada marca dice qué encontró el auditor: "DIP DISCREPANCY FOUND: motivo" es discrepancia; vacía, sin discrepancia; otro texto ("DIP DUPLICATED, REFERENCE TO BC ..."), una nota. Va por etapa (OPEN = apertura, CLOSED = cierre) en la columna AUDITORÍA MANUAL EN ICAM. En los 415 DIPs leídos al 28-sep: 17 marcas con discrepancia, 393 vacías y 4 con nota |
+| Task Information | Parent Assembly, fecha real de cierre, Technical References, Attachments. Las marcas que pone el auditor al terminar ("DIP OPEN / CLOSED - RT AUDIT COMPLETED", tipo AUDITDIP, AUDITTR o sin tipo) se ignoran: no son referencias. Si hay alguna de tipo AUDITDIP, el DIP ya se auditó manualmente: se audita igual y se anota en VERIFICACIÓN MANUAL. En un DIP COMPLETE con la marca de cierre sin discrepancia, el resultado es OK. La Description de cada marca dice qué encontró el auditor: "DIP DISCREPANCY FOUND: motivo" es discrepancia; vacía, sin discrepancia; otro texto ("DIP DUPLICATED, REFERENCE TO BC ..."), una nota. Va por etapa (OPEN = apertura, CLOSED = cierre) en la columna AUDITORÍA MANUAL EN ICAM. En los 415 DIPs leídos al 28-sep: 17 marcas con discrepancia, 393 vacías y 4 con nota |
 | Scheduling | Intervalos del T/A, inicio, deadline, extensión y uso restante |
 | History | Cambios de deadline, notas de la descripción y uso al encontrar la falla (Usage When Found: ciclos y horas) |
 
@@ -477,7 +481,7 @@ El programa da **cinco resultados**:
 | POSIBLE DISCREPANCIA | Falló al menos una regla o falta un dato |
 | REVISAR | La tabla da el TA o el RIR según el daño, la medición o el tipo (el texto dice DEPENDING, DEPENDS, CONSULT o SEGÚN) y no falló ninguna otra regla. El programa no compara ese TA o RIR: el hallazgo cita el texto de la tabla y el manual donde verificarlo. `python -m dips_audit referencias` muestra cuáles son |
 | SIN FUENTE EN DIPS REFERENCES | El DIP no está en la tabla de referencias y no falló ninguna regla que no dependa de la tabla. Se verifica contra la fuente que cita el DIP |
-| OK | No falló ninguna regla (puede incluir detalles adicionales) |
+| OK | No falló ninguna regla (puede incluir detalles adicionales), o el DIP está COMPLETE y el auditor marcó en ICAM el cierre sin discrepancia |
 | CORREGIDO EN CIERRE | El DIP está COMPLETE, la apertura tiene POSIBLE DISCREPANCIA y el cierre está OK |
 
 Además, un DIP de un tipo excluido con `--tipos-dip` (o `tipos_auditados` en `config.yaml`) queda **FUERA DE ALCANCE** y no se revisa.

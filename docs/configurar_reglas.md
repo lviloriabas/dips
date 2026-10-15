@@ -23,4 +23,4 @@ La [guía rápida de DIPS](Guia_DIPS_reglas_referencias.md) explica los valores,
 | `SIN FUENTE EN DIPS REFERENCES` | SIN FUENTE EN DIPS REFERENCES |
 | `OK` | Caso aceptado; el DIP queda OK si no hay otro hallazgo |
 
-Prevalece POSIBLE DISCREPANCIA, después REVISAR y luego SIN FUENTE EN DIPS REFERENCES. Sin hallazgos, o solo con detalles adicionales, el DIP queda OK. En un DIP COMPLETE, una apertura con POSIBLE DISCREPANCIA y un cierre OK produce CORREGIDO EN CIERRE. Este último resultado se calcula y no se asigna a una regla.
+Prevalece POSIBLE DISCREPANCIA, después REVISAR y luego SIN FUENTE EN DIPS REFERENCES. Sin hallazgos, o solo con detalles adicionales, el DIP queda OK. En un DIP COMPLETE, una apertura con POSIBLE DISCREPANCIA y un cierre OK produce CORREGIDO EN CIERRE. Si el auditor ya marcó en ICAM el cierre sin discrepancia, el DIP COMPLETE queda OK y los hallazgos del programa siguen visibles. Este último resultado se calcula y no se asigna a una regla.
