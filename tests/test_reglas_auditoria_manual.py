@@ -231,6 +231,44 @@ def test_lee_el_uso_al_encontrar_la_falla():
     assert leer_ficha({"History": historia}).uso_encontrado == {"CYCLES": 14496.0, "HOURS": 54442.44}
 
 
+def test_lee_el_uso_al_cerrar_de_la_tarea():
+    historia = ("Usage At Completion \nThese usage values were entered manually.\n\n"
+                "Inventory\tUsage Parm\tTSN\n"
+                "Boeing 737-8V3 - HP-1538CMP [Work Package]\tCycles ( CYCLES )\t20060\n"
+                "\tFlying Hours ( HOURS )\t54780.00\n"
+                "32-40 - WHEELS AND BRAKES [Task]\tCycles ( CYCLES )\t20059\n"
+                "\tFlying Hours ( HOURS )\t54779.78\n"
+                "BRAKE ASSY (PN: 2-1740-1, SN: D2705) [Removed]\tCycles ( CYCLES )\t7059\n\n"
+                "Usage When Found \n\nInventory\tUsage Parm\tTSN\n"
+                "32-40 - WHEELS AND BRAKES [Task]\tCycles ( CYCLES )\t20055\n\n\nHistory\t\n")
+    ficha = leer_ficha({"History": historia})
+    assert ficha.uso_completado == {"CYCLES": 20059.0, "HOURS": 54779.78}
+    assert ficha.uso_encontrado == {"CYCLES": 20055.0}
+
+
+FRENO = dict(nombre="BRAKE # 3 WEAR PIN MEASURED  0.0515 IN.", ata=32, deferral_ref="32-DIP",
+             unidad="FC", tipo_intervalo_original="CYCLES", due_date=datetime(2026, 10, 18, 23, 59),
+             usage_remaining=16.0, flota="NG-800", intervalo=8.0, estado="COMPLETE",
+             complete_date=datetime(2026, 10, 15, 9, 0), uso_encontrado={"CYCLES": 20055.0})
+
+
+@pytest.mark.parametrize("cerrado, antes", [(20059.0, True), (20066.0, True), (20067.0, False),
+                                            (20075.0, False)])
+def test_freno_cerrado_antes_de_los_ciclos_minimos(catalogo, ctx, cerrado, antes):
+    """T40S009LGCH: 'AFTER 12 FC, BEFORE 20 FC', encontrado a los 20055 FC y cerrado a los
+    20059: se cambió el freno 4 FC después, antes del mínimo."""
+    r = auditar(catalogo, ctx, "DESGASTE_FRENOS", uso_completado={"CYCLES": cerrado}, **FRENO)
+    assert ("cierre_antes_de_ventana" in codigos(r, "POSIBLE DISCREPANCIA")) is antes
+
+
+def test_cierre_antes_de_ventana_sin_uso_al_cerrar_no_se_marca(catalogo, ctx):
+    r = auditar(catalogo, ctx, "DESGASTE_FRENOS", **FRENO)
+    assert "cierre_antes_de_ventana" not in codigos(r)
+    abierto = {**FRENO, "estado": "ACTV", "complete_date": None}
+    r = auditar(catalogo, ctx, "DESGASTE_FRENOS", uso_completado={"CYCLES": 20059.0}, **abierto)
+    assert "cierre_antes_de_ventana" not in codigos(r)
+
+
 # --- S/N ------------------------------------------------------------------------------------
 
 def test_sn_distinto_de_las_notas_de_la_descripcion(catalogo, ctx):

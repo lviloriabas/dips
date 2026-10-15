@@ -72,6 +72,8 @@ class FichaICAM:
     # Uso de la tarea cuando se encontró la falla (History, "Usage When Found"):
     # {"CYCLES": 14496, "HOURS": 54442.44}. Es el Start que debe tener un T/A por uso.
     uso_encontrado: dict[str, float] = field(default_factory=dict)
+    # Uso de la tarea al cerrarla (History, "Usage At Completion"), con las mismas claves.
+    uso_completado: dict[str, float] = field(default_factory=dict)
     cambios_deadline: list[str] = field(default_factory=list)
     sn_removidos: list[tuple[str, str]] = field(default_factory=list)   # (P/N, S/N)
     sn_instalados: list[tuple[str, str]] = field(default_factory=list)
@@ -182,6 +184,28 @@ def leer_uso_encontrado(historial: str) -> dict[str, float]:
     bloque = _bloque(historial, "Usage When Found", ["History", "Usage At Completion"])
     uso: dict[str, float] = {}
     for parametro, valor in _USO.findall(bloque):
+        numero = _numero(valor)
+        if numero is not None:
+            uso.setdefault(parametro, numero)
+    return uso
+
+
+def leer_uso_completado(historial: str) -> dict[str, float]:
+    """Bloque "Usage At Completion" de History: uso al cerrar. Trae el del Work Package (avión),
+    el de la tarea y el de los componentes cambiados; se toma el de la tarea, que es el mismo
+    contador que "Usage When Found"."""
+    bloque = _bloque(historial, "Usage At Completion", ["History", "Usage When Found"])
+    grupos: list[str] = []
+    for linea in bloque.splitlines():
+        if linea.strip() and not linea.startswith("\t"):
+            grupos.append(linea)       # una línea por inventario, seguida de sus otros parámetros
+        elif grupos:
+            grupos[-1] += "\n" + linea
+    tarea = next((g for g in grupos if "[Task]" in g), None)
+    if tarea is None:
+        return {}
+    uso: dict[str, float] = {}
+    for parametro, valor in _USO.findall(tarea):
         numero = _numero(valor)
         if numero is not None:
             uso.setdefault(parametro, numero)
@@ -315,6 +339,7 @@ def leer_ficha(secciones: dict, barcode: str = "", titulo: str = "") -> FichaICA
                 fecha_estimada=_celda(fila, i.get("Estimated Date"))))
 
     f.uso_encontrado = leer_uso_encontrado(texto("History"))
+    f.uso_completado = leer_uso_completado(texto("History"))
     historial = texto("History") + "\n\n" + falla
     # Follow-on Tasks: las abiertas (vista por defecto) y, si se leyó, "Show Historical Tasks".
     fin_siguientes = ["Component Faults", "Failure Effects", "Fault History"]

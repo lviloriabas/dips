@@ -168,6 +168,7 @@ Si en un DIP con REVISAR además falla otra regla, queda en POSIBLE DISCREPANCIA
 | Otra tarea del mismo capítulo-sección-tema                                                       | OK           |
 | Barcode de trabajo citado como referencia (no específica)                                         | POSIBLE DISCREPANCIA   |
 | Sin attachments (apertura o cierre)                                                                | POSIBLE DISCREPANCIA   |
+| Cerrado antes de A en una ventana "AFTER A, BEFORE B" (con ICAM en FH y FC)                        | POSIBLE DISCREPANCIA   |
 | S/N distinto del de las notas de la descripción                                                    | POSIBLE DISCREPANCIA   |
 | DIP duplicado (o S/N repetido en otro DIP activo), o declarado duplicado / creado por error y abierto | POSIBLE DISCREPANCIA   |
 | DIP duplicado cuando uno de los dos ya se cerró, o declarado duplicado / creado por error y cerrado | OK           |

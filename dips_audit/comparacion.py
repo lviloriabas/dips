@@ -87,6 +87,7 @@ MOTIVOS = {
     "asociacion_por_tabla": "Asociado a una fila de la tabla sin entrada en el catálogo",
     "completado_fuera_de_plazo": "Cerrado después del due date",
     "cierre_deadline_extendido": "Cerrado después del due date original (deadline extendido)",
+    "cierre_antes_de_ventana": "Cerrado antes del mínimo de la ventana AFTER/BEFORE",
     "cierre_sin_accion_correctiva": "Cerrado sin acción correctiva",
     "cierre_sin_referencia_tecnica": "Acción correctiva sin referencia del manual",
     "cierre_referencia_incompleta": "Acción correctiva con referencia sin revisión o sin fecha",

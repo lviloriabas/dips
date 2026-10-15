@@ -320,6 +320,7 @@ def normalizar_lote(original: pd.DataFrame) -> tuple[pd.DataFrame, list[str]]:
             "adjuntos": None,          # lista de nombres si se leyó ICAM; None = sin dato
             "adjuntos_excel": _adjuntos_del_excel(v, mapa),  # cantidad según el Excel
             "uso_encontrado": None,    # ICAM: {"CYCLES": n, "HOURS": n} al encontrar la falla
+            "uso_completado": None,    # ICAM: lo mismo, al cerrar el DIP
             # RIR del DIP (columnas Rir del Excel o Follow-on Tasks de ICAM); None = sin dato
             "rirs": rirs_excel,
             "rirs_excel": rirs_excel,  # se conserva al completar con ICAM
@@ -388,6 +389,7 @@ def _dato_icam(r: dict, ficha=None) -> dict:
         "intervalos": [{"value": i.valor, "parameter": i.parametro, "unit": i.unidad,
                         "start": i.inicio} for i in ficha.intervalos],
         "uso_encontrado": ficha.uso_encontrado,
+        "uso_completado": ficha.uso_completado,
         "rirs": agrupar(ficha.tareas_siguientes, detalles),
         "historico_rir": bool((secciones.get("FollowOnHistorico") or {}).get("text")),
         "parent_icam": ficha.parent_assembly,
@@ -574,7 +576,7 @@ def completar_con_icam(lote: Lote, ruta: Path, registros: dict[str, dict] | None
                 datos.at[i, "defer_date"] = fecha_icam
         for clave in ("accion_correctiva", "sn_removidos", "sn_instalados", "analogos_pn", "cambios_deadline",
                       "marcas_auditoria", "marcas_auditdip", "auditoria_manual", "uso_encontrado",
-                      "inventario"):
+                      "uso_completado", "inventario"):
             if clave in r:
                 datos.at[i, clave] = r[clave]
         # Fecha de cierre: si el Excel no la trae, la de ICAM (Actual End Date, en UTC).

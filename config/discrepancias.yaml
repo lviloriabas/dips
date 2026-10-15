@@ -187,6 +187,12 @@ tipos:
       completado_fuera_de_plazo:         POSIBLE DISCREPANCIA     # cerrado después del due date
       cierre_deadline_extendido:         POSIBLE DISCREPANCIA     # después del due original, con extensión
 
+  # Ítems con ventana "AFTER A, BEFORE B" (desgaste de frenos, amortiguador): el trabajo va
+  # después de A. En FH y FC se cuenta del uso al encontrar la falla al uso al cerrar (ICAM).
+  Early Completion:
+    reglas:
+      cierre_antes_de_ventana:           POSIBLE DISCREPANCIA     # cerrado antes del mínimo de la ventana
+
   # Para DIPs diferidos desde el 9-jul-2026 se exigen attachments. Se cuentan en ICAM y,
   # sin ICAM, en el Excel (Attach Docs, Attachment Status PENDING = ninguno).
   Missing Attachment:

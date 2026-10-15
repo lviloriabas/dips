@@ -182,7 +182,7 @@ Archivos: `dips_audit/extractor_icam.py` (cómo se lee) y `dips_audit/icam.py` (
 | Fault Information | Estado, severidad, Deferral Reference, Follow-on Tasks (RIR) |
 | Task Information | Parent Assembly, fecha real de cierre, Technical References, Attachments. Las marcas que pone el auditor al terminar ("DIP OPEN / CLOSED - RT AUDIT COMPLETED", tipo AUDITDIP, AUDITTR o sin tipo) se ignoran: no son referencias. Si hay alguna de tipo AUDITDIP, el DIP ya se auditó manualmente: se audita igual y se anota en VERIFICACIÓN MANUAL. En un DIP COMPLETE con la marca de cierre sin discrepancia, el resultado es OK. La Description de cada marca dice qué encontró el auditor: "DIP DISCREPANCY FOUND: motivo" es discrepancia; vacía, sin discrepancia; otro texto ("DIP DUPLICATED, REFERENCE TO BC ..."), una nota. Va por etapa (OPEN = apertura, CLOSED = cierre) en la columna AUDITORÍA MANUAL EN ICAM. En los 415 DIPs leídos al 28-sep: 17 marcas con discrepancia, 393 vacías y 4 con nota |
 | Scheduling | Intervalos del T/A, inicio, deadline, extensión y uso restante |
-| History | Cambios de deadline, notas de la descripción y uso al encontrar la falla (Usage When Found: ciclos y horas) |
+| History | Cambios de deadline, notas de la descripción y uso al encontrar la falla y al cerrar (Usage When Found y Usage At Completion de la tarea: ciclos y horas) |
 
 Además lee las RIR cerradas ("Show Historical Tasks") y la página de cada RIR vigente. En los DIPs de oxígeno descarga los PDF de Attachments y guarda los campos del formulario (`pdf` en `data/icam.json`, no el archivo): así se lee el inventario de generators.
 
@@ -400,7 +400,8 @@ La ventana se define con `inicio` en `config/catalogo_others.yaml`. Se marca:
 
 - el T/A que empieza en la apertura con B (vence igual, pero con otro Start): así lo marcó el auditor en los dos amortiguadores de HP-1828;
 - el que empieza antes de la apertura (muestra microbiana con Start 3 días antes);
-- el que empieza a los A pero dura B, porque vence después de la ventana.
+- el que empieza a los A pero dura B, porque vence después de la ventana;
+- en el cierre, el DIP cerrado antes de A (`cierre_antes_de_ventana`). En FH y FC se cuenta del uso al encontrar la falla al uso al cerrar de la tarea (History de ICAM); en días, desde la fecha en que se encontró. T40S009LGCH, freno NG-800 12/20 FC, se cambió a los 4 FC. No se revisa en el sellante, cuya ventana es opcional.
 
 Un T/A con otro intervalo es otro trabajo sobre el mismo ítem ("NLG STRUT COMPRESSED UNDER 5 INCHES" en 4 FC) y empieza en la apertura. En los ítems con vencimiento (UNTIL DUE DATE) no se revisa el Start: manda la fecha del ítem. En un ítem sin ventana, un Start posterior a la apertura con eso descontado del intervalo (más ciclos en el Start, menos en el T/A) se acepta si vence dentro del TA de la tabla: lo que importa es que no se pase. En un DIP SIN FUENTE EN DIPS REFERENCES no se sabe si el ítem tiene ventana: un Start posterior a la apertura queda con estado OK, y uno anterior sí es posible discrepancia. Sin ICAM no hay Start que revisar.
 

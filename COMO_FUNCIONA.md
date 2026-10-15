@@ -254,7 +254,7 @@ El resultado es un `Lote` con dos tablas: `original`, con las columnas tal como 
 
 Si se leyó ICAM (o se pasó `--datos-icam`), a cada DIP del Excel que esté en `data/icam.json` se le suma lo leído allí (`cargador.completar_con_icam`, que interpreta las pestañas con `icam.leer_ficha`).
 
-Hay datos que solo están en ICAM: el TA completo (límites, Start, deadlines y extensión), el uso al encontrar la falla (History, "Usage When Found"), las notas de la descripción (Deferral Notes), el Parent Assembly según ICAM (para compararlo con el de las RIR), la acción correctiva con los S/N removido e instalado, los cambios de deadline, las marcas AUDITDIP (las que deja el auditor en Technical References al terminar su auditoría manual) y el inventario de generators. La referencia técnica, los attachments y las RIR se toman de ICAM en lugar del Excel, y la descripción también, cuando ICAM trae texto. En todo lo demás (due date, apertura, estado, avión, Parent Assy, ATA) manda el Excel. ICAM solo completa la fecha de cierre y el intervalo cuando el Excel no los trae; si tuvo que usar el intervalo de ICAM, lo deja con estado OK.
+Hay datos que solo están en ICAM: el TA completo (límites, Start, deadlines y extensión), el uso al encontrar la falla y al cerrar (History, "Usage When Found" y "Usage At Completion"), las notas de la descripción (Deferral Notes), el Parent Assembly según ICAM (para compararlo con el de las RIR), la acción correctiva con los S/N removido e instalado, los cambios de deadline, las marcas AUDITDIP (las que deja el auditor en Technical References al terminar su auditoría manual) y el inventario de generators. La referencia técnica, los attachments y las RIR se toman de ICAM en lugar del Excel, y la descripción también, cuando ICAM trae texto. En todo lo demás (due date, apertura, estado, avión, Parent Assy, ATA) manda el Excel. ICAM solo completa la fecha de cierre y el intervalo cuando el Excel no los trae; si tuvo que usar el intervalo de ICAM, lo deja con estado OK.
 
 Un DIP que no está en el JSON sigue solo con el Excel. Las notas de la carga dicen cuántos se completaron.
 
@@ -457,6 +457,8 @@ Para saber si se cerró tarde, primero se mira el Usage Remaining: negativo quie
 
 Si el due date es posterior al original (`Orig Fault Due Date`) y el cierre fue después del original, hubo una extensión y se marca como posible discrepancia para que se verifique. Los cambios de deadline que muestra History se listan en `VERIFICACIÓN MANUAL`.
 
+En los ítems con ventana "AFTER A, BEFORE B" (ver [Start del TA](#start-del-ta)) el trabajo se hace después de A, así que cerrar antes también es posible discrepancia. En FH o FC se cuenta desde el uso al encontrar la falla hasta el uso al cerrar, los dos de History en ICAM ("Usage When Found" y "Usage At Completion" de la tarea); sin ICAM no se revisa. En días se cuenta desde la fecha en que se encontró la falla. Un freno NG-800 encontrado a los 20055 FC y cambiado a los 20059 se cerró a los 4 FC, antes de los 12 que pide la tabla. El sellante de ventanas, que también puede empezar en la apertura, no se revisa.
+
 La acción correctiva se revisa solo con ICAM. Vacía no es discrepancia (queda así cuando se cierra por la validación de QC o solo con partes): OK. Sin cita del manual también queda OK, salvo que remita a otra tarea o que no haya habido trabajo ("BY MISTAKE", "PREVIOUSLY ACCOMPLISHED", "NO FURTHER ACTION"), en cuyo caso queda para verificación manual. Una cita sin REV o sin fecha queda OK. Si ni el S/N removido ni el instalado coinciden con el de la descripción, también queda OK.
 
 Un DIP cerrado sin attachments es posible discrepancia de cierre si su `Defer Dt` es del 9 de julio de 2026 o posterior. Los diferidos antes quedan exentos.
@@ -482,7 +484,7 @@ CORREGIDO EN CIERRE se calcula para un DIP COMPLETE con POSIBLE DISCREPANCIA en 
 
 Algunos casos fijan la severidad en el código, siempre con estado OK: Parent Assembly flexible, Start posterior en un SIN FUENTE EN DIPS REFERENCES y referencia técnica distinta cuando no es grave. Si la regla, su tipo de discrepancia o su categoría (con `--categorias`) están desactivados, el hallazgo directamente no se agrega. Por eso, con `--categorias`, un DIP sin referencia puede salir OK: SIN FUENTE EN DIPS REFERENCES es del tipo "Missing Reference in Table" y también quedó afuera. La consola y el Excel lo avisan.
 
-Un DIP COMPLETE tiene hallazgos de apertura y de cierre. Son de cierre `completado_fuera_de_plazo`, `cierre_deadline_extendido`, `cierre_sin_accion_correctiva`, `cierre_sin_referencia_tecnica`, `cierre_referencia_incompleta`, `cierre_sn_distinto` y `cierre_sin_adjuntos` (`reglas.CODIGOS_CIERRE`); todos los demás son de apertura. En el Excel, `ESTADO APERTURA` es el resultado de los hallazgos de apertura y `ESTADO CIERRE` el de los de cierre más el SIN FUENTE EN DIPS REFERENCES, que vale para las dos. `RESULTADO` junta todos. `AUDITORÍA` dice CIERRE si el DIP está COMPLETE y APERTURA si no.
+Un DIP COMPLETE tiene hallazgos de apertura y de cierre. Son de cierre `completado_fuera_de_plazo`, `cierre_deadline_extendido`, `cierre_sin_accion_correctiva`, `cierre_sin_referencia_tecnica`, `cierre_referencia_incompleta`, `cierre_sn_distinto`, `cierre_sin_adjuntos` y `cierre_antes_de_ventana` (`reglas.CODIGOS_CIERRE`); todos los demás son de apertura. En el Excel, `ESTADO APERTURA` es el resultado de los hallazgos de apertura y `ESTADO CIERRE` el de los de cierre más el SIN FUENTE EN DIPS REFERENCES, que vale para las dos. `RESULTADO` junta todos. `AUDITORÍA` dice CIERRE si el DIP está COMPLETE y APERTURA si no.
 
 El `COMENTARIO SUGERIDO` es un texto listo para el comentario del auditor: "T/A aperturado correctamente" si el intervalo coincide con la tabla, seguido de los mensajes de los hallazgos que no se registran con estado OK ni "revisar en el manual", separados por " // ". Un DIP cerrado sin attachments tiene dos hallazgos (apertura y cierre), pero el comentario lo dice una vez. En un DIP creado por error, el comentario es solo ese mensaje.
 
@@ -717,6 +719,7 @@ PD significa POSIBLE DISCREPANCIA. La severidad es la que tiene hoy `config/disc
 | --- | --- | --- | --- |
 | `completado_fuera_de_plazo` | Late Completion | Cerrado después del due date | PD |
 | `cierre_deadline_extendido` | Late Completion | Cerrado después del due date original, con extensión | PD |
+| `cierre_antes_de_ventana` | Early Completion | Cerrado antes de A en una ventana "AFTER A, BEFORE B" | PD |
 | `cierre_sin_accion_correctiva` | Missing Technical Reference | Sin acción correctiva | OK |
 | `cierre_sin_referencia_tecnica` | Missing Technical Reference | La acción correctiva no cita el manual | OK |
 | `cierre_referencia_incompleta` | Missing Technical Reference | La cita de la acción sin REV o sin fecha | OK |

@@ -39,7 +39,7 @@ MOSTRAR_SEVERIDAD = ESTADOS.copy()
 CODIGOS_CIERRE = {
     "completado_fuera_de_plazo", "cierre_sin_accion_correctiva", "cierre_sin_referencia_tecnica",
     "cierre_referencia_incompleta", "cierre_sn_distinto", "cierre_deadline_extendido",
-    "cierre_sin_adjuntos",
+    "cierre_sin_adjuntos", "cierre_antes_de_ventana",
 }
 
 
@@ -552,6 +552,8 @@ def regla_cierre(dip: dict, ctx: Contexto, r: ResultadoReglas,
                       f"({_fecha_hora(original)}). Verificar la extensión.")
     elif not completo and not sin_ta:
         r.manuales.append("DIP COMPLETE: verificar en ICAM que se cerró dentro del plazo.")
+    if not sin_ta:
+        _cierre_antes_de_ventana(dip, entrada, ctx, r)
     # "A new ... deadline has been added" es la apertura del T/A, no un cambio.
     cambios = [c for c in dip.get("cambios_deadline") or []
                if not re.search(r"deadline has been added", c, re.I)]
@@ -601,6 +603,34 @@ def regla_cierre(dip: dict, ctx: Contexto, r: ResultadoReglas,
     if referencia_y_adjunto_exigibles(dip) and cantidad_adjuntos(dip) == 0:
         r.agregar(ctx, "cierre_sin_adjuntos", "Missing Attachment",
                   f"DIP cerrado sin attachments{_sin_adjuntos(dip)}.")
+
+
+def _cierre_antes_de_ventana(dip: dict, entrada: EntradaCatalogo | None, ctx: Contexto,
+                             r: ResultadoReglas) -> None:
+    """Con ventana "AFTER A, BEFORE B" (desgaste de frenos, amortiguador) el trabajo se hace
+    después de A: cerrado antes, no se cumplió el mínimo. En FH y FC se cuenta desde el uso al
+    encontrar la falla hasta el uso al cerrar (History de ICAM); en días, por fecha."""
+    ventana = _ventana(dip, entrada)
+    if ventana is None or ventana[0].inicio_opcional:
+        return
+    unidad, minimo = dip["unidad"], ventana[0].inicio.valor
+    if unidad == "DAY":
+        found, completo = _como_fecha(dip["found_date"]), _como_fecha(dip.get("complete_date"))
+        if found is None or completo is None:
+            return
+        corrido = (completo - found).days
+    elif unidad in _PARAMETRO:
+        encontrado = (dip.get("uso_encontrado") or {}).get(_PARAMETRO[unidad])
+        cerrado = (dip.get("uso_completado") or {}).get(_PARAMETRO[unidad])
+        if not encontrado or cerrado is None or cerrado < encontrado:
+            return  # sin dato o de otro contador
+        corrido = round(cerrado - encontrado, 2)
+    else:
+        return
+    if corrido < minimo - _tolerancia(unidad, ctx):
+        r.agregar(ctx, "cierre_antes_de_ventana", "Early Completion",
+                  f"Cerrado a los {_fmt(corrido)} {unidad} de encontrar la falla, antes del mínimo "
+                  f"de {_fmt(minimo)} {unidad} de la referencia ('{ventana[0].nombre}').")
 
 
 def regla_inicio_ta(dip: dict, entrada: EntradaCatalogo | None, ctx: Contexto,
