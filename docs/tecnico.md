@@ -357,7 +357,7 @@ Archivos: `dips_audit/reglas.py` y `dips_audit/auditor.py`. Se aplica a todo DIP
 | --- | --- |
 | Intervalo | Se compara con el TA de la tabla (o la variante que corresponda a la flota o la presión). Mayor (si de verdad vence después: con el Start de ICAM, uno que empieza antes de la apertura y vence dentro del TA no se marca) o en otra unidad -> posible discrepancia; menor -> OK |
 | Start del T/A | Ver abajo (**Incorrect DIP Start Values**) |
-| Due date | Debe ser el Start del T/A en ICAM más el intervalo (1 día de tolerancia); sin ICAM, la apertura más el intervalo (o la apertura + 7 días en un FDR armado con 23 días). En ítems con vencimiento (UNTIL DUE DATE) no se cuenta por intervalo: el due date no puede pasar la fecha que dice la descripción. En generators de oxígeno, la fecha es la del PDF de inventario (ver abajo) |
+| Due date | Debe ser el Start del T/A en ICAM más el intervalo (1 día de tolerancia); sin ICAM, la apertura más el intervalo (o la apertura + A en un T/A en días armado con la ventana "AFTER A, BEFORE B"). En ítems con vencimiento (UNTIL DUE DATE) no se cuenta por intervalo: el due date no puede pasar la fecha que dice la descripción. En generators de oxígeno, la fecha es la del PDF de inventario (ver abajo) |
 | DIP vencido | Un DIP abierto con due date anterior al **momento de la auditoría** (día y hora) es una posible discrepancia. Un due date sin hora vence al final del día |
 | Usage Remaining | Mayor que el intervalo se anota con estado OK: pasa cuando el T/A empieza después de la apertura, y los auditores lo aceptan |
 | Parent Assembly | Avión o motor, según la tabla. Un mensaje LONG TIME del reversor (REVERSER en el Fault Name o la descripción) va en el avión |
@@ -392,9 +392,10 @@ Si la tabla dice **"AFTER A, BEFORE B"**, el T/A empieza A después de la apertu
 | --- | --- | --- |
 | Amortiguador NG | After 5 landings, not later than 20 | Start + 5 FC, intervalo 15 FC |
 | Amortiguador MAX | Five to ten landings | Start + 5 FC, intervalo 5 FC |
-| FDR | 30 días; Ingeniería, no antes de 7 días | Start + 7 días, intervalo 23 días |
 | Desgaste de frenos | NG-700 27/37 FC, NG-800 12/20 FC, MAX 34/42 FC | Start + A, intervalo B − A |
 | Filtro de combustible del motor | 75 FH (la AMM: "after 10 hours but prior to 75") | Start + 10 FH, intervalo 65 FH |
+
+El FDR no tiene ventana: la tarea pide consultar a Ingeniería no antes de 7 días, pero el T/A empieza en la apertura con 30 días. Con `start_en_apertura: true` en el catálogo no se acepta el Start posterior con eso descontado del intervalo: el T/A desde la apertura + 7 con 23 días es posible discrepancia.
 
 La ventana se define con `inicio` en `config/catalogo_others.yaml`. Se marca:
 
@@ -572,7 +573,7 @@ El Excel solo trae "Y", pero el auditor anota el motivo en ICAM, en la marca "DI
 
 Un DIP puede tener dos motivos. Otros 3 DIPs auditados después de exportar el Excel suman 2 Missing Technical Reference y 1 Incorrect DIP Interval (un MAX con 15 FC, que el programa marca).
 
-Las auditorías viejas dejaron pasar discrepancias: el auditor dio OK al cierre de DIPs sin attachments abiertos antes de la auditoría manual, a FDR con 30 días desde la apertura (antes del 10-sep; desde ese día se marcan) y a S/N con errores de escritura. Por eso no se usan para relajar una regla.
+Las auditorías viejas dejaron pasar discrepancias: el auditor dio OK al cierre de DIPs sin attachments abiertos antes de la auditoría manual y a S/N con errores de escritura. Por eso no se usan para relajar una regla.
 
 | Resultado | Antes | Ahora |
 | --- | ---: | ---: |
@@ -580,7 +581,7 @@ Las auditorías viejas dejaron pasar discrepancias: el auditor dio OK al cierre 
 | Ídem, auditorías desde el 10-sep | 2 de 11 | 7 de 11 |
 | OK del auditor que el programa marca | 16 de 362 | 101 de 362 |
 
-De las 85 marcas nuevas en DIPs que el auditor dio OK, 80 son DIPs sin attachments (77 cerrados que el auditor solo revisó al cierre), 3 son S/N con errores de escritura (AB7 / A87, BEDN / BEDM, 218 / 219) y 2 son FDR con 30 días desde la apertura auditados antes del 10-sep. De las 8 discrepancias que no marca, 5 hoy se ven bien en ICAM (4 con attachments agregados y un FDR corregido) y 3 son DIPs SIN FUENTE EN DIPS REFERENCES.
+De las 85 marcas nuevas en DIPs que el auditor dio OK, 80 son DIPs sin attachments (77 cerrados que el auditor solo revisó al cierre), 3 son S/N con errores de escritura (AB7 / A87, BEDN / BEDM, 218 / 219) y 2 son FDR con 30 días desde la apertura auditados antes del 10-sep (desde el 16-oct el FDR vuelve a ser 30 días desde la apertura, sin ventana, así que ya no se marcan). De las 8 discrepancias que no marca, 5 hoy se ven bien en ICAM (4 con attachments agregados y un FDR corregido) y 3 son DIPs SIN FUENTE EN DIPS REFERENCES.
 
 **Modo prueba.** Si el Excel está dentro de `pruebas/` (o se usa `--prueba`), el programa guarda los datos de ICAM en `pruebas/icam.json` y los resultados en `pruebas/salida/`, con el prefijo `PRUEBA_` y un aviso en el Excel. Así las corridas de prueba no se mezclan con las auditorías reales en `data/icam.json` y `salida/`. La carpeta se configura con `carpeta_pruebas` en `config/config.yaml`.
 
@@ -639,7 +640,7 @@ Pruebas: `.venv\Scripts\python -m pytest` (carpeta `tests/`).
 - **Amortiguadores MAX:** la tabla dice 10 FC para MAX, pero las descripciones citan "not to exceed 20 landings" (GMM 3.6) y los auditores aceptaron 15 FC (Start + 5) en los 6 DIPs así del 23 y el 28-sep. En cambio, marcaron "Incorrect DIP interval" en T40S009J4L4 (MAX, 15 FC) cuya descripción dice "not to exceed 10 landings": el auditor compara con la descripción del DIP. Confirmar cuál es el TA correcto y, si corresponde, corregir la tabla.
 - **Filtro de combustible del motor:** la tabla dice 75 FH; la ventana de 10 FH (Start + 10, 65 FH) sale de la AMM citada en las descripciones y de un DIP aceptado. Confirmar con los auditores y, si corresponde, escribirla en la tabla.
 - **Contenido de los attachments:** el programa cuenta los attachments, no sabe si uno es la captura de la referencia o una foto. El auditor marcó Missing Technical Reference en un UPK cuyo único attachment era la captura de la task card del Service Visit; desde el 28-sep la task card cuenta como referencia técnica, así que el programa ya no lo marca.
-- **Criterio del auditor no uniforme:** T40S009H0QN y T40S009H0QR citan la misma AMM 28-11-11-420-006; uno se marcó como referencia no específica y el otro no. Igual con los FDR antes y después del 10-sep.
+- **Criterio del auditor no uniforme:** T40S009H0QN y T40S009H0QR citan la misma AMM 28-11-11-420-006; uno se marcó como referencia no específica y el otro no.
 - **Revisar con los auditores** los criterios de las reglas que señalan posibles discrepancias.
 - **Criterio de cierre tarde:** T40S009H94W cerró con Usage Remaining −1 (31 h tarde) y el auditor lo dio OK. T40S00992SM (5 días) se hizo en otra tarea y queda para verificar.
 - **Motivo de las discrepancias manuales:** el Excel solo marca "Y", pero el motivo está en ICAM (ver 9.1). La comparación podría leerlo de los datos de ICAM y mostrarlo junto al resultado del programa.

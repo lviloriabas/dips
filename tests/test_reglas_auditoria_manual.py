@@ -192,15 +192,16 @@ def test_start_en_el_defer_date(catalogo, ctx):
     assert "inicio_ta_incorrecto" not in codigos(r)
 
 
-def test_fdr_debe_empezar_7_dias_despues(catalogo, ctx):
-    """FDR: 30 días, sin consultar a Ingeniería antes de 7 días. Desde el 10-sep los auditores
-    exigen el T/A desde la apertura + 7 días con 23 días."""
+def test_fdr_empieza_en_la_apertura_con_30_dias(catalogo, ctx):
+    """FDR: 30 días desde la apertura. Los 7 días antes de consultar a Ingeniería no se
+    descuentan: el T/A de 23 días desde la apertura + 7 es incorrecto."""
     fdr = dict(nombre="FDR - Report", ata=31, deferral_ref="31-DIP",
                found_date=datetime(2026, 9, 10, 1, 56), due_date=datetime(2026, 10, 10, 23, 59))
     r = auditar(catalogo, ctx, "FDR", intervalo=30.0, icam_intervalos=_ta_dias("10-SEP-2026", 30), **fdr)
-    assert "inicio_ta_incorrecto" in codigos(r)
+    assert not codigos(r) & {"inicio_ta_incorrecto", "intervalo_menor", "intervalo_excedido",
+                             "due_date_posterior_a_intervalo"}
     r = auditar(catalogo, ctx, "FDR", intervalo=23.0, icam_intervalos=_ta_dias("17-SEP-2026", 23), **fdr)
-    assert not codigos(r) & {"inicio_ta_incorrecto", "intervalo_menor", "due_date_anterior_a_intervalo"}
+    assert {"inicio_ta_incorrecto", "intervalo_menor"} <= codigos(r)
 
 
 def test_sin_fuente_con_start_posterior_queda_para_verificar(ctx):

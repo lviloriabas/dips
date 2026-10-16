@@ -410,13 +410,12 @@ def regla_fechas(dip: dict, entrada: EntradaCatalogo | None, ctx: Contexto,
         r.manuales.append(dip["correccion_fecha"] + ".")
 
     # Due date coherente con el inicio del T/A + intervalo (solo días). El T/A cuenta desde
-    # su Start en ICAM, que puede ser posterior a la apertura (el FDR se abre con 23 días
-    # desde una semana después: vence igual a los 30 días de la apertura); sin datos de
-    # ICAM, desde la apertura. En los ítems con vencimiento el due date es el del ítem.
+    # su Start en ICAM, que puede ser posterior a la apertura; sin datos de ICAM, desde la
+    # apertura. En los ítems con vencimiento el due date es el del ítem.
     hasta_vencimiento = entrada is not None and entrada.hasta_vencimiento
     if due and found and valor is not None and unidad == "DAY" and not hasta_vencimiento:
         inicio = _inicio_ta(dip)
-        # Sin ICAM, un T/A armado con la ventana (FDR: 7 días + 23) cuenta desde la apertura + 7.
+        # Sin ICAM, un T/A armado con la ventana "AFTER A, BEFORE B" en días cuenta desde la apertura + A.
         ventana = _ventana(dip, entrada)
         retraso = (int(ventana[0].inicio.valor) if ventana and not inicio
                    and valor == ventana[0].intervalo_desde_inicio(ventana[1]) else 0)
@@ -640,11 +639,11 @@ def regla_inicio_ta(dip: dict, entrada: EntradaCatalogo | None, ctx: Contexto,
     En días, el Start debe caer entre la fecha en que se encontró la falla y el Defer
     Date (un T/A "within 4 months from the performance date" cuenta desde el
     trabajo). En FH y FC, debe ser el uso al encontrar la falla (History, "Usage When Found").
-    Con ventana "AFTER A, BEFORE B" (amortiguador, FDR, desgaste de frenos) el T/A empieza
+    Con ventana "AFTER A, BEFORE B" (amortiguador, desgaste de frenos) el T/A empieza
     A después de la apertura y dura B - A. Los auditores marcan el T/A que empieza en la
     apertura con B (vence igual, pero con otro Start) y el que empieza antes de la apertura.
     En un ítem sin ventana, un Start posterior con eso descontado del intervalo se acepta si
-    vence dentro del TA. No aplica a los ítems con vencimiento (UNTIL DUE DATE): ahí manda
+    vence dentro del TA, salvo con `start_en_apertura` en el catálogo (FDR). No aplica a los ítems con vencimiento (UNTIL DUE DATE): ahí manda
     la fecha del ítem."""
     if solo_rir(dip):
         return
@@ -691,7 +690,7 @@ def regla_inicio_ta(dip: dict, entrada: EntradaCatalogo | None, ctx: Contexto,
         fuera = not any(abs(corrido - v.inicio.valor) <= tolerancia
                         for v in _variantes_aplicables(dip, entrada)
                         if v.inicio is not None and v.inicio.unidad == unidad)
-    if fuera and entrada is not None and corrido > 0 and valor \
+    if fuera and entrada is not None and corrido > 0 and valor and not entrada.start_en_apertura \
             and not any(v.inicio for v in _variantes_aplicables(dip, entrada)):
         # Ítem sin ventana, con Start después de la apertura y eso descontado del intervalo
         # (más ciclos en el Start, menos en el T/A): si vence dentro del TA, se acepta.

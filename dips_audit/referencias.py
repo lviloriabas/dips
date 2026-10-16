@@ -101,6 +101,9 @@ class EntradaCatalogo:
     parent_flexible: bool = False
     # El vencimiento del ítem es el del PDF de inventario adjunto (generators de oxígeno).
     inventario: bool = False
+    # El T/A empieza en la apertura con el intervalo completo: un Start posterior con eso
+    # descontado del intervalo no se acepta (FDR: 30 días, no 7 + 23).
+    start_en_apertura: bool = False
     # (frases, Parent Assembly): si el DIP tiene alguna de las frases, ese es el Parent
     # Assembly correcto y no el de la tabla (mensaje LONG TIME del reversor: AIRCRAFT).
     parent_segun_texto: list[tuple[list[str], str]] = field(default_factory=list)
@@ -368,6 +371,7 @@ def cargar_catalogo(ruta_catalogo: Path, referencias: list[FilaReferencia],
             ta_segun_manual=ta_manual, rir_segun_manual=rir_manual,
             parent_flexible=bool(d.get("parent_assy_flexible", False)),
             inventario=bool(d.get("inventario", False)),
+            start_en_apertura=bool(d.get("start_en_apertura", False)),
             parent_segun_texto=[(list(p["contiene"]), str(p["parent_assy"]).upper())
                                 for p in d.get("parent_assy_segun_texto", [])],
         ))

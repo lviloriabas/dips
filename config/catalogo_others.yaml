@@ -14,7 +14,9 @@
 #   inicio:     (opcional, en una variante) ventana "AFTER A, BEFORE B": el T/A empieza A
 #               después de la apertura (Start) y su intervalo es B - A, así vence a los B
 #               de la tabla. Así lo exigen los auditores ("Incorrect DIP Start Values"):
-#               amortiguador NG 5 FC + 15 FC, FDR 7 días + 23 días.
+#               amortiguador NG 5 FC + 15 FC.
+#   start_en_apertura: el T/A empieza en la apertura con el intervalo completo; un Start
+#               posterior con eso descontado del intervalo es posible discrepancia (FDR).
 #   requiere_sn: el Fault Name debería mencionar el S/N del componente.
 #   inventario: el vencimiento del ítem es el Exp. Date del PDF de inventario adjunto (por
 #               S/N o DIP Barcode), no la fecha que escribe la descripción.
@@ -96,11 +98,11 @@
   requiere: [[FDR, FLIGHT DATA RECORDER]]
   excluir: [UNDERWATER, ULB, BEACON]
   # La tarea (S-NG-31-0002) pide consultar a Ingeniería no antes de 7 días de la descarga y
-  # vence a los 30: el T/A empieza 7 días después de la apertura, con 23 días.
+  # vence a los 30. El T/A empieza en la apertura, con 30 días: los 7 días no se descuentan.
+  start_en_apertura: true
   intervalos:
     - variante: "30 DAYS"
       limites: [{valor: 30, unidad: DAY}]
-      inicio: {valor: 7, unidad: DAY}
 
 - id: HALON_PORTATIL
   nombre: HALON FIRE EXTINGUISHER DUE OR WEIGHT (PORTABLE, CABIN, ETC)

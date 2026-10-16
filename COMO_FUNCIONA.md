@@ -343,7 +343,7 @@ Cuando el TA de la tabla tiene dos límites ("45 DAYS OR 225 FC"), con ICAM se e
 
 #### Due date y vencimiento del ítem
 
-En los TA en días, el due date tiene que ser el Start del TA más el intervalo, con un día de tolerancia. Sin ICAM se cuenta desde la apertura (o desde la apertura más A, si el TA es una ventana: el FDR de 23 días cuenta desde la apertura más 7). Un due date posterior es posible discrepancia; uno anterior, OK.
+En los TA en días, el due date tiene que ser el Start del TA más el intervalo, con un día de tolerancia. Sin ICAM se cuenta desde la apertura (o desde la apertura más A, si el TA es una ventana en días). Un due date posterior es posible discrepancia; uno anterior, OK.
 
 En los ítems UNTIL DUE DATE, el due date no puede pasar la fecha de vencimiento del ítem. En los generators de oxígeno esa fecha sale del PDF de inventario; en los demás, de la primera fecha del nombre o la descripción que sea posterior a la apertura. Pasarla es posible discrepancia, quedar más de un día antes queda OK y, si no hay fecha, queda para verificación manual.
 
@@ -369,10 +369,11 @@ Algunos ítems tienen una ventana "AFTER A, BEFORE B": su TA tiene que empezar A
 | --- | --- | --- |
 | Amortiguador NG | After 5 landings, not later than 20 | Start + 5 FC, 15 FC |
 | Amortiguador MAX | Five to ten landings | Start + 5 FC, 5 FC |
-| FDR | 30 días, no antes de 7 | Start + 7 días, 23 días |
 | Desgaste de frenos | NG-700 27/37, NG-800 12/20, MAX 34/42 FC | Start + A, B - A |
 | Filtro de combustible del motor | Después de 10 FH, antes de 75 | Start + 10 FH, 65 FH |
 | Sellante de ventanas | Opcional: 7 días desde la apertura, o Start + 3 y 4 días | Cualquiera de las dos |
+
+El FDR no tiene ventana: aunque la tarea pide consultar a Ingeniería no antes de 7 días, el TA empieza en la apertura y dura 30 días. Tiene `start_en_apertura: true` en el catálogo, así que un TA desde la apertura + 7 con 23 días es posible discrepancia aunque venza a los 30.
 
 Un TA que empieza en otro momento (antes de la apertura, o en la apertura cuando debía empezar en A) es posible discrepancia. Si empieza bien pero dura B, vence después de la ventana y sale como intervalo excedido. En un ítem sin ventana, un Start posterior a la apertura con eso descontado del intervalo (más ciclos en el Start, menos en el TA) se acepta si vence dentro del TA de la tabla; si vence después, es posible discrepancia. En un DIP SIN FUENTE EN DIPS REFERENCES no se sabe si hay ventana: un Start posterior a la apertura queda con estado OK, pero uno anterior sí es posible discrepancia.
 

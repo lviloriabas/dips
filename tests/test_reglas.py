@@ -260,17 +260,16 @@ def test_usage_remaining_mayor_que_intervalo(catalogo, ctx):
 
 
 def test_due_date_desde_el_start_del_ta_en_icam(catalogo, ctx):
-    """Caso T40S009HM59: FDR abierto el 19-sep con 23 días desde el 26-sep = 19-oct, los
-    30 días de la referencia (ventana: 7 días + 23). Sin el Start de ICAM, un T/A armado con
-    la ventana cuenta desde la apertura + 7 días."""
-    fdr = dict(nombre="DIP - FDR - Report", intervalo=23.0, ata=31, deferral_ref="31-DIP",
+    """FDR abierto el 19-sep con 30 días: vence el 19-oct. Con el Start de ICAM el due date
+    cuenta desde ese Start; sin ICAM, desde la apertura."""
+    fdr = dict(nombre="DIP - FDR - Report", intervalo=30.0, ata=31, deferral_ref="31-DIP",
                found_date=datetime(2026, 9, 19, 7, 52), due_date=datetime(2026, 10, 19, 23, 59),
                usage_remaining=27.0)
     fechas = {"due_date_posterior_a_intervalo", "due_date_anterior_a_intervalo"}
     r = auditar(catalogo, ctx, "FDR", **fdr)
     assert not codigos(r) & fechas
-    assert "intervalo_menor" not in codigos(r)   # 23 días es el intervalo de la ventana
-    icam = [{"value": 23.0, "parameter": "CDY", "unit": "DAY", "start": "26-SEP-2026 23:59 UTC"}]
+    assert "intervalo_menor" not in codigos(r)
+    icam = [{"value": 30.0, "parameter": "CDY", "unit": "DAY", "start": "19-SEP-2026 23:59 UTC"}]
     r = auditar(catalogo, ctx, "FDR", icam_intervalos=icam, **fdr)
     assert not codigos(r) & (fechas | {"inicio_ta_incorrecto"})
     # Con el due date de otro mes, sí.
