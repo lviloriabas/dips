@@ -389,6 +389,8 @@ Si un DIP activo tiene su paquete programado (`Scheduled Date`) después del due
 
 Los S/N se reconocen por su prefijo (`S/N`, `S/` o `SN`) seguido de un código con al menos un dígito.
 
+Si el título del DIP contiene la palabra `ENGINE`, la descripción debe incluir el S/N del motor, aunque el DIP no esté en el catálogo. Si falta, es posible discrepancia; citarlo solo en el título no alcanza. Se compara el serial completo, incluidas sus letras, con el motor del Parent Assembly del Excel (o de ICAM si el Excel no identifica un motor con S/N). ENGINE 1 corresponde a LH y ENGINE 2 a RH. Si se describen ambos motores, se verifica el serial del apartado correspondiente al título. Un serial de filtro u otro componente no reemplaza al del motor. Sin identidad del motor se pide verificación manual; si no se ha leído la descripción, también se pide verificar antes de afirmar que falta el serial.
+
 En las entradas del catálogo con `requiere_sn`, si ni el nombre ni la descripción citan un S/N, se registra con resultado OK y siempre se deja la verificación de que el S/N del attachment coincida con el componente.
 
 Con ICAM, los S/N de la descripción se comparan con los de las notas de la descripción, solo por los dígitos (P11101989 y 11101989 son el mismo). Si difieren (11101989 y 11101998), es posible discrepancia. Un S/N que está en un texto y no en el otro no cuenta.
@@ -686,6 +688,8 @@ PD significa POSIBLE DISCREPANCIA. La severidad es la que tiene hoy `config/disc
 | `deferral_reference_ata` | Incorrect ATA | Deferral Reference no empieza con el ATA | OK |
 | `ata_distinto_a_referencia` | Incorrect ATA | ATA distinto del de la tabla | OK |
 | `sin_sn_en_descripcion` | Missing S/N | La tabla pide S/N y el DIP no lo cita | OK |
+| `sin_sn_motor_en_descripcion` | Missing S/N | ENGINE en el título sin S/N de motor en la descripción | PD |
+| `sn_motor_incorrecto` | Incorrect S/N | El serial completo o la posición no coincide con el motor de Parent Assembly | PD |
 | `sn_repetido` | Incorrect S/N | Mismo S/N completo en DIPs del avión que coexistieron (se conserva al cerrar) | PD |
 | `sn_inconsistente` | Incorrect S/N | S/N distinto del de las notas de la descripción | PD |
 | `sn_fuera_de_inventario` | Incorrect S/N | Generators: S/N que no está en el PDF | PD |

@@ -112,11 +112,13 @@ tipos:
   Missing S/N:
     reglas:
       sin_sn_en_descripcion:             OK # la referencia pide S/N y no está
+      sin_sn_motor_en_descripcion:       POSIBLE DISCREPANCIA # ENGINE en el título exige S/N en la descripción
 
   Incorrect S/N:
     reglas:
       sn_repetido:                       POSIBLE DISCREPANCIA  # mismo S/N completo en DIPs del avión que coexistieron
       sn_inconsistente:                  POSIBLE DISCREPANCIA  # S/N del DIP distinto del de las notas de la descripción
+      sn_motor_incorrecto:               POSIBLE DISCREPANCIA # serial completo del motor según Parent Assembly y posición
       cierre_sn_distinto:                OK # cierre: S/N removido distinto del de la descripción
       sn_fuera_de_inventario:            POSIBLE DISCREPANCIA  # generators: S/N del DIP que no está en el PDF de inventario
 

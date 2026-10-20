@@ -877,6 +877,66 @@ def regla_sn(dip: dict, entrada: EntradaCatalogo, ctx: Contexto, r: ResultadoReg
                       "instalado" + (f" (S/N en descripción: {', '.join(sns)})." if sns else "."))
 
 
+_POSICION_MOTOR = re.compile(
+    r"\b(?:ENGINE|ENG)\s*(?:(?:NO\.?|NUMBER|NBR)\s*)?#?\s*"
+    r"(1|2|LH|RH|LEFT|RIGHT)\b", re.I)
+
+
+def _numero_motor(posicion: str) -> str:
+    return {"LH": "1", "LEFT": "1", "RH": "2", "RIGHT": "2"}.get(
+        posicion.upper(), posicion)
+
+
+def regla_sn_motor(dip: dict, ctx: Contexto, r: ResultadoReglas) -> None:
+    """ENGINE en el título exige el serial completo del motor en la descripción.
+
+    El Parent Assembly identifica el motor de ese DIP. Nunca se reutiliza el serial
+    de otro DIP o de otro motor del avión, que puede haber cambiado con el tiempo.
+    """
+    if not re.search(r"\bENGINE\b", dip.get("nombre") or "", re.I):
+        return
+    descripcion = dip.get("descripcion") or ""
+    if dip.get("descripcion_disponible") is False and not descripcion:
+        r.manuales.append("Verificar el S/N del motor en la descripción: el Excel no trae "
+                          "esa columna y no se ha leído la descripción en ICAM.")
+        return
+    sns = extraer_sn(descripcion)
+    if not sns:
+        r.agregar(ctx, "sin_sn_motor_en_descripcion", "Missing S/N",
+                  "El título del DIP dice ENGINE y la descripción no incluye el S/N del motor.")
+        return
+
+    # El Excel sigue siendo la fuente principal; ICAM completa el dato cuando el
+    # DIP está asignado al avión en el Excel o no trae un serial de motor.
+    parent = next((p for p in (dip.get("parent_assy"), dip.get("parent_icam"))
+                   if p and re.search(r"\bENGINE\b", p, re.I) and extraer_sn(p)), "")
+    if not parent:
+        r.manuales.append("Verificar que el S/N de la descripción corresponda al motor "
+                          "indicado en el título: sin S/N de motor en Parent Assembly.")
+        return
+    esperados = extraer_sn(parent)
+    titulo = {_numero_motor(m.group(1)) for m in _POSICION_MOTOR.finditer(dip["nombre"])}
+    lado = re.search(r"\((LH|RH)\)", parent, re.I)
+    if lado and titulo and _numero_motor(lado.group(1)) not in titulo:
+        r.agregar(ctx, "sn_motor_incorrecto", "Incorrect S/N",
+                  f"El título indica ENGINE {'/'.join(sorted(titulo))}, pero el Parent Assembly "
+                  f"corresponde al motor {_numero_motor(lado.group(1))}: {parent}.")
+        return
+
+    # Si la descripción enumera ambos motores, el serial debe estar en el apartado
+    # del motor del título; encontrarlo en el del otro motor no lo valida.
+    marcas = list(_POSICION_MOTOR.finditer(descripcion))
+    if len(titulo) == 1 and marcas:
+        segmentos = [descripcion[m.end():marcas[i + 1].start() if i + 1 < len(marcas) else None]
+                     for i, m in enumerate(marcas) if _numero_motor(m.group(1)) in titulo]
+        sns = [s for segmento in segmentos for s in extraer_sn(segmento)]
+    if not {clave_sn_completa(s) for s in esperados} & {clave_sn_completa(s) for s in sns}:
+        r.agregar(ctx, "sn_motor_incorrecto", "Incorrect S/N",
+                  f"La descripción no cita el S/N del motor correspondiente "
+                  f"({', '.join(esperados)} según Parent Assembly). "
+                  f"S/N citados para ese motor: {', '.join(sns) or 'ninguno'}.")
+
+
 def regla_severidad(dip: dict, ctx: Contexto, r: ResultadoReglas) -> None:
     if dip["severidad"] and dip["severidad"] != "DIP":
         r.agregar(ctx, "fault_severity", "Incorrect Fault Severity",
@@ -898,6 +958,7 @@ def auditar_dip(dip: dict, entrada: EntradaCatalogo | None, ctx: Contexto) -> Re
     regla_inicio_ta(dip, entrada, ctx, r)
     regla_adjuntos(dip, ctx, r)
     regla_programado_despues_del_due(dip, ctx, r)
+    regla_sn_motor(dip, ctx, r)
     regla_sn_consistente(dip, ctx, r, entrada)
     regla_ata(dip, entrada, ctx, r)
     regla_severidad(dip, ctx, r)

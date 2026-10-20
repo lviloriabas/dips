@@ -156,7 +156,8 @@ def test_auditoria_excel_de_boroscope_sin_ta(auditor, tmp_path, rir_barcode, esp
                   "Fault Status", "Aircraft", "Task Parent Assy", "Fault Description",
                   "Rir Barcode", "Rir Driver Interval", "Rir Driver Type"]
     fila = ["B1", "DIP - BIRDSTRIKE BOROSCOPE ENGINE 1", "Powerplant", None, None, "ACTV",
-            "HP-1837CMP", "ENGINE 1", "REPEAT INSPECTION EVERY 400 FC.",
+            "HP-1837CMP", "(LH) ENGINE 1 (SN: 60B611)",
+            "ENGINE 1 S/N 60B611. REPEAT INSPECTION EVERY 400 FC.",
             rir_barcode, 400 if rir_barcode else None, "CYCLES" if rir_barcode else None]
     entrada = crear_export(tmp_path / "entrada.xlsx", [fila], encabezado=encabezado)
     resultado = auditor.auditar_archivo(entrada)

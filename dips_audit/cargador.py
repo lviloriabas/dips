@@ -290,6 +290,7 @@ def normalizar_lote(original: pd.DataFrame) -> tuple[pd.DataFrame, list[str]]:
             "tipo": parse_texto(v("tipo")),
             "nombre": parse_texto(v("nombre")),
             "descripcion": parse_texto(v("descripcion")),
+            "descripcion_disponible": "descripcion" in mapa,
             "intervalo": intervalo,
             "tipo_intervalo_original": parse_texto(v("tipo_intervalo")),
             "unidad": unidad,
@@ -384,6 +385,7 @@ def _dato_icam(r: dict, ficha=None) -> dict:
     return {
         "referencia_tecnica": "; ".join(ficha.referencias_tecnicas),
         "descripcion": ficha.descripcion,
+        "descripcion_disponible": True,
         "notas_descripcion": ficha.notas_descripcion,
         "adjuntos": ficha.adjuntos,
         "intervalos": [{"value": i.valor, "parameter": i.parametro, "unit": i.unidad,
@@ -469,6 +471,7 @@ def _registros_icam(ruta: Path) -> dict[str, dict]:
                          "'technical_references', 'description' o 'corrective_action'.")
     return {parse_texto(r[col_barcode]): {"referencia_tecnica": parse_texto(r[col_ref]) if col_ref else "",
                                           "descripcion": parse_texto(r[col_desc]) if col_desc else "",
+                                          "descripcion_disponible": col_desc is not None,
                                           "notas_descripcion": "", "adjuntos": None,
                                           "intervalos": [],
                                           **({"accion_correctiva": parse_texto(r[col_accion])}
@@ -565,6 +568,8 @@ def completar_con_icam(lote: Lote, ruta: Path, registros: dict[str, dict] | None
         datos.at[i, "referencia_tecnica"] = r["referencia_tecnica"]
         if r["descripcion"]:
             datos.at[i, "descripcion"] = r["descripcion"]
+        if r.get("descripcion_disponible"):
+            datos.at[i, "descripcion_disponible"] = True
         datos.at[i, "notas_descripcion"] = r["notas_descripcion"]
         datos.at[i, "adjuntos"] = r["adjuntos"]
         if r.get("rirs") is not None:  # ICAM manda; si no trae RIR, quedan los del Excel
