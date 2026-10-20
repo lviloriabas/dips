@@ -173,7 +173,7 @@ Si en un DIP con REVISAR además falla otra regla, queda en POSIBLE DISCREPANCIA
 | DIP duplicado (o S/N repetido en otro DIP activo), o declarado duplicado / creado por error y abierto | POSIBLE DISCREPANCIA   |
 | DIP duplicado cuando uno de los dos ya se cerró, o declarado duplicado / creado por error y cerrado | OK           |
 | Deferral Reference distinto del ATA                                                                | OK           |
-| RIR faltante, con otro intervalo, sin un límite del T/A, en otro Parent Assembly o con otro Start | POSIBLE DISCREPANCIA   |
+| RIR faltante, con otro intervalo, sin un límite del T/A, en otro Parent Assembly, con inicio calendario posterior al T/A o Start distinto en FH/FC | POSIBLE DISCREPANCIA   |
 | Sin intervalo o sin tipo de intervalo                                                              | POSIBLE DISCREPANCIA   |
 | Cierre después del due date vigente, incluida su extensión                                     | POSIBLE DISCREPANCIA   |
 | Cierre dentro del plazo extendido, aunque sea después del due date original                     | OK                    |
@@ -196,7 +196,7 @@ flowchart LR
     A --> I["Intervalo = 1394 − 594 = 800 FC"]
     B --> I
     A --> P["Página del RIR<br/>Scheduling: intervalo, Start, límites<br/>Task Information: Parent Assembly"]
-    I --> C{"¿Igual al RIR de la tabla<br/>y a los límites y Start del T/A?"}
+    I --> C{"¿Intervalo y límites correctos<br/>e inicio compatible con el T/A?"}
     P --> C
 ```
 
@@ -206,6 +206,8 @@ flowchart LR
 | Límites        | "RIRs aperturados solo con limitantes de ciclos. Agregar limitante de 30 Meses" |
 | Start           | "RIRs de 200FH con START values diferentes al T/A ocasiona que corran mal"      |
 | Parent Assembly | "RIRS aperturados correctamente al motor ESN …"                                |
+
+Se acepta que el T/A empiece días después del RIR (límites DAY o MONTH). Un inicio calendario del RIR posterior al T/A sigue siendo posible discrepancia; en FH/FC los Start deben coincidir salvo redondeo.
 
 Las Follow-on Tasks REQ (servicio de taller) no son RIR.
 

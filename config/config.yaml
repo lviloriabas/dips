@@ -1,10 +1,11 @@
 # Configuración general del auditor de DIPs.
 # Las rutas relativas se resuelven desde la carpeta del proyecto.
 
-# Copia inicial para trabajar si SharePoint no está disponible. --referencias permite
-# elegir otro XLSX/PDF o enlace. Los archivos descargados se conservan en data/.
+# Copia local sincronizada con SharePoint cuando cambia la descarga validada.
+# --referencias permite elegir otro XLSX/PDF o enlace. También se guarda copia en data/.
 referencias: "DIPs References.xlsx"
-# Fuente preferida al auditar y al abrir Edge. Vacío = trabajar solo con la copia local.
+# Se consulta en cada corrida real; las referencias e ICAM comparten una ventana de Edge.
+# Vacío = trabajar solo con la copia local.
 referencias_sharepoint: "https://copaairlines.sharepoint.com/:x:/r/teams/VP_Tecnica/dacre/records/_layouts/15/doc2.aspx?sourcedoc=%7B71427FA7-2DB0-4851-A5BA-63F30401684E%7D&file=DIPs%20References.xlsx&action=default&mobileredirect=true"
 hoja_referencias: "References"
 catalogo: "config/catalogo_others.yaml"

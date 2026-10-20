@@ -78,7 +78,7 @@ MOTIVOS = {
     "rir_faltante": "Falta el RIR que pide la tabla",
     "rir_intervalo_incorrecto": "RIR con intervalo distinto del de la tabla",
     "rir_limite_faltante": "RIR sin uno de los límites del T/A",
-    "rir_inicio_distinto": "RIR empieza en otra fecha que el T/A",
+    "rir_inicio_distinto": "Start del RIR posterior al T/A o distinto en FH/FC",
     "rir_parent_distinto": "RIR en otro Parent Assembly",
     "rir_intervalo_menor": "RIR más seguido que la tabla (más conservador)",
     "asociacion_aproximada": "Fault Name con errores de escritura",

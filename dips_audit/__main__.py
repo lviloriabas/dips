@@ -36,7 +36,7 @@ from .anonimizar import ErrorAnonimizacion
 from .auditor import CORREGIDO_EN_CIERRE, RAIZ, Auditor, cargar_configuracion
 from .benchmark import DATOS as DATOS_BENCHMARK
 from .cargador import ErrorCarga
-from .extractor_icam import ErrorExtraccion
+from .extractor_icam import ErrorExtraccion, sesion_edge
 from .referencias import ErrorCatalogo
 from .reglas import POSIBLE_DISCREPANCIA, SIN_FUENTE
 
@@ -684,23 +684,24 @@ def main(argv: list[str] | None = None) -> int:
     config = None
     try:
         config = cargar_configuracion(Path(args.config) if args.config else None)
-        prueba = _modo_prueba(args, config)
-        if args.comando in {"auditar", "comparar", "barcode", "referencias", "benchmark"}:
-            from .fuente_referencias import preparar_referencias
+        with sesion_edge(config["icam"]):
+            prueba = _modo_prueba(args, config)
+            if args.comando in {"auditar", "comparar", "barcode", "referencias", "benchmark"}:
+                from .fuente_referencias import preparar_referencias
 
-            fuente_explicita = getattr(args, "referencias", None)
-            fuente = (fuente_explicita or
-                      (config.get("referencias_sharepoint")
-                       if not prueba and args.comando != "benchmark" else None) or
-                      config["referencias"])
-            config["referencias"] = preparar_referencias(
-                fuente, config["icam"], lambda mensaje: consola.print(mensaje, markup=False),
-                respaldo=config["referencias"] if fuente == config.get("referencias_sharepoint") else None,
-                hoja=config.get("hoja_referencias", "References"))
-        return {"auditar": cmd_auditar, "comparar": cmd_comparar, "benchmark": cmd_benchmark, "anonimizar": cmd_anonimizar,
-                "barcode": cmd_barcode, "extraer-icam": cmd_extraer_icam, "abrir-icam": cmd_abrir_icam,
-                "referencias": cmd_referencias, "categorias": cmd_categorias,
-                "validar-reglas": cmd_validar_reglas}[args.comando](args, config)
+                fuente_explicita = getattr(args, "referencias", None)
+                fuente = (fuente_explicita or
+                          (config.get("referencias_sharepoint")
+                           if not prueba and args.comando != "benchmark" else None) or
+                          config["referencias"])
+                config["referencias"] = preparar_referencias(
+                    fuente, config["icam"], lambda mensaje: consola.print(mensaje, markup=False),
+                    respaldo=config["referencias"] if fuente == config.get("referencias_sharepoint") else None,
+                    hoja=config.get("hoja_referencias", "References"))
+            return {"auditar": cmd_auditar, "comparar": cmd_comparar, "benchmark": cmd_benchmark, "anonimizar": cmd_anonimizar,
+                    "barcode": cmd_barcode, "extraer-icam": cmd_extraer_icam, "abrir-icam": cmd_abrir_icam,
+                    "referencias": cmd_referencias, "categorias": cmd_categorias,
+                    "validar-reglas": cmd_validar_reglas}[args.comando](args, config)
     except (ErrorCarga, ErrorCatalogo, ErrorAnonimizacion, ErrorExtraccion,
             ValueError, yaml.YAMLError,
             FileNotFoundError,

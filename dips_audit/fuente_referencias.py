@@ -43,6 +43,7 @@ async def _descargar(enlace: str, config_icam: dict, avisar) -> bytes:
     async with ExtractorICAM({**config_icam, "url": enlace}) as navegador:
         paginas = navegador._contexto.pages
         pagina = next((p for p in paginas if es_sharepoint(p.url)), None)
+        pagina = pagina or next((p for p in paginas if p.url == "about:blank"), None)
         pagina = pagina or await navegador._contexto.new_page()
         try:
             await pagina.goto(enlace, wait_until="domcontentloaded", timeout=30000)
@@ -61,7 +62,8 @@ async def _descargar(enlace: str, config_icam: dict, avisar) -> bytes:
                 raise ErrorCatalogo("Se cerró SharePoint antes de descargar las referencias.")
             for url in candidatos:
                 try:
-                    respuesta = await navegador._contexto.request.get(url, timeout=20000)
+                    respuesta = await navegador._contexto.request.get(
+                        url, timeout=20000, headers={"Cache-Control": "no-cache"})
                     if respuesta.ok:
                         contenido = await respuesta.body()
                         if contenido.startswith((b"PK\x03\x04", b"%PDF-")):
@@ -82,9 +84,27 @@ async def _descargar(enlace: str, config_icam: dict, avisar) -> bytes:
                         "Compruebe el acceso o descargue el XLSX/PDF y use --referencias RUTA.")
 
 
+def _guardar_si_cambio(ruta: Path, contenido: bytes) -> bool:
+    """Sustituye una copia atómicamente, sin reescribirla si ya coincide con la descarga."""
+    if ruta.is_file() and ruta.read_bytes() == contenido:
+        return False
+    temporal = ruta.with_name(ruta.stem + ".tmp" + ruta.suffix)
+    try:
+        ruta.parent.mkdir(parents=True, exist_ok=True)
+        temporal.write_bytes(contenido)
+        temporal.replace(ruta)
+    finally:
+        temporal.unlink(missing_ok=True)
+    return True
+
+
 def preparar_referencias(fuente: str | Path, config_icam: dict, avisar=print, *,
                          respaldo: str | Path | None = None, hoja: str = "References") -> Path:
-    """Actualiza la copia local; si SharePoint falla, usa el último respaldo válido y avisa."""
+    """Consulta siempre SharePoint y sincroniza las copias locales solo si cambiaron.
+
+    El respaldo principal se actualiza si tiene el mismo formato que la fuente online.
+    Si SharePoint falla, se conserva y utiliza la última copia válida, con un aviso.
+    """
     texto = str(fuente).replace("\\&", "&")
     if not texto.lower().startswith(("http://", "https://")):
         return Path(fuente)
@@ -107,7 +127,9 @@ def preparar_referencias(fuente: str | Path, config_icam: dict, avisar=print, *,
         temporal.write_bytes(contenido)
         if not cargar_referencias(temporal, hoja):
             raise ErrorCatalogo("La tabla descargada de SharePoint está vacía.")
-        temporal.replace(destino)
+        cambio = not destino.is_file() or destino.read_bytes() != contenido
+        if cambio:
+            temporal.replace(destino)
     except Exception as error:
         # Una respuesta de login, archivo corrupto o fallo de escritura no reemplaza el respaldo.
         for copia in dict.fromkeys([destino, *([Path(respaldo)] if respaldo else [])]):
@@ -129,5 +151,15 @@ def preparar_referencias(fuente: str | Path, config_icam: dict, avisar=print, *,
             temporal.unlink(missing_ok=True)
         except OSError:
             pass  # un temporal bloqueado no impide utilizar el respaldo válido
-    avisar(f"Referencias actualizadas desde SharePoint. Copia local: {destino}")
+    if respaldo and not str(respaldo).lower().startswith(("http://", "https://")):
+        local = Path(respaldo)
+        if local.suffix.lower() == extension and local != destino:
+            try:
+                if _guardar_si_cambio(local, contenido):
+                    avisar(f"Copia local principal actualizada desde SharePoint: {local}")
+            except OSError as error:
+                avisar(f"Aviso: no se pudo actualizar la copia local {local}: {error}. "
+                       f"Se usará la descarga verificada de SharePoint en {destino}.")
+    estado = "actualizadas" if cambio else "comprobadas, sin cambios"
+    avisar(f"Referencias {estado} desde SharePoint. Copia local: {destino}")
     return destino

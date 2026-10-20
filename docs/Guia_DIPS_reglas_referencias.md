@@ -74,7 +74,7 @@ Cada referencia tiene los siguientes campos:
 
 Para agregar o corregir una referencia, edite una fila con valores aprobados y conserve los encabezados. Use una descripción precisa. **TA y RIR incluyen valor y unidad**, por ejemplo `30 DAYS`, `100 FH` o `50 FC`.
 
-La auditoría intenta actualizar desde SharePoint. Si pide sesión, iníciela en Edge. Si falla, usa la última copia válida descargada o el archivo local inicial. **La terminal indica qué copia usó y su fecha.** Si ninguna es válida, se detiene.
+La auditoría consulta SharePoint en cada corrida real y actualiza el archivo local si el contenido validado cambió. Las referencias e ICAM usan pestañas de una misma ventana de Edge durante toda la corrida. Si pide sesión, iníciela allí. Si falla SharePoint, usa la última copia válida descargada o el archivo local principal. **La terminal indica qué copia usó y su fecha.** Si ninguna es válida, se detiene.
 
 ## YAML de discrepancias
 

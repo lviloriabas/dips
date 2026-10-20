@@ -282,7 +282,7 @@
   nombre: LIGHTNING STRIKE PHASE II
   referencias: ["LIGHTNING STRIKE PHASE II"]
   # La inspección de fase (AMM 05-51-19) después de un rayo. El daño encontrado en la
-  # estructura (con estación, piel, fuselaje...) es LIGHTING STRIKE FOUND (SRM 53-00-01).
+  # estructura (con estación, piel, fuselaje...) es LIGHTNING STRIKE FOUND (SRM 53-00-01).
   requiere: [[LIGHTNING]]
   # "LIGHTNING STRIKE NEW THRESHOLD INSP" es otra tarea: el umbral de una reparación SRM
   # ("THRESHOLD INSPECTION IN 50.000 FC"), con un DIP de 3 meses para Ingeniería.
@@ -511,8 +511,8 @@
 
 - id: MENSAJE_LONG_TIME
   nombre: LONG TIME MSG 78-11481
-  referencias: ["LONG TIME MSG 78-11481"]
-  requiere: [[LONG TIME, LONGTIME, 78 11481]]
+  referencias: ["LONG TIME MSG 78-11481", "LONG TIME MSG 78-11482"]
+  requiere: [[LONG TIME, LONGTIME, 78 11481, 78 11482]]
   # La tabla dice ENGINE, pero el reversor es del avión: un mensaje LONG TIME del reversor
   # (78-11482 THE L REVERSER SLEEVE POSITION SIGNAL IS OUT OF RANGE) va en AIRCRAFT.
   parent_assy_segun_texto:
@@ -616,8 +616,8 @@
   requiere: [[WING], [PERMANENT REPAIR]]
 
 - id: RAYO_DANO
-  nombre: LIGHTING STRIKE FOUND
-  referencias: ["LIGHTING STRIKE FOUND"]
+  nombre: LIGHTNING STRIKE FOUND
+  referencias: ["LIGHTNING STRIKE FOUND"]
   requiere: [[LIGHTNING STRIKE], [STA, STR, SKIN, FUSELAGE, SECTION, DAMAGE, SPOT, FASTENER,
                                   FASTENERS, STRUCTURE, EVIDENCE]]
   excluir: [PHASE, PHASE I, PHASE II, THRESHOLD]

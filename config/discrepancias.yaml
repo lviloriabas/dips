@@ -172,7 +172,7 @@ tipos:
       rir_intervalo_incorrecto:          POSIBLE DISCREPANCIA  # intervalo distinto del de la referencia
       rir_intervalo_menor:               OK # más seguido que la referencia (más conservador)
       rir_limite_faltante:               POSIBLE DISCREPANCIA  # el T/A tiene un límite que el RIR no tiene
-      rir_inicio_distinto:               POSIBLE DISCREPANCIA     # el RIR no empieza donde empieza el T/A
+      rir_inicio_distinto:               POSIBLE DISCREPANCIA  # RIR posterior al T/A en días/meses, o Start distinto en FH/FC; RIR anterior en calendario se acepta
       rir_parent_distinto:               POSIBLE DISCREPANCIA  # RIR en otro Parent Assembly (avión / motor)
       rir_segun_manual:                  REVISAR # el RIR depende del daño o de la medición ("7 DAYS OR 1 DAY, DEPENDING...")
       rir_descripcion_faltante:          POSIBLE DISCREPANCIA  # SIN FUENTE: la descripción pide inspección repetitiva y no hay RIR

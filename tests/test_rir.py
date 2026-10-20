@@ -154,6 +154,40 @@ def test_rir_con_start_distinto_del_ta():
     assert [c for c, _ in hallazgos] == ["rir_inicio_distinto"]
 
 
+@pytest.mark.parametrize("parametro", ["CDY", "CMON"])
+@pytest.mark.parametrize("inicio_rir, inicio_ta, discrepancia", [
+    ("18-AUG-2026 23:59 UTC", "21-AUG-2026 23:59 UTC", False),
+    ("30-SEP-2026 23:59 UTC", "02-OCT-2026 23:59 UTC", False),
+    ("30-DEC-2025 23:59 UTC", "02-JAN-2026 23:59 UTC", False),
+    ("18-AUG-2026 10:00 UTC", "18-AUG-2026 23:59 UTC", False),
+    ("21-AUG-2026 23:59 UTC", "18-AUG-2026 23:59 UTC", True),
+])
+def test_inicio_rir_calendario_puede_ser_anterior_al_ta(
+        parametro, inicio_rir, inicio_ta, discrepancia):
+    dip = {"estado": "ACTV", "icam_intervalos": [{"parameter": parametro, "start": inicio_ta}]}
+    hallazgos = revisar(_con_pagina([(1.0, parametro, inicio_rir)]), None, dip)
+    assert [c for c, _ in hallazgos] == (["rir_inicio_distinto"] if discrepancia else [])
+
+
+@pytest.mark.parametrize("parametro", ["HOURS", "CYCLES"])
+@pytest.mark.parametrize("inicio_rir, discrepancia", [
+    ("Aircraft 90", True), ("Aircraft 110", True), ("Aircraft 100.01", False),
+])
+def test_inicio_rir_por_uso_conserva_comparacion_con_ta(parametro, inicio_rir, discrepancia):
+    dip = {"estado": "ACTV", "icam_intervalos": [{"parameter": parametro, "start": "Aircraft 100"}]}
+    hallazgos = revisar(_con_pagina([(50.0, parametro, inicio_rir)]), None, dip)
+    assert [c for c, _ in hallazgos] == (["rir_inicio_distinto"] if discrepancia else [])
+
+
+def test_auditor_acepta_ta_que_empieza_dias_despues_del_rir(auditor, ctx):
+    dip = hacer_dip(nombre="DIP - PARKING BRAKE SYSTEM FNC FAIL HOLD CHECK",
+                    icam_intervalos=[{"parameter": "CDY", "start": "21-AUG-2026 23:59 UTC"}],
+                    rirs=_con_pagina([(1.0, "CDY", "18-AUG-2026 23:59 UTC")]))
+    r = ResultadoReglas()
+    auditor._rir(dip, auditor._asociar(dip), ctx, r)
+    assert r.hallazgos == []
+
+
 def test_rir_en_otro_parent_assembly():
     dip = {"estado": "ACTV", "parent_icam": "ENGINE 1 ESN 660819"}
     hallazgos = revisar(_con_pagina([(50.0, "CYCLES", "")], parent="Boeing 737-8V3 - HP-1837CMP"),

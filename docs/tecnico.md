@@ -70,12 +70,19 @@ En palabras:
 2. **ICAM.** Con `--icam`, `extractor_icam.extraer` lee todos los barcodes y guarda el texto en `data/icam.json`. Después `completar_con_icam` interpreta ese texto (`icam.leer_ficha`) y agrega columnas al `Lote`: referencia técnica, attachments, intervalos del T/A, RIR, acción correctiva, notas de la descripción. La descripción, la referencia técnica, los attachments y los RIR de ICAM reemplazan a los del Excel (son más actuales); el intervalo y la fecha de cierre del Excel se mantienen, e ICAM solo los llena si faltan.
 3. **Referencias.** Al crear el `Auditor` se cargan la tabla y el catálogo (`Catalogo`, una `EntradaCatalogo` por ítem con sus variantes de TA, RIR y Parent Assy) y el índice de números de tarea (`IndiceReferencias`), además de `discrepancias.yaml`. La tabla puede ser XLSX o PDF de texto con las nueve columnas de `References`. Un enlace privado de SharePoint se descarga con la sesión del perfil de Edge de ICAM antes de cargarlo.
 
-   En la consola, `referencias_sharepoint` es la fuente preferida. Se valida el archivo
-   temporal antes de reemplazar atómicamente `data/referencias_sharepoint_<hash>.<ext>`.
+   En cada corrida real que usa referencias se consulta `referencias_sharepoint`, aunque
+   ya exista una copia local. Se valida el temporal y se compara el contenido antes de
+   reemplazar atómicamente `data/referencias_sharepoint_<hash>.<ext>` y el archivo principal
+   de `referencias` (si tiene el mismo formato). Las copias idénticas no se reescriben.
+   Si el principal está bloqueado, se avisa y se usa la descarga validada de `data/`.
    Si falla el acceso, la descarga o la validación, se conserva la última copia válida;
    si no existe, se usa el archivo inicial de `referencias`. Siempre se avisa al usar el
    respaldo, indicando motivo, ruta y fecha. Sin copia válida se detiene la auditoría.
-   `abrir-icam` sincroniza las referencias y cierra Edge al terminar, incluso ante errores. El modo prueba y benchmark
+   `sesion_edge` conserva una misma ventana durante la descarga y la lectura de ICAM;
+   los extractores desconectan Playwright entre etapas sin cerrar Edge. Al terminar la
+   corrida se reconecta para cerrar Edge y guardar las sesiones; el cierre por perfil
+   cubre cualquier proceso restante. `abrir-icam` también sincroniza y cierra al terminar.
+   El modo prueba y benchmark
    trabajan con la tabla local; `--referencias` tiene prioridad sobre la fuente configurada.
 4. **Asociación.** Para cada DIP, `Auditor._asociar` decide qué entrada del catálogo es: por el Fault Name, y si no alcanza, por la referencia técnica o la descripción. Devuelve una `Asociacion` con la entrada (o ninguna) y el método usado.
 5. **Reglas de lote.** Duplicados, S/N repetidos y Parent Assembly distinto de sus pares se buscan entre todos los DIPs del archivo, porque comparan un DIP con otros.
@@ -365,7 +372,7 @@ Archivos: `dips_audit/reglas.py` y `dips_audit/auditor.py`. Se aplica a todo DIP
 | Referencia técnica | Ver abajo |
 | S/N | Si la tabla lo pide, debe estar en la descripción. Un S/N repetido en otro DIP abierto del mismo avión es señal de un duplicado: posible discrepancia. El S/N del Fault Name y la descripción debe ser el de las notas de la descripción en ICAM: se compara el número (P11101989 y 11101989 son el mismo S/N); si el número difiere (11101989 / 11101998) es posible discrepancia. Un S/N de más en uno de los dos textos no cuenta |
 | Attachments | En DIPs diferidos desde el 9-jul-2026, la falta de attachments es posible discrepancia. Los anteriores quedan exentos. Se cuentan en ICAM y, sin ICAM, en el Excel (`Attach Docs`) |
-| RIR | Si la tabla pide RIR, debe existir en Follow-on Tasks con el intervalo correcto, en el mismo Parent Assembly y con el mismo inicio que el T/A (ver abajo) |
+| RIR | Si la tabla pide RIR, debe existir en Follow-on Tasks con el intervalo correcto, en el mismo Parent Assembly y con inicio compatible con el T/A: en calendario puede empezar antes; en FH/FC debe coincidir salvo redondeo (ver abajo) |
 | Duplicados | Mismo avión, mismo ítem, misma posición (FWD/AFT, LH/RH, #1/#2; también la de la descripción: el squib LEFT y el RIGHT de la misma botella no son duplicados), S/N compatibles (del nombre y la descripción), los mismos mensajes de mantenimiento si los citan (SHORT TIME 75-20451 y 75-10451 son dos fallas) y abiertos a la vez según la fecha de cierre. En una referencia con varias etapas, otro intervalo es otra etapa y no un duplicado (re-torque a los 60 días y a los 12 meses; cable ajustado a 6 meses y nuevo a 4). Un DIP repetido es una posible discrepancia mientras los dos sigan abiertos; si uno ya se cerró a la hora de la auditoría, OK |
 | Duplicado o creado por error | El técnico lo dice en la acción correctiva ("ENTERED BY MISTAKE", "DUPLICATED DIP") o en el nombre, la descripción o las notas de la descripción, referido al DIP ("DIP DUPLICADO"; "MASK DEPLOYED BY MISTAKE" es la falla). El DIP no se audita: el único hallazgo y el comentario son "DIP creado por error." o "DIP duplicado (ver T40S...).". Cerrado, OK; si sigue abierto, posible discrepancia |
 
@@ -428,11 +435,11 @@ otro con TA; si no está en la tabla, el TA debe tener los límites de la descri
 | El intervalo de la RIR es distinto del de la tabla | Posible discrepancia |
 | El T/A tiene dos límites (p. ej. CYCLES y CDY) y la RIR solo uno | Posible discrepancia |
 | La RIR está en otro Parent Assembly (avión en vez de motor) | Posible discrepancia |
-| La RIR empieza en otra fecha que el T/A | Posible discrepancia |
+| La RIR calendario empieza después del T/A, o el Start en FH/FC difiere | Posible discrepancia |
 
 El intervalo de la RIR sale de su página en ICAM (Scheduling). Si no se pudo leer, se calcula como la diferencia entre la RIR vigente y la siguiente (594 -> 1394 CYCLES = 800 FC). Sin ICAM, se usa el RIR activo de las columnas `Rir …` del Excel. La columna `RIR EN ICAM` muestra cada RIR con su intervalo. Un `Rir Driver Usage Rem` menor que el negativo de un intervalo completo, o mayor que el intervalo más 10 % (mínimo 5 unidades), indica un valor inverosímil que debe revisarse en ICAM.
 
-La tabla pide RIR en freno de parqueo (1 día), DPI (100 FH), VCD seal (1 día), mensajes long time (200 FH), short time, EGT (50 FH) y sellante de ventanas (2 días). Un RIR **más seguido** que el de la tabla (cada 1 día cuando pide 2) es más conservador: OK. Un Start del RIR que difiere del T/A solo por redondeo (50890.3 y 50890.29) no se marca.
+La tabla pide RIR en freno de parqueo (1 día), DPI (100 FH), VCD seal (1 día), mensajes long time (200 FH), short time, EGT (50 FH) y sellante de ventanas (2 días). Un RIR **más seguido** que el de la tabla (cada 1 día cuando pide 2) es más conservador: OK. Se acepta que el T/A empiece días después del RIR, tanto en límites DAY como MONTH. Si el RIR calendario empieza después del T/A, se conserva la posible discrepancia. Un Start del RIR que difiere del T/A solo por redondeo (50890.3 y 50890.29) no se marca; las demás diferencias en FH/FC siguen revisándose.
 
 **Límite dual de la tabla.** Si la tabla pide "45 DAYS OR 225 FC" y se leyó ICAM, el T/A debe tener los dos límites (`limite_faltante`); sin ICAM queda para verificar.
 

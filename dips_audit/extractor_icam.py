@@ -38,6 +38,7 @@ import subprocess
 import time
 import urllib.request
 from collections.abc import Callable
+from contextlib import contextmanager
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from urllib.parse import urljoin, urlparse
@@ -267,6 +268,44 @@ def edge_abierto(perfil: Path | str) -> bool:
 # interrumpa (Ctrl+C, error). Si el proceso muere sin poder hacerlo, la siguiente corrida los
 # encuentra por el perfil y los cierra.
 _ABIERTOS: set[Path] = set()
+_COMPARTIDOS: set[Path] = set()
+
+
+@contextmanager
+def sesion_edge(config: dict):
+    """Comparte Edge entre las consultas de una corrida y lo cierra una sola vez al final."""
+    perfil = Path(config["perfil"]).resolve()
+    anidada = perfil in _COMPARTIDOS
+    _COMPARTIDOS.add(perfil)
+    try:
+        yield
+    finally:
+        if not anidada:
+            _COMPARTIDOS.discard(perfil)
+            if perfil in _ABIERTOS:
+                try:
+                    if edge_activo(int(config.get("puerto", 9222))):
+                        asyncio.run(_cerrar_sesion_compartida(config))
+                except Exception:
+                    pass  # el cierre por perfil de abajo también cubre conexiones perdidas
+                finally:
+                    if perfil in _ABIERTOS:
+                        cerrar_edge(perfil)
+                        _ABIERTOS.discard(perfil)
+
+
+async def _cerrar_sesion_compartida(config: dict) -> None:
+    # La ventana sigue abierta entre asyncio.run separados. Reconecta solo para pedirle
+    # que se cierre y guarde las sesiones, sin abrir otro proceso ni otra pestaña.
+    from playwright.async_api import async_playwright
+
+    extractor = ExtractorICAM(config)
+    try:
+        extractor._pw = await async_playwright().start()
+        extractor._navegador = await extractor._pw.chromium.connect_over_cdp(
+            f"http://127.0.0.1:{extractor.puerto}")
+    finally:
+        await extractor.__aexit__()
 
 
 @atexit.register
@@ -338,9 +377,10 @@ class ExtractorICAM:
         return self
 
     async def __aexit__(self, *exc) -> None:
-        """Terminada la lectura (o interrumpida), cierra el Edge de ICAM y todos los procesos
-        de su perfil, también los que haya dejado abiertos una corrida anterior."""
-        if self._navegador:
+        """Desconecta la lectura; una sesión compartida conserva la ventana hasta el final."""
+        perfil = Path(self.config["perfil"]).resolve()
+        compartida = perfil in _COMPARTIDOS
+        if self._navegador and not compartida:
             try:
                 sesion = await self._navegador.new_browser_cdp_session()
                 await sesion.send("Browser.close")
@@ -357,12 +397,12 @@ class ExtractorICAM:
                 pass
         # Se espera a que Edge se cierre solo (guarda la sesión de ICAM en el perfil); lo que
         # quede después se cierra a la fuerza.
-        perfil = Path(self.config["perfil"]).resolve()
-        limite = time.monotonic() + 10
-        while edge_abierto(perfil) and time.monotonic() < limite:
-            await asyncio.sleep(0.2)
-        cerrar_edge(perfil)
-        _ABIERTOS.discard(perfil)
+        if not compartida:
+            limite = time.monotonic() + 10
+            while edge_abierto(perfil) and time.monotonic() < limite:
+                await asyncio.sleep(0.2)
+            cerrar_edge(perfil)
+            _ABIERTOS.discard(perfil)
         self._pw = self._navegador = self._contexto = self._proceso = None
 
     def _en_icam(self, url: str) -> bool:

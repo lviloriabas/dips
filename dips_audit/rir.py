@@ -9,7 +9,8 @@ Reglas (criterios de los auditores en el histórico):
   - La referencia pide RIR y el DIP no tiene: rir_faltante.
   - Intervalo del RIR distinto del de la referencia: rir_intervalo_incorrecto.
   - El T/A tiene límites que el RIR no tiene (p. ej. CYCLES y CDY): rir_limite_faltante.
-  - El RIR no empieza donde empieza el T/A: rir_inicio_distinto.
+  - El RIR calendario empieza después del T/A, o su Start por uso difiere: rir_inicio_distinto.
+    Se acepta que el T/A empiece días después del RIR.
   - RIR asignado a otro Parent Assembly (avión en vez de motor): rir_parent_distinto.
 """
 
@@ -167,6 +168,19 @@ def _mismo_inicio(a: str, b: str) -> bool:
     return len(na) == len(nb) and all(abs(float(x) - float(y)) <= 0.05 for x, y in zip(na, nb))
 
 
+def _inicio_rir_compatible(limite: Limite, inicio_ta: str) -> bool:
+    """El RIR calendario puede empezar antes del T/A; por uso se tolera solo redondeo."""
+    if _mismo_inicio(limite.inicio, inicio_ta):
+        return True
+    if limite.unidad not in {"DAY", "MONTH"}:
+        return False
+    try:
+        fecha_rir, fecha_ta = _fecha(limite.inicio), _fecha(inicio_ta)
+    except ValueError:
+        return False
+    return fecha_rir is not None and fecha_ta is not None and fecha_rir < fecha_ta
+
+
 def revisar(rirs: list[RIR], exigido: Limite | None, dip: dict) -> list[tuple[str, str]]:
     """(código, mensaje) de cada problema de RIR del DIP.
 
@@ -203,7 +217,7 @@ def revisar(rirs: list[RIR], exigido: Limite | None, dip: dict) -> list[tuple[st
         historicos = [e for e in rir.estados if e.upper() == "COMPLETE"]
         for l in rir.limites:
             inicio_ta = next((s for u, s in ta if u == l.unidad), "")
-            if not historicos and l.inicio and inicio_ta and not _mismo_inicio(l.inicio, inicio_ta):
+            if not historicos and l.inicio and inicio_ta and not _inicio_rir_compatible(l, inicio_ta):
                 hallazgos.append(("rir_inicio_distinto",
                                   f"RIR {rir.ids[0]} con Start {l.inicio}; el T/A "
                                   f"empieza en {inicio_ta}. Verificar."))

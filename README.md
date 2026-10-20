@@ -59,13 +59,17 @@ comparar.bat "DIPs Audit (23SEP2026).xlsx" -i -e RIR
 | `-p`, `--prueba` | Forzar modo prueba |
 | `-o`, `--salida RUTA` | Excel de resultado (solo `auditar`) |
 
-SharePoint es la fuente preferida configurada en `referencias_sharepoint`. El programa
-abre el mismo perfil de Edge que usa ICAM; si Microsoft pide iniciar sesión, la persona
-lo hace en esa ventana. `abrir-icam` abre también las referencias y actualiza la copia
-local. Al terminar, incluso si la actualización falla, se cierran las ventanas y los
-procesos de Edge del programa. La sesión queda guardada en `.icam_perfil/`.
+El programa consulta `referencias_sharepoint` en cada corrida real que usa referencias,
+incluso si ya hay una copia local. Las referencias e ICAM se abren en pestañas de una
+misma ventana de Edge, que se conserva durante toda la corrida; si Microsoft pide iniciar
+sesión, la persona lo hace allí. `abrir-icam` también sincroniza las referencias. Al
+terminar, incluso ante errores, se cierra Edge del programa. Las sesiones quedan guardadas
+en `.icam_perfil/`.
 
-Cada descarga se valida antes de sustituir la última copia válida guardada en `data/`.
+Cada descarga se valida y se compara con las copias locales. Solo si cambió se sustituye
+la copia de `data/` y se actualiza `DIPs References.xlsx` (o la ruta de `referencias`, si
+tiene el mismo formato). Si el archivo principal está bloqueado, se avisa y se usa la
+descarga validada de `data/`.
 Si SharePoint no está disponible, se usa esa copia; si aún no existe, se usa
 `DIPs References.xlsx`. La consola avisa del fallo, de la copia utilizada y de su fecha.
 Si ninguna copia es válida, la auditoría se detiene con un mensaje. `--referencias`

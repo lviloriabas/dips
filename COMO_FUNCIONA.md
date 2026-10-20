@@ -162,7 +162,7 @@ Solo ocurre con `--icam`. El código está en `dips_audit/extractor_icam.py`, qu
 
 Se leen todos los barcodes de la hoja, de cualquier tipo de DIP (`--tipos-dip` no limita la lectura). Un DIP leído en los últimos 60 minutos no se vuelve a leer, salvo con `--no-cache`.
 
-Para ICAM se usa un Edge aparte, con su propio perfil en `.icam_perfil/` y el puerto local 9222, por donde el programa lo maneja con Playwright. Convive con el Edge de uso diario, y si ya estaba abierto lo reutiliza. La sesión queda guardada en el perfil: mientras siga vigente, no hay que volver a iniciarla.
+Para ICAM y las referencias de SharePoint se usa una misma ventana de Edge durante toda la corrida, con pestañas separadas, su propio perfil en `.icam_perfil/` y el puerto local 9222, por donde el programa la maneja con Playwright. Convive con el Edge de uso diario, y si ya estaba abierta la reutiliza. Las sesiones quedan guardadas en el perfil: mientras sigan vigentes, no hay que volver a iniciarlas.
 
 El programa nunca escribe usuario ni contraseña. Si aparece la página de inicio de sesión, avisa "Inicie sesión en la ventana de Edge..." y espera hasta 3 minutos, revisando cada medio segundo; sigue apenas aparece el campo Barcode Search. Se detiene si la página muestra un error de usuario o clave, si se cierra la ventana o si en 30 segundos no cargó nada ("ICAM no cargó").
 
@@ -184,7 +184,7 @@ Leer 380 DIPs tarda unos 5 minutos: no se dibujan las páginas ni se descargan i
 
 Primero se fija la fecha de auditoría: la de `--fecha` o la hora actual, al minuto. Todas las reglas que dependen del momento, como DIP vencido, usan esa fecha.
 
-De `DIPs References.xlsx` se lee solo la hoja `References`. La primera fila tiene que tener TYPE, AREA, ATA, FLEET, DESCRIPTION, PARENT ASSY, REFERENCES, TA y RIR, y las filas sin DESCRIPTION se saltan. Hoy son 92 filas: 60 Others, 20 Powerplant y 12 Structures.
+De `DIPs References.xlsx` se lee solo la hoja `References`. La primera fila tiene que tener TYPE, AREA, ATA, FLEET, DESCRIPTION, PARENT ASSY, REFERENCES, TA y RIR, y las filas sin DESCRIPTION se saltan. En cada corrida real se consulta la versión online y se actualiza el archivo local si cambió, después de validar la descarga. Si SharePoint no está disponible, se usa la última copia válida y se avisa.
 
 Cada entrada del catálogo se une a sus filas de la tabla por el texto exacto de DESCRIPTION. Si ese texto no existe en la tabla, o si dos entradas tienen el mismo `id`, el programa se detiene y lo dice. Las filas que ninguna entrada usa reciben una entrada automática `FILA_<n>`, así que una fila nueva en la tabla ya sirve aunque nadie le haya escrito su entrada en el catálogo.
 
@@ -699,7 +699,7 @@ PD significa POSIBLE DISCREPANCIA. La severidad es la que tiene hoy `config/disc
 | `rir_intervalo_incorrecto` | RIR | RIR con otro intervalo | PD |
 | `rir_intervalo_menor` | RIR | RIR más seguida que la tabla | OK |
 | `rir_limite_faltante` | RIR | El TA tiene un límite que la RIR no tiene | PD |
-| `rir_inicio_distinto` | RIR | La RIR no empieza donde empieza el TA | PD |
+| `rir_inicio_distinto` | RIR | La RIR calendario empieza después del TA, o su Start en FH/FC difiere; se acepta que el TA empiece días después del RIR | PD |
 | `rir_parent_distinto` | RIR | RIR en otro Parent Assembly | PD |
 | `rir_segun_manual` | RIR | La tabla da el RIR según el daño | REVISAR |
 | `rir_descripcion_faltante` | RIR | SIN FUENTE EN DIPS REFERENCES: la descripción pide inspección repetitiva y no hay RIR | PD |

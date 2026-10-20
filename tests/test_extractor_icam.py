@@ -24,7 +24,7 @@ pytest.importorskip("playwright")
 from dips_audit.extractor_icam import (  # noqa: E402
     ErrorExtraccion, ErrorSesion, _usa_perfil, cerrar_edge, extraer, leer_registro, procesos_edge,
     ruta_edge)
-from dips_audit.extractor_icam import ExtractorICAM, edge_activo
+from dips_audit.extractor_icam import ExtractorICAM, edge_activo, sesion_edge
 from dips_audit.icam import PESTANAS, leer_ficha  # noqa: E402
 
 TEXTOS = {
@@ -92,6 +92,7 @@ class _ICAMSimulado(http.server.BaseHTTPRequestHandler):
     sin_sesion = False
     login_con_error = False   # la página de inicio de sesión muestra un error (clave errada)
     squib = False
+    referencias = b""
 
     def log_message(self, *args):
         pass
@@ -114,7 +115,14 @@ class _ICAMSimulado(http.server.BaseHTTPRequestHandler):
         if self._al_login():
             return
         url = urlparse(self.path)
-        if url.path == "/login" and _ICAMSimulado.login_con_error:
+        if "download" in parse_qs(url.query):
+            self.send_response(200)
+            self.send_header("Content-Type", "application/octet-stream")
+            self.end_headers()
+            self.wfile.write(self.referencias)
+        elif url.path == "/references":
+            self._responder(200, "<title>Referencias compartidas</title>")
+        elif url.path == "/login" and _ICAMSimulado.login_con_error:
             self._responder(200, "<title>Login</title><input name='usuario'>"
                                  "<span id='input-error'>Invalid username or password.</span>")
         elif url.path == "/login":
@@ -203,6 +211,7 @@ def icam(tmp_path):
     _ICAMSimulado.envios, _ICAMSimulado.fallar_una_vez = [], set()
     _ICAMSimulado.sin_sesion = _ICAMSimulado.login_con_error = False
     _ICAMSimulado.squib = False
+    _ICAMSimulado.referencias = b""
     servidor = http.server.ThreadingHTTPServer(("127.0.0.1", 0), _ICAMSimulado)
     threading.Thread(target=servidor.serve_forever, daemon=True).start()
     config = {"url": f"http://127.0.0.1:{servidor.server_address[1]}/maintenix/common/ToDoList.jsp",
@@ -303,6 +312,60 @@ def test_referencias_no_disponibles_tambien_cierran_edge(icam):
 
     with pytest.raises(ErrorCatalogo, match="No se pudo descargar"):
         asyncio.run(_descargar(icam["url"], {**icam, "espera_sesion_minutos": 0}, lambda _: None))
+    assert not edge_activo(icam["puerto"])
+    assert procesos_edge(icam["perfil"]) == []
+
+
+@pytest.mark.parametrize("fallo", [False, True])
+def test_referencias_e_icam_comparten_edge_hasta_el_final(monkeypatch, icam, tmp_path, fallo):
+    from dips_audit import extractor_icam
+    from dips_audit.fuente_referencias import preparar_referencias
+    from tests.test_fuente_referencias import _xlsx
+
+    icam["oculto"] = False  # comprueba ventanas reales; el modo headless no las expone
+    _ICAMSimulado.referencias = _xlsx()
+    fuente = icam["url"].replace("127.0.0.1", "localhost").replace(
+        "/maintenix/common/ToDoList.jsp", "/references?file=ref.xlsx")
+    monkeypatch.setattr("dips_audit.fuente_referencias.es_sharepoint",
+                        lambda url: str(url).startswith(fuente.split("?")[0]))
+    abrir = extractor_icam.abrir_edge
+    procesos = []
+    def registrar(config):
+        proceso = abrir(config)
+        if proceso is not None:
+            procesos.append(proceso.pid)
+        return proceso
+    monkeypatch.setattr(extractor_icam, "abrir_edge", registrar)
+    verificar = ExtractorICAM.verificar_sesion
+    async def verificar_misma_ventana(navegador):
+        await verificar(navegador)
+        sesion = await navegador._navegador.new_browser_cdp_session()
+        paginas = (await sesion.send("Target.getTargets"))["targetInfos"]
+        paginas = [p for p in paginas if p["type"] == "page" and p["url"].startswith(
+            (fuente.split("?")[0], icam["url"]))]
+        assert len(paginas) >= 2, paginas
+        ventanas = {(await sesion.send("Browser.getWindowForTarget", {"targetId": p["targetId"]}))[
+            "windowId"] for p in paginas}
+        assert len(ventanas) == 1, paginas
+    monkeypatch.setattr(ExtractorICAM, "verificar_sesion", verificar_misma_ventana)
+    def corrida():
+        with sesion_edge(icam):
+            local = tmp_path / "referencias.xlsx"
+            ruta = preparar_referencias(fuente, {**icam, "archivo": tmp_path / "icam.json"},
+                                       respaldo=local)
+            assert ruta.read_bytes() == local.read_bytes() == _ICAMSimulado.referencias
+            assert edge_activo(icam["puerto"])
+            assert _extraer(["T40S009T000"], icam, tmp_path / "icam.json") == {
+                "T40S009T000": "leido"}
+            assert edge_activo(icam["puerto"])
+            if fallo:
+                raise RuntimeError("Error después de leer ICAM")
+    if fallo:
+        with pytest.raises(RuntimeError, match="Error después de leer ICAM"):
+            corrida()
+    else:
+        corrida()
+    assert len(procesos) == 1
     assert not edge_activo(icam["puerto"])
     assert procesos_edge(icam["perfil"]) == []
 
