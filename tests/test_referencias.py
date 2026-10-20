@@ -40,11 +40,86 @@ def test_catalogo_intervalos_condicionales_definidos(catalogo):
     assert Limite(3, "DAY") in [l for v in oxigeno.variantes for l in v.limites]
 
 
-def test_catalogo_referencia_inexistente_falla(tmp_path, catalogo):
+def test_catalogo_omite_referencia_eliminada_sin_detenerse(tmp_path, catalogo):
     ruta = tmp_path / "cat.yaml"
     ruta.write_text("- id: X\n  referencias: ['NO EXISTE']\n  requiere: [[X]]\n", encoding="utf-8")
-    with pytest.raises(ErrorCatalogo, match="no existe"):
-        cargar_catalogo(ruta, catalogo.referencias)
+    cat = cargar_catalogo(ruta, catalogo.referencias)
+    assert cat.por_id("X") is None
+    assert len(cat.referencias) == len(catalogo.referencias)
+    assert any("retirada o renombrada" in a and "NO EXISTE" in a for a in cat.advertencias)
+
+
+def test_catalogo_conserva_solo_referencias_vigentes_del_grupo(tmp_path, catalogo):
+    from dips_audit.asociacion import asociar
+
+    ruta = tmp_path / "cat.yaml"
+    ruta.write_text("- id: FDR\n  referencias: ['FDR REPORT', 'ELIMINADA']\n"
+                    "  requiere: [[FDR]]\n", encoding="utf-8")
+    cat = cargar_catalogo(ruta, catalogo.referencias)
+    entrada = asociar("FDR REPORT", cat).entrada
+    assert entrada.id == "FDR"
+    assert [r.descripcion for r in entrada.referencias] == ["FDR REPORT"]
+    assert [v.limites for v in entrada.variantes] == [[Limite(30, "DAY")]]
+
+
+def test_eliminar_fila_con_intervalos_no_resucita_su_regla(tmp_path, catalogo):
+    from dips_audit.asociacion import asociar
+
+    ruta = tmp_path / "cat.yaml"
+    ruta.write_text("- id: FDR\n  referencias: ['FDR REPORT']\n  requiere: [[FDR]]\n"
+                    "  intervalos:\n    - variante: 30 DAYS\n"
+                    "      limites: [{valor: 30, unidad: DAY}]\n", encoding="utf-8")
+    filas = [f for f in catalogo.referencias if f.descripcion != "FDR REPORT"]
+    cat = cargar_catalogo(ruta, filas)
+    assert cat.por_id("FDR") is None
+    assert asociar("FDR REPORT", cat).entrada is None
+
+
+def test_renombrar_fila_la_incorpora_con_nombre_y_datos_actuales(tmp_path, catalogo):
+    from dataclasses import replace
+    from dips_audit.asociacion import asociar
+    from dips_audit.referencia_tecnica import IndiceReferencias
+
+    ruta = tmp_path / "cat.yaml"
+    ruta.write_text("- id: FDR\n  referencias: ['FDR REPORT']\n  requiere: [[FDR]]\n",
+                    encoding="utf-8")
+    original = next(f for f in catalogo.referencias if f.descripcion == "FDR REPORT")
+    nueva = replace(original, descripcion="RECORDER DATA DOWNLOAD", ta="45 DAYS",
+                    referencias="AMM TASK 31-31-00-000-802", rir="3 DAYS")
+    cat = cargar_catalogo(ruta, [nueva])
+    entrada = asociar("DIP RECORDER DATA DOWNLOAD", cat).entrada
+    assert cat.por_id("FDR") is None
+    assert entrada.automatica and entrada.nombre == nueva.descripcion
+    assert entrada.variantes[0].limites == [Limite(45, "DAY")]
+    assert entrada.variantes[0].rir == "3 DAYS"
+    assert "31-31-00-000-802" in next(iter(IndiceReferencias.desde_catalogo(cat).entradas))
+
+
+@pytest.mark.parametrize("ta", ["45 DAYS", "UNTIL DUE DATE", "10 DAYS IF DAMAGE IS MINOR"])
+def test_ta_online_modificado_invalida_intervalos_locales(catalogo, config, ta):
+    from dataclasses import replace
+
+    filas = [replace(f, ta=ta) if f.descripcion == "FDR REPORT" else f
+             for f in catalogo.referencias]
+    entrada = cargar_catalogo(config["catalogo"], filas).por_id("FDR")
+    assert all(Limite(30, "DAY") not in v.limites for v in entrada.variantes)
+    if ta == "45 DAYS":
+        assert entrada.variantes[0].limites == [Limite(45, "DAY")]
+    elif ta == "UNTIL DUE DATE":
+        assert entrada.hasta_vencimiento and not entrada.variantes
+    else:
+        assert entrada.no_verificable and not entrada.variantes
+
+
+@pytest.mark.parametrize("rir", ["3 DAYS", ""])
+def test_rir_online_modificado_no_conserva_valor_local(catalogo, config, rir):
+    from dataclasses import replace
+
+    filas = [replace(f, rir=rir) if f.descripcion == "SEALANT" else f
+             for f in catalogo.referencias]
+    entrada = cargar_catalogo(config["catalogo"], filas).por_id("SELLANTE_VENTANAS")
+    assert entrada.variantes[0].rir == rir
+    assert entrada.variantes[0].inicio == Limite(3, "DAY")
 
 
 def test_catalogo_id_repetido_falla(tmp_path, catalogo):

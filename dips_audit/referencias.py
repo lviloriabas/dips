@@ -336,23 +336,35 @@ def cargar_catalogo(ruta_catalogo: Path, referencias: list[FilaReferencia],
         for desc in d["referencias"]:
             fila = por_descripcion.get(normalizar(desc))
             if fila is None:
-                raise ErrorCatalogo(
-                    f"[{d['id']}] La referencia '{desc}' no existe en DIPs References.xlsx")
+                advertencias.append(
+                    f"[{d['id']}] Referencia retirada o renombrada en la tabla vigente: "
+                    f"'{desc}'. Se omite esa referencia del catálogo local.")
+                continue
             filas.append(fila)
+        if not filas:
+            continue  # no conservar reglas ni intervalos de ítems que ya no están en la tabla
 
         variantes: list[Variante] = []
         hasta_vencimiento = no_verificable = False
-        # Con 'intervalos' en el catálogo, el TA condicional ya está resuelto.
-        ta_manual = "" if d.get("intervalos") else "; ".join(
+        # Las variantes locales solo interpretan la versión de TA para la que se definieron.
+        # Si cambia online, manda la tabla; una condición nueva queda para revisión manual.
+        usar_intervalos = bool(d.get("intervalos"))
+        if usar_intervalos and d.get("ta_base") is not None and any(
+                _texto(f.ta).casefold() != _texto(d["ta_base"]).casefold() for f in filas):
+            usar_intervalos = False
+            advertencias.append(
+                f"[{d['id']}] El TA cambió en la tabla vigente. Se usa el nuevo TA "
+                "y se omiten las variantes locales anteriores.")
+        ta_manual = "" if usar_intervalos else "; ".join(
             f.ta for f in filas if remite_al_manual(f.ta))
         rir_manual = "; ".join(f.rir for f in filas if remite_al_manual(f.rir))
-        if d.get("intervalos"):
+        if usar_intervalos:
             for v in d["intervalos"]:
                 variantes.append(Variante(
                     nombre=v["variante"],
                     limites=[Limite(float(l["valor"]), l["unidad"]) for l in v["limites"]],
                     flotas=v.get("flotas"),
-                    rir=v.get("rir", ""),
+                    rir=interpretar_rir(filas[0].rir),
                     referencia=filas[0],
                     inicio=(Limite(float(v["inicio"]["valor"]), v["inicio"]["unidad"])
                             if v.get("inicio") else None),

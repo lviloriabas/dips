@@ -186,7 +186,7 @@ Primero se fija la fecha de auditoría: la de `--fecha` o la hora actual, al min
 
 De `DIPs References.xlsx` se lee solo la hoja `References`. La primera fila tiene que tener TYPE, AREA, ATA, FLEET, DESCRIPTION, PARENT ASSY, REFERENCES, TA y RIR, y las filas sin DESCRIPTION se saltan. En cada corrida real se consulta la versión online y se actualiza el archivo local si cambió, después de validar la descarga. Si SharePoint no está disponible, se usa la última copia válida y se avisa.
 
-Cada entrada del catálogo se une a sus filas de la tabla por el texto exacto de DESCRIPTION. Si ese texto no existe en la tabla, o si dos entradas tienen el mismo `id`, el programa se detiene y lo dice. Las filas que ninguna entrada usa reciben una entrada automática `FILA_<n>`, así que una fila nueva en la tabla ya sirve aunque nadie le haya escrito su entrada en el catálogo.
+Cada entrada del catálogo se une a las filas vigentes de la tabla por DESCRIPTION. Si una fila se elimina o se renombra online, se omite su enlace antiguo y la auditoría continúa. Las filas nuevas o renombradas reciben una entrada automática `FILA_<n>` si el catálogo no las reconoce, sin necesidad de editarlo. Los ID repetidos en el propio catálogo siguen siendo un error de configuración. Las variantes locales de TA tienen un `ta_base`: si el texto online cambia, manda el nuevo TA de la tabla. Si la condición nueva no se puede interpretar, queda para revisión manual. El RIR también se toma de la tabla vigente.
 
 El TA de cada fila se interpreta así:
 

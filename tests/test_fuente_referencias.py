@@ -139,6 +139,26 @@ def test_cambio_online_actualiza_ambas_copias(monkeypatch, tmp_path):
     assert ruta.read_bytes() == respaldo.read_bytes() == contenido
 
 
+def test_cambios_online_recargan_auditor_sin_editar_catalogo(monkeypatch, tmp_path, config):
+    from dips_audit.auditor import Auditor
+
+    contenido = _xlsx()
+    async def descargar(*args):
+        return contenido
+    monkeypatch.setattr("dips_audit.fuente_referencias._descargar", descargar)
+    respaldo = tmp_path / "referencias.xlsx"
+    for nombre in ("FDR REPORT", "RECORDER DATA DOWNLOAD", "NEW SENSOR CHECK"):
+        contenido = _xlsx(nombre)
+        ruta = preparar_referencias(ENLACE, {"archivo": tmp_path / "data" / "icam.json"},
+                                   respaldo=respaldo)
+        auditor = Auditor({**config, "referencias": ruta})
+        entrada = auditor._asociar({"nombre": nombre}).entrada
+        assert entrada is not None
+        assert [f.descripcion for f in entrada.referencias] == [nombre]
+        assert (auditor.catalogo.por_id("FDR") is not None) == (nombre == "FDR REPORT")
+        assert ruta.read_bytes() == respaldo.read_bytes() == contenido
+
+
 def test_copia_principal_bloqueada_no_impide_usar_online(monkeypatch, tmp_path):
     respaldo = tmp_path / "referencias.xlsx"
     inicial = _xlsx()

@@ -6,6 +6,8 @@
 #   requiere:   lista de grupos; el Fault Name debe contener AL MENOS UNA frase
 #               de CADA grupo. Mientras más grupos, más específica la entrada.
 #   excluir:    si el Fault Name contiene alguna de estas frases, no aplica.
+#   ta_base:    TA de la tabla para el que se interpretaron los intervalos locales.
+#               Si cambia online, se usa el TA nuevo y se ignoran esas variantes.
 #   intervalos: (opcional) reemplaza el TA de la tabla cuando el texto de la
 #               tabla es condicional (por flota, por presión, etc.).
 #               Unidades: DAY, FH, FC, MONTH. El texto de "variante" y "nombre"
@@ -29,6 +31,7 @@
 # FIRT -> FIRST, OXIGEN -> OXYGEN, CERTIFICADO -> CERTIFICATE).
 
 - id: OXIGENO_TRIPULACION
+  ta_base: "1 FC IF PRESSURE IS BETWEEN 50-100 PSI ABOVE THE MINIMUM DISPATCH PRESSURE. 1 DAY IF PRESSURE IS BETWEEN 100-200 PSI, ABOVE THE MINIMUM DISPATCH PRESSURE. 3 DAY IF PRESSURE IS GREATER THAN 200 PSI, ABOVE THE MINIMUM DISPATCH PRESSURE."
   nombre: CREW OXYGEN BOTTLE PRESSURE
   referencias: ["CREW OXYGEN BOTTLE PRESSURE"]
   requiere: [[OXYGEN], [CREW, FLIGHT COMPARTMENT, FLIGHT DECK, COCKPIT]]
@@ -93,6 +96,7 @@
   requiere_sn: true
 
 - id: FDR
+  ta_base: "30 DAYS"
   nombre: FDR REPORT
   referencias: ["FDR REPORT"]
   requiere: [[FDR, FLIGHT DATA RECORDER]]
@@ -139,6 +143,7 @@
   requiere: [[MICROBIAL, MICROBMONITOR]]
 
 - id: FILTRO_COMBUSTIBLE_MOTOR
+  ta_base: "75 FH"
   nombre: ENGINE FUEL FILTER
   referencias: ["ENGINE FUEL FILTER"]
   requiere: [[FUEL FILTER]]
@@ -180,6 +185,7 @@
   requiere: [[DIFFERENTIAL PRESSURE INDICATOR, DPI]]
 
 - id: AMORTIGUADOR_NLG
+  ta_base: "NG: 20 FC (AFTER 5 LANDINGS, NOT LATER THAN 20 LANDINGS) MAX: 10 FC (FIVE TO TEN IN-SERVICE LANDINGS AFTER A COMPLETE OIL AND NITROGEN SERVICING)"
   nombre: NOSE LANDING GEAR SHOCK STRUT
   referencias: ["NOSE LANDING GEAR SHOCK STRUT"]
   requiere: [[NLG, NOSE LANDING GEAR, NOSE GEAR], [STRUT, X DIMENSION]]
@@ -196,12 +202,14 @@
       inicio: {valor: 5, unidad: FC}
 
 - id: AMORTIGUADOR_MLG
+  ta_base: "NG: 20 FC (AFTER 5 LANDINGS, NOT LATER THAN 20 LANDINGS) MAX: 10 FC (FIVE TO TEN IN-SERVICE LANDINGS AFTER A COMPLETE OIL AND NITROGEN SERVICING)"
   nombre: MAIN LANDING GEAR SHOCK STRUT
   referencias: ["MAIN LANDING GEAR SHOCK STRUT"]
   requiere: [[MLG, MAIN LANDING GEAR, MAIN GEAR], [STRUT, X DIMENSION]]
   intervalos: *intervalos_amortiguador
 
 - id: AMORTIGUADOR_GENERICO
+  ta_base: "NG: 20 FC (AFTER 5 LANDINGS, NOT LATER THAN 20 LANDINGS) MAX: 10 FC (FIVE TO TEN IN-SERVICE LANDINGS AFTER A COMPLETE OIL AND NITROGEN SERVICING)"
   nombre: SHOCK STRUT (NOSE OR MAIN LANDING GEAR)
   referencias: ["MAIN LANDING GEAR SHOCK STRUT", "NOSE LANDING GEAR SHOCK STRUT"]
   requiere: [[SHOCK STRUT]]
@@ -209,6 +217,7 @@
   intervalos: *intervalos_amortiguador
 
 - id: DESGASTE_FRENOS
+  ta_base: "737NG-700: AFTER 27 FC, BEFORE 37 FC. 737NG-800: AFTER 12 FC, BEFORE 20 FC, IF OVERNIGHT CHECK AT LESS THAN 1/32\": 5 FC. B737MAX-9/8: AFTER 34 FC, BEFORE 42 FC."
   nombre: CARBON BREAK WEAR PIN LENGTH UNDER 1/16"
   referencias: ["CARBON BREAK WEAR PIN LENGTH UNDER 1/16\""]
   requiere: [[BRAKE]]
@@ -381,6 +390,7 @@
   inventario: true
 
 - id: PROXIMIDAD_FLAP_SLAT
+  ta_base: "500 FH"
   nombre: LE FLAP AND SLAT PROXIMITY SENSOR OUT OF RANGE
   referencias: ["LE FLAP AND SLAT PROXIMITY SENSOR OUT OF RANGE"]
   requiere: [[PROXIMITY SENSOR, PROXIMITY SENSORS, PROX SENSOR], [FLAP, FLAPS, SLAT, SLATS]]
@@ -398,6 +408,7 @@
 # Puertas de acceso de tanques con empaque COR-BAN 27L: 1er re-torque a los 60 días y 2do
 # a los 12 meses. La puerta del tanque central por la AMM 47-21-04 es el mismo re-torque.
 - id: RETORQUE_PUERTA_TANQUE
+  ta_base: "60 DAYS (1ST RE-TORQUE); APPROX. 12 MONTHS (2ND RE-TORQUE, IF COR-BAN 27L WAS APPLIED)"
   nombre: FUEL TANK ACCESS DOOR MOUNTING BOLTS RE-TORQUE
   referencias: ["FUEL TANK ACCESS DOOR MOUNTING BOLTS RE-TORQUE (COR-BAN 27L GASKET)"]
   requiere: [[ACCESS DOOR, ACCESS DOORS, ACCESS PANEL, ACCESS PANELS, DOOR PANELS],
@@ -412,6 +423,7 @@
 # Muestra nueva o nuevo resultado tras un positivo de MICROBIAL GROWTH. "SAMPLE" solo no
 # alcanza: el DIP de 4 días del Microbmonitor también dice "MICROBIAL SAMPLE".
 - id: MICROBIAL_MUESTRA_NUEVA
+  ta_base: "10 DAYS (NEW SAMPLE AFTER RECEIPT OF RESULTS); 4 DAYS (RETEST RESULTS)"
   nombre: FUEL MICROBIAL CONTAMINATION - NEW FUEL SAMPLE / RETEST RESULTS
   referencias: ["FUEL MICROBIAL CONTAMINATION - NEW FUEL SAMPLE / RETEST RESULTS"]
   requiere: [[NEW FUEL SAMPLE, NEW SAMPLE, RETEST, RE TEST, SAMPLE TEST RESULT]]
@@ -423,6 +435,7 @@
 
 # La tabla dice NG; los DIPs MAX citan la misma AMM 12-15-51-780-801 (se aceptan todas las flotas).
 - id: LLANTA_PRESION
+  ta_base: "1 DAY (24 HOURS)"
   nombre: TIRE PRESSURE RECHECK IN 24 HOURS
   referencias: ["TIRE PRESSURE RECHECK IN 24 HOURS (LOW PRESSURE / RE-INFLATE RANGE)"]
   requiere: [[TIRE, TIRES], [PRESSURE, PSI, REINFLATE, RE INFLATE, REINFLATION]]
@@ -478,6 +491,7 @@
   requiere: [[FUEL NOZZLE, FUEL NOZZLES]]
 
 - id: VIBRACION_MOTOR
+  ta_base: "2.0-2.9 VIBRATION UNITS: 7 DAYS; 3.0-3.4: 5 FC"
   nombre: ENGINE VIBRATION
   referencias: ["ENGINE VIBRATION"]
   requiere: [[VIBRATION], [ENG, ENGINE, E1, E2]]
@@ -563,6 +577,7 @@
 # Las dos filas (SEALANT y FOIL TAPE REMOVAL) son el mismo procedimiento: los DIPs citan la
 # AMM 56-11-00-300-801 de una y la ECRA 5600-0028C de la otra.
 - id: SELLANTE_VENTANAS
+  ta_base: "7 DAYS"
   nombre: SEALANT (WINDOWS)
   referencias:
     - "SEALANT"
@@ -575,7 +590,6 @@
       limites: [{valor: 7, unidad: DAY}]
       inicio: {valor: 3, unidad: DAY}
       inicio_opcional: true
-      rir: "2 DAYS"
 
 - id: SELLANTE_PITOT
   nombre: PITOT PROBE SEALANT
