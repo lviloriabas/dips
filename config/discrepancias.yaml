@@ -6,11 +6,12 @@
 # Para desactivar un tipo completo: agregue activo: false antes de reglas:.
 # Valores disponibles cuando la regla falla:
 #     POSIBLE DISCREPANCIA          -> se detectó una posible discrepancia
+#     EXTENSIÓN                    : extensión del T/A pendiente de revisión y soporte
 #     REVISAR                      -> la tabla remite al manual para definir el TA o el RIR
 #     SIN FUENTE EN DIPS REFERENCES -> el DIP no tiene referencia en la tabla
 #     OK                           -> caso aceptado; no desplaza resultados de mayor prioridad
 #
-# Resultados: POSIBLE DISCREPANCIA, CORREGIDO EN CIERRE, REVISAR,
+# Resultados: POSIBLE DISCREPANCIA, CORREGIDO EN CIERRE, EXTENSIÓN, REVISAR,
 # SIN FUENTE EN DIPS REFERENCES y OK (FUERA DE ALCANCE para los tipos no auditados).
 # CORREGIDO EN CIERRE se calcula cuando la apertura tiene una posible discrepancia
 # y el cierre queda OK; no es un valor que se asigne a una regla.
@@ -178,15 +179,21 @@ tipos:
       rir_descripcion_faltante:          POSIBLE DISCREPANCIA  # SIN FUENTE: la descripción pide inspección repetitiva y no hay RIR
       rir_descripcion_distinto:          POSIBLE DISCREPANCIA  # SIN FUENTE: RIR con otro intervalo (o sin un límite) que la descripción
 
+  # Una extensión no es una discrepancia por sí sola: requiere revisión del auditor.
+  # Se detecta por el due date original o por Extension del T/A en ICAM (días, FH o FC).
+  Deadline Extension:
+    reglas:
+      dip_extendido:                    EXTENSIÓN
+      cierre_deadline_extendido:         EXTENSIÓN # cerrado dentro del plazo extendido
+
   # --- Auditoría de cierre (DIP COMPLETE). A confirmar. ------------------------
 
   # Cerrado tarde = Usage Remaining negativo al cerrar (sin ese dato, la hora de cierre contra
   # el due date vigente, incluida su extensión). Si el trabajo se hizo en otra tarea,
-  # queda para verificar en esa tarea. Cerrar dentro de la extensión es OK.
+  # queda para verificar en esa tarea. Cerrar dentro de la extensión requiere revisión.
   Late Completion:
     reglas:
       completado_fuera_de_plazo:         POSIBLE DISCREPANCIA     # cerrado después del due date
-      cierre_deadline_extendido:         OK # cerrado dentro del plazo extendido
 
   # Ítems con ventana "AFTER A, BEFORE B" (desgaste de frenos, amortiguador): el trabajo va
   # después de A. En FH y FC se cuenta del uso al encontrar la falla al uso al cerrar (ICAM).

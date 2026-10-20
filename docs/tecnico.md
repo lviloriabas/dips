@@ -14,7 +14,7 @@ El programa hace lo mismo que un auditor, en este orden:
 2. **Lee cada DIP en ICAM** (con `--icam`): referencia técnica, attachments, intervalos, RIR, acción correctiva e historial.
 3. **Reconoce qué ítem es cada DIP** y busca su fila en la tabla de referencias (`DIPs References.xlsx`).
 4. **Aplica las reglas de apertura** y, si el DIP está cerrado, **las de cierre**.
-5. **Da un resultado** por DIP (POSIBLE DISCREPANCIA, REVISAR, SIN FUENTE EN DIPS REFERENCES, OK o CORREGIDO EN CIERRE) con los motivos.
+5. **Da un resultado** por DIP (POSIBLE DISCREPANCIA, EXTENSIÓN, REVISAR, SIN FUENTE EN DIPS REFERENCES, OK o CORREGIDO EN CIERRE) con los motivos.
 6. **Escribe un Excel nuevo** en `salida/`. El de entrada no se toca.
 
 **¿Usa inteligencia artificial?** No. Todo lo deciden reglas escritas en el código y en los archivos de configuración, y cada hallazgo dice qué dato lo produjo. Hubo un agente opcional (un modelo de lenguaje local) para sugerir la referencia de los DIPs que no se reconocen; no mejoró el resultado y se eliminó ([comparacion_modos.md](comparacion_modos.md)).
@@ -30,7 +30,7 @@ El programa hace lo mismo que un auditor, en este orden:
 | **ICAM se lee y se interpreta por separado** | `extractor_icam.py` guarda el texto de las pestañas en `data/icam.json`; `icam.py` lo interpreta después. Se puede volver a auditar o corregir la interpretación sin volver a leer ICAM (`--datos-icam`). Y la lectura es solo de lectura: nunca escribe en ICAM |
 | **"Sin dato" no es "cero"** | `None` significa que no se leyó (por ejemplo, `adjuntos` sin ICAM); `[]` significa que se leyó y no hay nada. Sin dato, la regla no marca discrepancia: usa lo que dice el Excel o deja una verificación manual |
 | **La fecha de auditoría es un parámetro** | `Contexto.fecha_referencia` dice "auditar como si fuera tal día y hora". Con eso `comparar` audita cada DIP a la hora en que lo auditó la persona, y se puede calibrar contra la auditoría manual |
-| **Valores de las reglas y resultados** | Cada regla usa POSIBLE DISCREPANCIA, REVISAR, SIN FUENTE EN DIPS REFERENCES u OK. CORREGIDO EN CIERRE se calcula al combinar apertura y cierre |
+| **Valores de las reglas y resultados** | Cada regla usa POSIBLE DISCREPANCIA, EXTENSIÓN, REVISAR, SIN FUENTE EN DIPS REFERENCES u OK. CORREGIDO EN CIERRE se calcula al combinar apertura y cierre |
 | **Benchmark con línea base** | Cambiar una regla puede arreglar un caso y romper diez. `benchmark` mide contra DIPs ya auditados y falla si algún indicador empeora |
 | **Datos sensibles fuera de Git** | El Excel de entrada, `data/`, `pruebas/` y `salida/` tienen nombres del personal y datos operativos: están en `.gitignore`. El benchmark usa una copia sin nombres (`anonimizar.py`) |
 
@@ -475,7 +475,7 @@ Se aplica además a los DIPs COMPLETE.
 | Qué se revisa | Cómo |
 | --- | --- |
 | Fecha de cierre | En un DIP cerrado, `Usage Remaining` es lo que le quedaba al cerrarlo (ICAM): negativo es cierre tarde. Sin ese dato, `Complete Dt` (o la fecha real de cierre de ICAM) no puede pasar el due date, con 5 horas de tolerancia (`tolerancias.horas_cierre`), porque el cierre viene en UTC y el due date en hora de Panamá (UTC-5). Si la acción correctiva dice que el trabajo se hizo en otra tarea, queda para verificar la fecha en esa tarea |
-| Deadline extendido | Si el due date es posterior al original (`Orig Fault Due Date`) y el DIP cerró dentro del plazo extendido, queda OK. El due date original se usa para validar la coherencia del intervalo; el vigente, para evaluar el cierre tardío |
+| Deadline extendido | Si el due date es posterior al original (`Orig Fault Due Date`) o ICAM muestra una extensión positiva del T/A en días, FH o FC, queda EXTENSIÓN para revisar su soporte. El due date original se usa para validar el intervalo y el vencimiento del ítem; el vigente, para evaluar el vencimiento o cierre tardío |
 | Acción correctiva | Sin acción correctiva no es discrepancia (en ICAM queda vacía si se cerró por la validación de QC o solo con partes): OK. Si no cita el manual, se anota con estado OK (el 23-sep-2026 los auditores lo aceptaron). No se anota si la acción remite a otra tarea ("CLOSED IN REFERENCE BARCODE T40S009H0DK"): la referencia está en esa tarea. Tampoco si no hubo trabajo ("OPEN BY MISTAKE", "PREVIOUSLY ACCOMPLISHED", "NO FURTHER ACTION REQUIRED"). En ambos casos queda una nota para verificar |
 | S/N removido | Si el número no es el de la descripción, OK. En un cambio (botella, generator) vale el S/N removido o el instalado de Part Requirements |
 | Attachments | Sin adjuntos es posible discrepancia si `Defer Dt` es del 9-jul-2026 o posterior (en ICAM o, sin ICAM, en el Excel). La mayoría de los DIPs cerrados sin attachments se abrió antes de la auditoría manual y el auditor solo revisó el cierre |
@@ -485,21 +485,22 @@ Se aplica además a los DIPs COMPLETE.
 
 ## 6. Resultado de cada DIP
 
-El programa da **cinco resultados**:
+El programa da **seis resultados**:
 
 | Resultado | Cuándo |
 | --- | --- |
 | POSIBLE DISCREPANCIA | Falló al menos una regla o falta un dato |
+| EXTENSIÓN | Due date posterior al original o extensión positiva del T/A en ICAM (días, FH o FC). Requiere revisión del soporte; aplica también al cierre y con OK manual. Una discrepancia independiente tiene prioridad |
 | REVISAR | La tabla da el TA o el RIR según el daño, la medición o el tipo (el texto dice DEPENDING, DEPENDS, CONSULT o SEGÚN) y no falló ninguna otra regla. El programa no compara ese TA o RIR: el hallazgo cita el texto de la tabla y el manual donde verificarlo. `python -m dips_audit referencias` muestra cuáles son |
 | SIN FUENTE EN DIPS REFERENCES | El DIP no está en la tabla de referencias y no falló ninguna regla que no dependa de la tabla. Se verifica contra la fuente que cita el DIP |
-| OK | No falló ninguna regla (puede incluir detalles adicionales), o el DIP está COMPLETE y el auditor marcó en ICAM el cierre sin discrepancia. Las discrepancias de duplicación conservan su resultado |
+| OK | No falló ninguna regla (puede incluir detalles adicionales), o el DIP está COMPLETE y el auditor marcó en ICAM el cierre sin discrepancia. La duplicación y las extensiones conservan su resultado |
 | CORREGIDO EN CIERRE | El DIP está COMPLETE, la apertura tiene POSIBLE DISCREPANCIA y el cierre está OK |
 
 Además, un DIP de un tipo excluido con `--tipos-dip` (o `tipos_auditados` en `config.yaml`) queda **FUERA DE ALCANCE** y no se revisa.
 
 El auditor confirma o descarta las posibles discrepancias que señala el programa.
 
-Cada hallazgo se muestra como `[POSIBLE DISCREPANCIA]`, `[REVISAR]`, `[SIN FUENTE EN DIPS REFERENCES]` u `[OK]`. Los casos aceptados se registran como `[OK]` y no desplazan un hallazgo de mayor prioridad. Las reglas activas y sus resultados se configuran en `config/discrepancias.yaml`. Los valores configurados coinciden con los resultados mostrados. Un hallazgo de cierre aparece con `[CIERRE]` y tiene su propio resultado en la columna `ESTADO CIERRE`.
+Cada hallazgo se muestra como `[POSIBLE DISCREPANCIA]`, `[EXTENSIÓN]`, `[REVISAR]`, `[SIN FUENTE EN DIPS REFERENCES]` u `[OK]`. Los casos aceptados se registran como `[OK]` y no desplazan un hallazgo de mayor prioridad. Las reglas activas y sus resultados se configuran en `config/discrepancias.yaml`. Los valores configurados coinciden con los resultados mostrados. Un hallazgo de cierre aparece con `[CIERRE]` y tiene su propio resultado en la columna `ESTADO CIERRE`.
 
 ---
 
@@ -541,6 +542,7 @@ El programa audita cada DIP **dos veces**: a la fecha y hora de la auditoría de
 | Con discrepancia | Posible discrepancia | Sí: ambos encuentran discrepancia |
 | Sin discrepancia | Posible discrepancia | No: el programa marca y el auditor no |
 | Con discrepancia | OK | No: el programa no la detecta |
+| Con o sin discrepancia | EXTENSIÓN | Revisar el soporte de la extensión; no se cuenta como coincidencia ni discrepancia |
 
 **Excel de la comparación.** La hoja **Resumen** no usa cruces tipo matriz: cada tabla responde una sola pregunta, con una fila por respuesta (qué se comparó; si el resultado es el mismo; qué dijo el programa de los DIPs sin discrepancia; qué dijo de los DIPs con discrepancia; resultado de la apertura; resultado del cierre; motivos de las marcas, por separado en apertura y cierre; y la lista de discrepancias del auditor). **Detalle por DIP** tiene una fila por barcode y **Hallazgos del programa**, una fila por hallazgo.
 

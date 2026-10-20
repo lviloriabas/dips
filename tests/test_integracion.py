@@ -7,7 +7,7 @@ import pytest
 
 from dips_audit.__main__ import main
 from dips_audit.auditor import Auditor
-from dips_audit.reporte import _flota_dashboard, exportar_excel
+from dips_audit.reporte import _COL_DATOS, _flota_dashboard, exportar_excel
 from tests.conftest import ENCABEZADO_ENTRADA, crear_export
 
 AVION = "Boeing 737-8V3 - HP-1837CMP"
@@ -208,7 +208,7 @@ def test_resultado_corresponde_a_la_auditoria_actual(auditor, tmp_path, capsys, 
         assert wb["Dashboard"]["Q5"].value == esperado
         resumen = {f[0]: f[1] for f in wb["Resumen"].values if len(f) > 1}
         assert resumen[esperado] == 1 and resumen["OK"] == 0
-        assert esperado in [c.value for c in wb["Dashboard"]["W"]]
+        assert esperado in [fila[_COL_DATOS - 1] for fila in wb["Dashboard"].values]
         assert wb["Auditoría"].cell(2, columnas["RESULTADO"]).fill.fgColor.rgb != "00000000"
     assert main(["auditar", str(entrada), "--sin-excel", "--fecha", "2026-10-06"]) == 0
     consola = " ".join(capsys.readouterr().out.split())
@@ -310,7 +310,9 @@ def test_dashboard_sin_dips_en_alcance(config, export, tmp_path):
     auditor = Auditor({**config, "tipos_auditados": ["Avionics"]}, fecha_auditoria=date(2026, 8, 20))
     salida = exportar_excel(auditor.auditar_archivo(export), tmp_path / "salida.xlsx")
     dashboard = openpyxl.load_workbook(salida)["Dashboard"]
-    assert dashboard["B6"].value == 0 and dashboard["T6"].value == len(FILAS)
+    assert dashboard["B6"].value == 0
+    fuera = next(c.column for c in dashboard[5] if c.value == "FUERA DE ALCANCE")
+    assert dashboard.cell(6, fuera).value == len(FILAS)
 
 
 def test_cli_auditar(export, tmp_path, capsys):
@@ -329,7 +331,7 @@ def test_cli_auditar_con_flota_desconocida(tmp_path):
     assert main(["auditar", str(entrada), "--salida", str(salida), "--fecha", "2026-08-20"]) == 0
     wb = openpyxl.load_workbook(salida)
     assert wb["Auditoría"].max_row == 3
-    assert "Sin flota" in [c.value for c in wb["Dashboard"]["W"]]
+    assert "Sin flota" in [fila[_COL_DATOS - 1] for fila in wb["Dashboard"].values]
 
 
 def test_por_defecto_audita_todos_los_tipos(auditor, export):

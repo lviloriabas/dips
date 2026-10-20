@@ -23,12 +23,14 @@ SIN_FUENTE = "SIN FUENTE EN DIPS REFERENCES"
 # La tabla da el TA o el RIR según el daño o el tipo ("DEPENDING ON...", "CONSULT REF."):
 # el auditor lo revisa en el manual. Una posible discrepancia pesa más.
 REVISAR = "REVISAR"
+EXTENSION = "EXTENSIÓN"
 SEVERIDAD_SIN_FUENTE = SIN_FUENTE
-# Prioridad del resultado: una posible discrepancia pesa más que una consulta al manual
-# o la falta de fuente. Los detalles adicionales se anotan sin cambiar el resultado.
-ORDEN_SEVERIDAD = {POSIBLE_DISCREPANCIA: 4, REVISAR: 3, SIN_FUENTE: 2, "OK": 1}
+# Una discrepancia pesa más que la revisión de una extensión, la consulta al manual
+# o la falta de fuente. Los detalles OK se anotan sin cambiar el resultado.
+ORDEN_SEVERIDAD = {POSIBLE_DISCREPANCIA: 5, EXTENSION: 4, REVISAR: 3, SIN_FUENTE: 2, "OK": 1}
 ESTADOS = {
     POSIBLE_DISCREPANCIA: POSIBLE_DISCREPANCIA,
+    EXTENSION: EXTENSION,
     REVISAR: REVISAR,
     SIN_FUENTE: SIN_FUENTE,
     "OK": "OK",
@@ -398,6 +400,30 @@ def regla_inventario(dip: dict, due: date, ctx: Contexto, r: ResultadoReglas) ->
     return True
 
 
+def regla_extension(dip: dict, ctx: Contexto, r: ResultadoReglas) -> None:
+    """Una extensión documentada queda para revisión, tanto abierta como cerrada."""
+    if solo_rir(dip):
+        return
+    detalles = []
+    original, due = dip.get("orig_due_date"), dip.get("due_date")
+    if original and due and _fin_del_plazo(original) < _fin_del_plazo(due):
+        detalles.append(f"due date {_fecha_hora(due)}; original {_fecha_hora(original)}")
+    for intervalo in dip.get("icam_intervalos") or []:
+        extension = str(intervalo.get("extension") or "")
+        valor = re.search(r"-?\d+(?:[.,]\d+)?", extension)
+        if valor and float(valor.group().replace(",", ".")) > 0:
+            unidad = intervalo.get("unit") or intervalo.get("parameter") or ""
+            detalle = f"T/A con extensión {extension} {unidad}".strip()
+            if intervalo.get("extended_deadline"):
+                detalle += f" (deadline extendido {intervalo['extended_deadline']})"
+            detalles.append(detalle)
+    if detalles and ctx.discrepancias.activa("dip_extendido", "Deadline Extension"):
+        r.agregar(ctx, "dip_extendido", "Deadline Extension",
+                  "DIP con extensión: " + "; ".join(detalles) + ".")
+        r.manuales.append("Revisar la extensión del DIP y su soporte de autorización: "
+                          + "; ".join(detalles) + ".")
+
+
 def regla_fechas(dip: dict, entrada: EntradaCatalogo | None, ctx: Contexto,
                  r: ResultadoReglas) -> None:
     if solo_rir(dip):
@@ -406,6 +432,11 @@ def regla_fechas(dip: dict, entrada: EntradaCatalogo | None, ctx: Contexto,
         return
     due, found = _como_fecha(dip["due_date"]), _como_fecha(dip["found_date"])
     valor, unidad, estado = dip["intervalo"], dip["unidad"], dip["estado"]
+    original = dip.get("orig_due_date")
+    extendido = (original and dip["due_date"]
+                 and _fin_del_plazo(original) < _fin_del_plazo(dip["due_date"]))
+    due_ta = _como_fecha(original) if extendido else due
+    nombre_due = "Due date original" if extendido else "Due date"
 
     if dip.get("correccion_fecha"):
         r.manuales.append(dip["correccion_fecha"] + ".")
@@ -416,10 +447,6 @@ def regla_fechas(dip: dict, entrada: EntradaCatalogo | None, ctx: Contexto,
     # En los ítems con vencimiento el due date es el del ítem.
     hasta_vencimiento = entrada is not None and entrada.hasta_vencimiento
     if due and found and valor is not None and unidad == "DAY" and not hasta_vencimiento:
-        original = dip.get("orig_due_date")
-        extendido = original and _fin_del_plazo(original) < _fin_del_plazo(dip["due_date"])
-        due_ta = _como_fecha(original) if extendido else due
-        nombre_due = "Due date original" if extendido else "Due date"
         inicio = _inicio_ta(dip)
         # Sin ICAM, un T/A armado con la ventana "AFTER A, BEFORE B" en días cuenta desde la apertura + A.
         ventana = _ventana(dip, entrada)
@@ -443,19 +470,19 @@ def regla_fechas(dip: dict, entrada: EntradaCatalogo | None, ctx: Contexto,
 
     # Ítems con vencimiento: el due date no puede superar la fecha del ítem. En los generators
     # de oxígeno la fecha es la del PDF de inventario; sin el PDF, la de la descripción.
-    if (entrada is not None and entrada.hasta_vencimiento and due
-            and not (entrada.inventario and regla_inventario(dip, due, ctx, r))):
+    if (entrada is not None and entrada.hasta_vencimiento and due_ta
+            and not (entrada.inventario and regla_inventario(dip, due_ta, ctx, r))):
         texto = dip["nombre"] + " " + dip["descripcion"]
         fechas = sorted(f for f in extraer_fechas(texto) if not found or f >= found)
         if fechas:
             vence = fechas[0]
-            if due > vence:
+            if due_ta > vence:
                 r.agregar(ctx, "due_date_posterior_a_vencimiento_item", "Incorrect Due Date",
-                          f"Due date {_fecha(due)}, después del vencimiento del ítem "
+                          f"{nombre_due} {_fecha(due_ta)}, después del vencimiento del ítem "
                           f"({_fecha(vence)}).")
-            elif (vence - due).days > ctx.tol_dias:
+            elif (vence - due_ta).days > ctx.tol_dias:
                 r.agregar(ctx, "due_date_anterior_a_vencimiento_item", "Incorrect Due Date",
-                          f"Due date {_fecha(due)}, antes del vencimiento del ítem "
+                          f"{nombre_due} {_fecha(due_ta)}, antes del vencimiento del ítem "
                           f"({_fecha(vence)}).")
         else:
             r.manuales.append("Verificar en el attachment la fecha de vencimiento del ítem "
@@ -553,7 +580,7 @@ def regla_cierre(dip: dict, ctx: Contexto, r: ResultadoReglas,
                       f"{_fecha_hora(due)}.")
         elif (original and _fin_del_plazo(original) < _fin_del_plazo(due)
               and _fin_del_plazo(original) + timedelta(hours=ctx.horas_cierre) < completo):
-            r.agregar(ctx, "cierre_deadline_extendido", "Late Completion",
+            r.agregar(ctx, "cierre_deadline_extendido", "Deadline Extension",
                       f"Cerrado el {_fecha_hora(completo)} dentro del plazo extendido "
                       f"(due date {_fecha_hora(due)}; original {_fecha_hora(original)}).")
     elif not completo and not sin_ta:
@@ -862,6 +889,7 @@ VERIFICACION_GENERAL = "Verificar attachments: captura de referencia técnica y 
 
 def auditar_dip(dip: dict, entrada: EntradaCatalogo | None, ctx: Contexto) -> ResultadoReglas:
     r = ResultadoReglas()
+    regla_extension(dip, ctx, r)
     if entrada is not None:
         regla_intervalo(dip, entrada, ctx, r)
         regla_parent_assy(dip, entrada, ctx, r)

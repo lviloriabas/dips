@@ -21,7 +21,7 @@ from .rir import requerido as rir_requerido, solo_rir
 from .rir import revisar as revisar_rir
 from .referencias import Catalogo, EntradaCatalogo, cargar_catalogo, cargar_referencias
 from .reglas_descripcion import buscar_parent_distinto_de_pares, revisar_descripcion
-from .reglas import (ACTIVOS, MOSTRAR_SEVERIDAD, ORDEN_SEVERIDAD, POSIBLE_DISCREPANCIA,
+from .reglas import (ACTIVOS, EXTENSION, MOSTRAR_SEVERIDAD, ORDEN_SEVERIDAD, POSIBLE_DISCREPANCIA,
                      REVISAR, SEVERIDAD_SIN_FUENTE, SIN_FUENTE, Contexto, Hallazgo, auditar_dip, buscar_duplicados,
                      buscar_sn_repetidos, dip_por_error, estado_final, etapa,
                      referencia_y_adjunto_exigibles)
@@ -31,7 +31,8 @@ FUERA_DE_ALCANCE = "FUERA DE ALCANCE"
 CORREGIDO_EN_CIERRE = "CORREGIDO EN CIERRE"
 CODIGOS_DUPLICADO = {"duplicado", "duplicado_declarado", "sn_repetido"}
 # CORREGIDO EN CIERRE identifica discrepancias de apertura con cierre OK.
-RESULTADOS = {POSIBLE_DISCREPANCIA: POSIBLE_DISCREPANCIA, REVISAR: REVISAR, SIN_FUENTE: SIN_FUENTE,
+RESULTADOS = {POSIBLE_DISCREPANCIA: POSIBLE_DISCREPANCIA, EXTENSION: EXTENSION,
+              REVISAR: REVISAR, SIN_FUENTE: SIN_FUENTE,
               "OK": "OK", CORREGIDO_EN_CIERRE: CORREGIDO_EN_CIERRE, FUERA_DE_ALCANCE: FUERA_DE_ALCANCE}
 
 
@@ -75,7 +76,7 @@ class ResultadoAuditoria:
         h = self.hallazgos
         auditorias = self.filas.set_index("Fila Excel")["AUDITORÍA"]
         return h[(h["Auditoría"] == h["Fila Excel"].map(auditorias))
-                 | (h["Severidad"] == SEVERIDAD_SIN_FUENTE)]
+                 | (h["Severidad"] == SEVERIDAD_SIN_FUENTE) | (h["Código"] == "dip_extendido")]
 
 
 
@@ -421,9 +422,9 @@ class Auditor:
         partes = []
         if hallazgos is None and r.intervalo_ok:
             partes.append("T/A aperturado correctamente")
-        # "Revisar en el manual" es para el auditor, no un comentario de discrepancia.
+        # Las consultas al manual y extensiones son revisiones para el auditor.
         hallazgos = [h for h in (r.hallazgos if hallazgos is None else hallazgos)
-                     if h.severidad not in {"OK", REVISAR}]
+                     if h.severidad not in {"OK", REVISAR, EXTENSION}]
         codigos = {h.codigo for h in hallazgos}
         for h in hallazgos:
             # Cerrado sin attachments también es "sin attachments" de la apertura: el
@@ -454,18 +455,20 @@ class Auditor:
         # La duplicación se conserva en el cierre aunque cualquiera de los DIPs ya cerró.
         duplicados = [h for h in de_apertura
                       if h.codigo in CODIGOS_DUPLICADO and h.severidad == POSIBLE_DISCREPANCIA]
-        aplican_al_cierre = de_cierre + sin_fuente + duplicados
+        extensiones = [h for h in de_apertura if h.codigo == "dip_extendido"]
+        aplican_al_cierre = de_cierre + sin_fuente + duplicados + extensiones
         estado_apertura = estado_final(de_apertura) if en_alcance else ""
         estado_cierre = estado_final(aplican_al_cierre) if cierre else ""
         estado = (estado_cierre if cierre else estado_apertura) if en_alcance else FUERA_DE_ALCANCE
         if cierre and estado_apertura == POSIBLE_DISCREPANCIA and estado_cierre == "OK":
             estado = CORREGIDO_EN_CIERRE
-        if cierre and estado != "OK" and not duplicados and cierre_auditado_ok(dip):
-            # El auditor ya dio OK el cierre en ICAM: el DIP queda OK aunque el programa
-            # encuentre discrepancias; los estados y hallazgos se conservan para revisarlos.
-            manuales = [*manuales, "Resultado OK por la auditoría manual de cierre en ICAM; "
+        if cierre and estado not in {"OK", EXTENSION} and not duplicados and cierre_auditado_ok(dip):
+            # El OK manual resuelve las discrepancias de cierre; una extensión sigue
+            # pendiente de revisión. Los estados y hallazgos conservan la evidencia.
+            revisado = estado_final(extensiones)
+            manuales = [*manuales, f"Resultado {revisado} por la auditoría manual de cierre en ICAM; "
                         f"el programa dio {estado}: revisar los hallazgos."]
-            estado = "OK"
+            estado = revisado
         comentario = cls._comentario(r, aplican_al_cierre if cierre else None) if r else ""
         return {
             "Fila Excel": dip["fila"],

@@ -12,7 +12,7 @@ from pathlib import Path
 
 import yaml
 
-SEVERIDADES = ("POSIBLE DISCREPANCIA", "REVISAR", "SIN FUENTE EN DIPS REFERENCES", "OK")
+SEVERIDADES = ("POSIBLE DISCREPANCIA", "EXTENSIÓN", "REVISAR", "SIN FUENTE EN DIPS REFERENCES", "OK")
 
 
 class _SinDuplicados(yaml.SafeLoader):

@@ -23,17 +23,19 @@ from openpyxl.utils import get_column_letter
 
 from .auditor import CORREGIDO_EN_CIERRE, ResultadoAuditoria
 from .cargador import parse_texto
-from .reglas import MOSTRAR_SEVERIDAD, SIN_FUENTE
+from .reglas import EXTENSION, MOSTRAR_SEVERIDAD, SIN_FUENTE
 
 # Los resultados separan los DIPs corregidos en el cierre de los OK desde la apertura.
 COLORES_RESULTADO = {"POSIBLE DISCREPANCIA": "FCE3B0", "REVISAR": "FFF59D", SIN_FUENTE: "D6E4F0",
-                     "OK": "C9E7C9", CORREGIDO_EN_CIERRE: "CCEDE8", "FUERA DE ALCANCE": "E4E4E4"}
+                     "OK": "C9E7C9", CORREGIDO_EN_CIERRE: "CCEDE8", EXTENSION: "E4D7F5",
+                     "FUERA DE ALCANCE": "E4E4E4"}
 COLORES_SEVERIDAD = {"POSIBLE DISCREPANCIA": "FCE3B0", "REVISAR": "FFF59D", SIN_FUENTE: "D6E4F0",
-                     "OK": "C9E7C9"}
+                     "OK": "C9E7C9", EXTENSION: "E4D7F5"}
 # Mismos tonos que las celdas, pero saturados (colores del tema de Office): en los gráficos los
 # pasteles no se distinguen.
 COLORES_GRAFICO = {"POSIBLE DISCREPANCIA": "ED7D31", "REVISAR": "FFC000", SIN_FUENTE: "4472C4",
-                   "OK": "70AD47", CORREGIDO_EN_CIERRE: "00A6A6", "FUERA DE ALCANCE": "A5A5A5"}
+                   "OK": "70AD47", CORREGIDO_EN_CIERRE: "00A6A6", EXTENSION: "8064A2",
+                   "FUERA DE ALCANCE": "A5A5A5"}
 _ENCABEZADO = PatternFill("solid", fgColor="1F3A5F")
 # Columnas agregadas por el programa: encabezado morado y celdas lila, para
 # distinguirlas de las columnas originales del Excel de entrada.
@@ -145,7 +147,7 @@ def hallazgos_para_mostrar(h: pd.DataFrame) -> pd.DataFrame:
     return h[[c for c in h.columns if c != "Fila Excel"] + ["Fila Excel"]]
 
 
-_RESULTADOS = ["POSIBLE DISCREPANCIA", "REVISAR", SIN_FUENTE, "OK", CORREGIDO_EN_CIERRE]
+_RESULTADOS = ["POSIBLE DISCREPANCIA", "REVISAR", SIN_FUENTE, "OK", CORREGIDO_EN_CIERRE, EXTENSION]
 _GRIS_TEXTO, _GRIS_SUAVE, _GRIS_LINEA, _GRIS_FONDO = "404040", "7F7F7F", "D9D9D9", "F2F2F2"
 _AZUL = "1F3A5F"
 
@@ -154,9 +156,9 @@ _AZUL = "1F3A5F"
 # desktop y en Excel web aunque cambie el ancho en píxeles.
 _COL0 = 2                       # B
 _COLS_INDICADOR, _N_INDICADORES = 2, len(_RESULTADOS) + 2
-_ULTIMA_COL = _COL0 + _N_INDICADORES * (_COLS_INDICADOR + 1) - 2          # U
-_MITAD = _COL0 + (_N_INDICADORES // 2) * (_COLS_INDICADOR + 1) - 1       # J (separador)
-_COL_DATOS = _ULTIMA_COL + 2                                           # W
+_ULTIMA_COL = _COL0 + _N_INDICADORES * (_COLS_INDICADOR + 1) - 2
+_MITAD = _COL0 + (_N_INDICADORES // 2) * (_COLS_INDICADOR + 1) - 1       # Separador central
+_COL_DATOS = _ULTIMA_COL + 2
 _FILA_GRAFICOS, _ALTO_GRAFICO = 9, 16                                      # filas de 20 px
 
 

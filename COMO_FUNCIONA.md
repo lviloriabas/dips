@@ -458,7 +458,7 @@ Solo para DIPs COMPLETE.
 
 Para saber si se cerró tarde, primero se mira el Usage Remaining: negativo quiere decir tarde. Si no hay, la fecha de cierre no puede pasar el final del día del due date más 5 horas, porque el cierre viene en UTC y el due date en hora de Panamá (`horas_cierre`). Cerrar tarde es posible discrepancia. Si la acción correctiva remite a otra tarea (T40S..., TRF7...), la fecha se deja para verificar en esa tarea, y si no hay fecha de cierre, queda para verificación manual.
 
-Si el due date es posterior al original (`Orig Fault Due Date`) y el cierre fue después del original, pero dentro del plazo extendido, queda con estado OK. La extensión por sí sola no es discrepancia; si se supera el plazo vigente, se aplica la regla de cierre tardío. Los cambios de deadline que muestra History se listan en `VERIFICACIÓN MANUAL`.
+Un DIP con due date posterior al original (`Orig Fault Due Date`) o una extensión positiva del T/A en ICAM queda con resultado EXTENSIÓN, tanto abierto como cerrado, para revisar su soporte de autorización. Esto incluye extensiones en días, FH y FC, aunque el cierre haya sido antes del vencimiento original o exista un OK manual. La extensión por sí sola no es discrepancia; si se supera el plazo vigente, se aplica la regla de vencimiento o cierre tardío. Los cambios de deadline que muestra History se listan en `VERIFICACIÓN MANUAL`.
 
 En los ítems con ventana "AFTER A, BEFORE B" (ver [Start del TA](#start-del-ta)) el trabajo se hace después de A, así que cerrar antes también es posible discrepancia. En FH o FC se cuenta desde el uso al encontrar la falla hasta el uso al cerrar, los dos de History en ICAM ("Usage When Found" y "Usage At Completion" de la tarea); sin ICAM no se revisa. En días se cuenta desde la fecha en que se encontró la falla. Un freno NG-800 encontrado a los 20055 FC y cambiado a los 20059 se cerró a los 4 FC, antes de los 12 que pide la tabla. El sellante de ventanas, que también puede empezar en la apertura, no se revisa.
 
@@ -477,19 +477,20 @@ Cada hallazgo tiene la severidad que le asigna `config/discrepancias.yaml` a su 
 | Severidad | Se muestra como | Da el resultado |
 | --- | --- | --- |
 | POSIBLE DISCREPANCIA | `[POSIBLE DISCREPANCIA]` | POSIBLE DISCREPANCIA |
+| EXTENSIÓN | `[EXTENSIÓN]` | EXTENSIÓN: revisar la extensión y su soporte |
 | REVISAR | `[REVISAR]` | REVISAR |
 | SIN FUENTE EN DIPS REFERENCES | `[SIN FUENTE EN DIPS REFERENCES]` | SIN FUENTE EN DIPS REFERENCES |
 | OK | `[OK]` | OK, salvo un hallazgo de mayor prioridad |
 
-Sin hallazgos, o solo con detalles adicionales, el DIP es OK. Los valores de las reglas son POSIBLE DISCREPANCIA, REVISAR, SIN FUENTE EN DIPS REFERENCES y OK, en ese orden de prioridad. OK registra un caso aceptado y no desplaza otros hallazgos.
+Sin hallazgos, o solo con detalles adicionales, el DIP es OK. Los valores de las reglas son POSIBLE DISCREPANCIA, EXTENSIÓN, REVISAR, SIN FUENTE EN DIPS REFERENCES y OK, en ese orden de prioridad. OK registra un caso aceptado y no desplaza otros hallazgos.
 
 CORREGIDO EN CIERRE se calcula para un DIP COMPLETE con POSIBLE DISCREPANCIA en apertura y OK en cierre; no se asigna a una regla.
 
 Algunos casos fijan la severidad en el código, siempre con estado OK: Parent Assembly flexible, Start posterior en un SIN FUENTE EN DIPS REFERENCES y referencia técnica distinta cuando no es grave. Si la regla, su tipo de discrepancia o su categoría (con `--categorias`) están desactivados, el hallazgo directamente no se agrega. Por eso, con `--categorias`, un DIP sin referencia puede salir OK: SIN FUENTE EN DIPS REFERENCES es del tipo "Missing Reference in Table" y también quedó afuera. La consola y el Excel lo avisan.
 
-Un DIP COMPLETE tiene hallazgos de apertura y de cierre. Son de cierre `completado_fuera_de_plazo`, `cierre_deadline_extendido`, `cierre_sin_accion_correctiva`, `cierre_sin_referencia_tecnica`, `cierre_referencia_incompleta`, `cierre_sn_distinto`, `cierre_sin_adjuntos` y `cierre_antes_de_ventana` (`reglas.CODIGOS_CIERRE`); todos los demás son de apertura. En el Excel, `ESTADO APERTURA` es el resultado de los hallazgos de apertura y `ESTADO CIERRE` el de los de cierre más SIN FUENTE EN DIPS REFERENCES y las discrepancias de duplicación, que valen para las dos. Los motivos de duplicación también se incluyen en el cierre al comparar contra la auditoría manual. `RESULTADO` junta todos. `AUDITORÍA` dice CIERRE si el DIP está COMPLETE y APERTURA si no.
+Un DIP COMPLETE tiene hallazgos de apertura y de cierre. Son de cierre `completado_fuera_de_plazo`, `cierre_deadline_extendido`, `cierre_sin_accion_correctiva`, `cierre_sin_referencia_tecnica`, `cierre_referencia_incompleta`, `cierre_sn_distinto`, `cierre_sin_adjuntos` y `cierre_antes_de_ventana` (`reglas.CODIGOS_CIERRE`); todos los demás son de apertura. En el Excel, `ESTADO APERTURA` es el resultado de los hallazgos de apertura y `ESTADO CIERRE` el de los de cierre más SIN FUENTE EN DIPS REFERENCES, la extensión del DIP y las discrepancias de duplicación, que valen para las dos. Los motivos de duplicación también se incluyen en el cierre al comparar contra la auditoría manual. `RESULTADO` junta todos. `AUDITORÍA` dice CIERRE si el DIP está COMPLETE y APERTURA si no.
 
-El `COMENTARIO SUGERIDO` es un texto listo para el comentario del auditor: "T/A aperturado correctamente" si el intervalo coincide con la tabla, seguido de los mensajes de los hallazgos que no se registran con estado OK ni "revisar en el manual", separados por " // ". Un DIP cerrado sin attachments tiene dos hallazgos (apertura y cierre), pero el comentario lo dice una vez. En un DIP creado por error, el comentario es solo ese mensaje.
+El `COMENTARIO SUGERIDO` es un texto listo para el comentario del auditor: "T/A aperturado correctamente" si el intervalo coincide con la tabla, seguido de los mensajes de los hallazgos que no se registran con estado OK, EXTENSIÓN ni "revisar en el manual", separados por " // ". La revisión de la extensión y su soporte se indica en `VERIFICACIÓN MANUAL`. Un DIP cerrado sin attachments tiene dos hallazgos (apertura y cierre), pero el comentario lo dice una vez. En un DIP creado por error, el comentario es solo ese mensaje.
 
 `VERIFICACIÓN MANUAL` tiene una línea por cada cosa que el programa no pudo decidir: el recordatorio general, la referencia técnica sin ICAM, el límite doble sin ICAM, la flota desconocida, el Parent Assy vacío, el S/N del attachment, la fecha corregida, el cierre sin fecha o en otra tarea, los cambios de deadline, las filas parecidas de la tabla, las marcas AUDITDIP, el PDF de generators...
 
@@ -503,7 +504,7 @@ Al terminar muestra el archivo y la fecha de auditoría, una tabla con hasta 40 
 
 Se guarda en `salida/<nombre del Excel>_AUDITORIA_<AAAAMMDD_HHMMSS>.xlsx`, con `PRUEBA_` delante en modo prueba. Si hay un archivo con ese nombre abierto en Excel, falla con "Permission denied". Lo escribe `dips_audit/reporte.py` y tiene cuatro hojas:
 
-- Dashboard: indicadores por resultado y gráficos por resultado, apertura y cierre, tipo de DIP, flota (MAX 8, MAX 9, 700, 800 o "Sin flota") y las 10 referencias y los 10 aviones con más posibles discrepancias. Los datos de los gráficos están a la derecha, desde la columna T. Se imprime en una página.
+- Dashboard: indicadores por resultado y gráficos por resultado, apertura y cierre, tipo de DIP, flota (MAX 8, MAX 9, 700, 800 o "Sin flota") y las 10 referencias y los 10 aviones con más posibles discrepancias. Los datos de los gráficos están a la derecha, desde la columna Z. Se imprime en una página.
 - Resumen: archivo, hoja, fecha, cantidad de DIPs, tiempo, conteo por resultado y las notas de la carga.
 - Auditoría: un DIP por fila, con todas las columnas del Excel de entrada en su orden (menos `Index`) y al final las del programa, con encabezado morado. Tiene filtro, y quedan fijos el encabezado y las columnas hasta `Fault Barcode`.
 - Hallazgos: un hallazgo por fila, con barcode, avión, nombre, apertura o cierre, resultado, código de la regla, detalle y fila del Excel.
@@ -512,7 +513,7 @@ Columnas que agrega el programa en la hoja Auditoría:
 
 | Columna | Contenido |
 | --- | --- |
-| `RESULTADO` | POSIBLE DISCREPANCIA, CORREGIDO EN CIERRE, REVISAR, SIN FUENTE EN DIPS REFERENCES, OK o FUERA DE ALCANCE, con color |
+| `RESULTADO` | POSIBLE DISCREPANCIA, CORREGIDO EN CIERRE, EXTENSIÓN, REVISAR, SIN FUENTE EN DIPS REFERENCES, OK o FUERA DE ALCANCE, con color |
 | `COMENTARIO SUGERIDO` | Ver [El resultado](#el-resultado) |
 | `HALLAZGOS` | Uno por línea, del más grave al más leve: `[POSIBLE DISCREPANCIA] [CIERRE] mensaje` |
 | `VERIFICACIÓN MANUAL` | Un punto por línea |
@@ -529,7 +530,7 @@ Columnas que agrega el programa en la hoja Auditoría:
 | `ESTADO APERTURA`, `ESTADO CIERRE` | Resultado de cada auditoría, con color |
 | `Fila Excel` | Número de fila en el Excel de entrada |
 
-Los colores son naranja claro para POSIBLE DISCREPANCIA, amarillo para REVISAR, celeste para SIN FUENTE EN DIPS REFERENCES, verde para OK y gris para FUERA DE ALCANCE.
+Los colores son naranja claro para POSIBLE DISCREPANCIA, lila para EXTENSIÓN, amarillo para REVISAR, celeste para SIN FUENTE EN DIPS REFERENCES, verde para OK y gris para FUERA DE ALCANCE.
 
 ## Auditar un solo DIP
 
@@ -721,7 +722,8 @@ PD significa POSIBLE DISCREPANCIA. La severidad es la que tiene hoy `config/disc
 | Código | Tipo de discrepancia | Qué revisa | Resultado |
 | --- | --- | --- | --- |
 | `completado_fuera_de_plazo` | Late Completion | Cerrado después del due date | PD |
-| `cierre_deadline_extendido` | Late Completion | Cerrado dentro del plazo extendido | OK |
+| `dip_extendido` | Deadline Extension | DIP con extensión por fecha, FH o FC | EXTENSIÓN |
+| `cierre_deadline_extendido` | Deadline Extension | Cerrado dentro del plazo extendido | EXTENSIÓN |
 | `cierre_antes_de_ventana` | Early Completion | Cerrado antes de A en una ventana "AFTER A, BEFORE B" | PD |
 | `cierre_sin_accion_correctiva` | Missing Technical Reference | Sin acción correctiva | OK |
 | `cierre_sin_referencia_tecnica` | Missing Technical Reference | La acción correctiva no cita el manual | OK |

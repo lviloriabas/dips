@@ -165,13 +165,13 @@ def test_cierre_con_tolerancia_de_horas(catalogo, ctx):
 
 
 @pytest.mark.parametrize("restante", [None, 0.0, 2.0])
-def test_cierre_dentro_de_extension_queda_ok(catalogo, ctx, auditor, restante):
+def test_cierre_dentro_de_extension_queda_para_revision(catalogo, ctx, auditor, restante):
     r = auditar(catalogo, ctx, "OXIGENO_TRIPULACION", estado="COMPLETE",
                 due_date=datetime(2026, 8, 25, 23, 59), orig_due_date=datetime(2026, 8, 21, 23, 59),
                 complete_date=datetime(2026, 8, 24, 10, 0), usage_remaining=restante)
-    assert "cierre_deadline_extendido" in codigos(r, "OK")
+    assert "cierre_deadline_extendido" in codigos(r, "EXTENSIÓN")
     assert "completado_fuera_de_plazo" not in codigos(r)
-    assert estado_final(r.hallazgos) == "OK"
+    assert estado_final(r.hallazgos) == "EXTENSIÓN"
     h = next(h for h in r.hallazgos if h.codigo == "cierre_deadline_extendido")
     assert "dentro del plazo extendido" in h.mensaje
     assert "exten" not in auditor._comentario(r).lower()
@@ -192,8 +192,8 @@ def test_cierre_respeta_limite_extendido_y_tolerancia(catalogo, ctx, due, comple
         assert "completado_fuera_de_plazo" in codigos(r, "POSIBLE DISCREPANCIA")
         assert "cierre_deadline_extendido" not in codigos(r)
     else:
-        assert "cierre_deadline_extendido" in codigos(r, "OK")
-        assert estado_final(r.hallazgos) == "OK"
+        assert "cierre_deadline_extendido" in codigos(r, "EXTENSIÓN")
+        assert estado_final(r.hallazgos) == "EXTENSIÓN"
 
 
 def test_extension_con_usage_remaining_negativo_sigue_fuera_de_plazo(catalogo, ctx):
@@ -211,7 +211,7 @@ def test_extension_no_oculta_due_original_incorrecto(catalogo, ctx):
     h = next(h for h in r.hallazgos if h.codigo == "due_date_posterior_a_intervalo")
     assert h.severidad == "POSIBLE DISCREPANCIA"
     assert "Due date original 24-AUG-2026" in h.mensaje
-    assert "cierre_deadline_extendido" in codigos(r, "OK")
+    assert "cierre_deadline_extendido" in codigos(r, "EXTENSIÓN")
 
 
 def test_cierre_con_datos_de_icam(catalogo, ctx):

@@ -387,7 +387,9 @@ def _dato_icam(r: dict, ficha=None) -> dict:
         "notas_descripcion": ficha.notas_descripcion,
         "adjuntos": ficha.adjuntos,
         "intervalos": [{"value": i.valor, "parameter": i.parametro, "unit": i.unidad,
-                        "start": i.inicio} for i in ficha.intervalos],
+                        "start": i.inicio, "extension": i.extension,
+                        "deadline": i.deadline, "extended_deadline": i.deadline_extendido}
+                       for i in ficha.intervalos],
         "uso_encontrado": ficha.uso_encontrado,
         "uso_completado": ficha.uso_completado,
         "rirs": agrupar(ficha.tareas_siguientes, detalles),

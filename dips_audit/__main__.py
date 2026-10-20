@@ -38,12 +38,13 @@ from .benchmark import DATOS as DATOS_BENCHMARK
 from .cargador import ErrorCarga
 from .extractor_icam import ErrorExtraccion, sesion_edge
 from .referencias import ErrorCatalogo
-from .reglas import POSIBLE_DISCREPANCIA, SIN_FUENTE
+from .reglas import EXTENSION, POSIBLE_DISCREPANCIA, SIN_FUENTE
 
 consola = Console()
 ESTILOS = {
     "POSIBLE DISCREPANCIA": "bold yellow",
     "REVISAR": "bold magenta",
+    EXTENSION: "bold bright_magenta",
     SIN_FUENTE: "bold cyan",
     "OK": "bold green",
     CORREGIDO_EN_CIERRE: "bold bright_green",
@@ -95,6 +96,7 @@ QUE_HACER = {
     CORREGIDO_EN_CIERRE: "Completar las verificaciones manuales",
     "POSIBLE DISCREPANCIA": "Confirmar o descartar las discrepancias",
     "REVISAR": "Definir el T/A o RIR según el manual",
+    EXTENSION: "Revisar la extensión y su soporte de autorización",
     SIN_FUENTE: "Verificar la fuente citada",
     "FUERA DE ALCANCE": "Tipo de DIP excluido",  # se completa con los tipos
 }
@@ -119,7 +121,7 @@ def _resumen(resultado, tiempos: dict[str, float]) -> Panel:
     t.add_column("DIPs", justify="right")
     t.add_column("%", justify="right")
     t.add_column("Acción")
-    for estado in ("OK", CORREGIDO_EN_CIERRE, "POSIBLE DISCREPANCIA", "REVISAR", SIN_FUENTE,
+    for estado in ("OK", CORREGIDO_EN_CIERRE, "POSIBLE DISCREPANCIA", EXTENSION, "REVISAR", SIN_FUENTE,
                    "FUERA DE ALCANCE"):
         n = conteo.get(estado, 0)
         if not n and estado == "FUERA DE ALCANCE":

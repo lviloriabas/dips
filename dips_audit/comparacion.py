@@ -26,7 +26,7 @@ from openpyxl.utils import get_column_letter
 
 from .auditor import CODIGOS_DUPLICADO, FUERA_DE_ALCANCE, Auditor
 from .cargador import ErrorCarga, Lote, cargar_export, completar_con_icam, parse_fecha, parse_texto
-from .reglas import POSIBLE_DISCREPANCIA, SEVERIDAD_SIN_FUENTE, SIN_FUENTE
+from .reglas import EXTENSION, POSIBLE_DISCREPANCIA, SEVERIDAD_SIN_FUENTE, SIN_FUENTE
 
 COLUMNAS_MANUALES = {
     "apertura": "DIP Open - RT Audit Completed",
@@ -35,14 +35,14 @@ COLUMNAS_MANUALES = {
     "auditor_cierre": "DIP Closed Audit User",
     "discrepancia": "DIP Discrepancy Found",
 }
-# Estado del programa -> texto para el reporte, de mejor a peor. El programa da cuatro
+# Estado del programa -> texto para el reporte, de mejor a peor. El programa da cinco
 # resultados: OK, sin fuente (el DIP no está en la tabla de referencias), revisar (la tabla
-# da el TA o el RIR según el daño: ir al manual) o posible discrepancia (sin niveles).
+# da el TA o el RIR según el daño: ir al manual), extensión o posible discrepancia.
 POSIBLE = "Posible discrepancia"
 REVISAR = "Revisar en el manual"
-RESULTADOS = ["OK", SIN_FUENTE, REVISAR, POSIBLE]
+RESULTADOS = ["OK", SIN_FUENTE, REVISAR, EXTENSION, POSIBLE]
 # Valor configurado del hallazgo -> cómo se muestra en la comparación.
-SEVERIDADES = {POSIBLE_DISCREPANCIA: POSIBLE, "REVISAR": REVISAR,
+SEVERIDADES = {POSIBLE_DISCREPANCIA: POSIBLE, "REVISAR": REVISAR, EXTENSION: EXTENSION,
                SEVERIDAD_SIN_FUENTE: SIN_FUENTE, "OK": "OK"}
 # Código del hallazgo -> motivo en palabras simples.
 MOTIVOS = {
@@ -87,6 +87,7 @@ MOTIVOS = {
     "asociacion_por_tabla": "Asociado a una fila de la tabla sin entrada en el catálogo",
     "completado_fuera_de_plazo": "Cerrado después del due date",
     "cierre_deadline_extendido": "Cerrado dentro del plazo extendido",
+    "dip_extendido": "DIP con extensión pendiente de revisión",
     "cierre_antes_de_ventana": "Cerrado antes del mínimo de la ventana AFTER/BEFORE",
     "cierre_sin_accion_correctiva": "Cerrado sin acción correctiva",
     "cierre_sin_referencia_tecnica": "Acción correctiva sin referencia del manual",
@@ -120,6 +121,8 @@ COINCIDENCIAS = {  # (auditor con discrepancia, resultado del programa) -> texto
     # Revisar tampoco: el programa no decide, remite al manual.
     (True, REVISAR): "Revisar en el manual: el auditor encontró discrepancia",
     (False, REVISAR): "Revisar en el manual: el auditor no encontró discrepancia",
+    (True, EXTENSION): "EXTENSIÓN: revisar el soporte; el auditor encontró discrepancia",
+    (False, EXTENSION): "EXTENSIÓN: revisar el soporte; el auditor no encontró discrepancia",
 }
 # Las columnas que vienen del Excel de entrada conservan su nombre original; las
 # del programa usan los mismos nombres que el reporte de auditoría.
@@ -151,9 +154,10 @@ def _columnas_manuales(original: pd.DataFrame) -> dict[str, str]:
 
 
 def _resultado(estado: str) -> str:
-    """Estado del programa -> resultado mostrado: OK, sin fuente, revisar, posible discrepancia o ""
+    """Estado del programa -> resultado mostrado: OK, sin fuente, revisar, extensión, discrepancia o ""
     (no auditado)."""
-    return {"": "", "OK": "OK", SIN_FUENTE: SIN_FUENTE, "REVISAR": REVISAR}.get(estado or "", POSIBLE)
+    return {"": "", "OK": "OK", SIN_FUENTE: SIN_FUENTE, "REVISAR": REVISAR,
+            EXTENSION: EXTENSION}.get(estado or "", POSIBLE)
 
 
 def _peor(resultados: list[str]) -> str:
@@ -192,10 +196,12 @@ def comparar(auditor: Auditor, ruta: Path, hoja: str | None = None,
     duplicados_cierre = hc[hc["Código"].isin(CODIGOS_DUPLICADO)
                            & (hc["Severidad"] == POSIBLE_DISCREPANCIA)
                            & hc["Fila Excel"].isin(con_cierre)]
+    extensiones_cierre = hc[(hc["Código"] == "dip_extendido") & hc["Fila Excel"].isin(con_cierre)]
     h = pd.concat([ha[(ha["Auditoría"] == "APERTURA") & ha["Fila Excel"].isin(con_apertura)],
                    hc[(hc["Auditoría"] == "CIERRE") & hc["Fila Excel"].isin(con_cierre)],
                    sin_fuente_cierre.assign(**{"Auditoría": "CIERRE"}),
-                   duplicados_cierre.assign(**{"Auditoría": "CIERRE"})])
+                   duplicados_cierre.assign(**{"Auditoría": "CIERRE"}),
+                   extensiones_cierre.assign(**{"Auditoría": "CIERRE"})])
     h = h.sort_values(["Fila Excel", "Auditoría"], ascending=[True, False])
     h.insert(h.columns.get_loc("Código"), "Motivo", h["Código"].map(MOTIVOS).fillna(h["Código"]))
     motivos = {(f, e): "\n".join(f"- {d}" for s, d in zip(g["Severidad"], g["Detalle"])
@@ -262,14 +268,17 @@ def _tablas_resumen(d: pd.DataFrame, h: pd.DataFrame, n_apertura: int,
     iguales, distintos = cuenta(coincide.str.startswith("Sí")), cuenta(coincide.str.startswith("No"))
     sin_fuente = cuenta(coincide.str.startswith(SIN_FUENTE))
     revisar = cuenta(coincide.str.startswith(REVISAR))
+    extensiones = cuenta(coincide.str.startswith(EXTENSION))
     tablas.append(("¿El programa llega al mismo resultado que el auditor?",
                    "El programa marca posible discrepancia si alguna de las auditorías del DIP la tiene. "
                    f"{SIN_FUENTE}: el DIP no está en la tabla de referencias y no se compara. "
-                   "Revisar en el manual: la tabla da el TA o el RIR según el daño y no se compara.",
+                   "Revisar en el manual: la tabla da el TA o el RIR según el daño y no se compara. "
+                   "EXTENSIÓN: requiere revisión del soporte y no se cuenta como discrepancia.",
                    lista([("Sí, mismo resultado", iguales, _pct(iguales, total)),
                           ("No, resultado distinto", distintos, _pct(distintos, total)),
                           (SIN_FUENTE, sin_fuente, _pct(sin_fuente, total)),
-                          (REVISAR, revisar, _pct(revisar, total))],
+                          (REVISAR, revisar, _pct(revisar, total)),
+                          (EXTENSION, extensiones, _pct(extensiones, total))],
                          ["Respuesta", "DIPs", "%"])))
 
     def segun_programa(grupo: pd.DataFrame, lecturas: dict[str, str]) -> pd.DataFrame:
@@ -284,6 +293,7 @@ def _tablas_resumen(d: pd.DataFrame, h: pd.DataFrame, n_apertura: int,
                        "OK": "Coincide con el auditor",
                        SIN_FUENTE: "No está en la tabla de referencias",
                        REVISAR: "La tabla remite al manual",
+                       EXTENSION: "Revisar la extensión y su soporte de autorización",
                        POSIBLE: "El auditor no la marcó"})))
     tablas.append((f"DIPs en que el auditor encontró discrepancia ({len(con_disc)})",
                    "Lo ideal: que el programa también marque discrepancia.",
@@ -291,6 +301,7 @@ def _tablas_resumen(d: pd.DataFrame, h: pd.DataFrame, n_apertura: int,
                        "OK": "No la detecta",
                        SIN_FUENTE: "No está en la tabla de referencias",
                        REVISAR: "La tabla remite al manual",
+                       EXTENSION: "Revisar la extensión y su soporte de autorización",
                        POSIBLE: "Coincide con el auditor"})))
 
     for nombre, columna in (("apertura", "Apertura: resultado del programa"),
@@ -330,7 +341,9 @@ _ORIGINALES = {"Fault Barcode", "Aircraft", "Fault Name", "Fault Status",
                *COLUMNAS_MANUALES.values()}
 _BORDE = Border(*(Side(style="thin", color="BFBFBF"),) * 4)
 _COLORES = {
-    "OK": "C9E7C9", POSIBLE: "FCE3B0", SIN_FUENTE: "D6E4F0", REVISAR: "FFF59D",
+    "OK": "C9E7C9", POSIBLE: "FCE3B0", SIN_FUENTE: "D6E4F0", REVISAR: "FFF59D", EXTENSION: "E4D7F5",
+    COINCIDENCIAS[(True, EXTENSION)]: "E4D7F5",
+    COINCIDENCIAS[(False, EXTENSION)]: "E4D7F5",
     "Sí: ambos OK": "C9E7C9", "Sí: ambos encuentran discrepancia": "C9E7C9",
     "No: el programa no la detecta": "F4B6B6",
     "No: el programa marca posible discrepancia y el auditor no": "FCE3B0",

@@ -56,7 +56,7 @@ flowchart TD
     A["1. Ejecutar auditar.bat con el Excel de entrada<br/>(con --icam para leer todos los DIPs en ICAM)"] --> B
     B["2. Con --icam, si se pide, iniciar sesión en ICAM<br/>en la ventana de Edge (se cierra al terminar)"] --> C
     C["3. Abrir el Excel de salida en la carpeta salida<br/>Hoja Dashboard: resumen y gráficos"] --> D
-    D["4. Hoja Auditoría: filtrar RESULTADO<br/>y revisar POSIBLE DISCREPANCIA, REVISAR y SIN FUENTE EN DIPS REFERENCES"]
+    D["4. Hoja Auditoría: filtrar RESULTADO<br/>y revisar POSIBLE DISCREPANCIA, EXTENSIÓN, REVISAR y SIN FUENTE EN DIPS REFERENCES"]
 ```
 
 Sin `--icam` se audita solo con el Excel: menos reglas (no hay Start del T/A, RIR vigentes, notas de la descripción ni acción correctiva) y más verificaciones manuales.
@@ -176,14 +176,14 @@ Si en un DIP con REVISAR además falla otra regla, queda en POSIBLE DISCREPANCIA
 | RIR faltante, con otro intervalo, sin un límite del T/A, en otro Parent Assembly, con inicio calendario posterior al T/A o Start distinto en FH/FC | POSIBLE DISCREPANCIA   |
 | Sin intervalo o sin tipo de intervalo                                                              | POSIBLE DISCREPANCIA   |
 | Cierre después del due date vigente, incluida su extensión                                     | POSIBLE DISCREPANCIA   |
-| Cierre dentro del plazo extendido, aunque sea después del due date original                     | OK                    |
+| DIP abierto o cerrado con extensión del T/A por fecha, FH o FC | EXTENSIÓN: revisar el soporte |
 | Cierre sin acción correctiva                                                                      | OK           |
 | Acción correctiva sin cita del manual                                                             | OK           |
 | TA o RIR según el daño o el tipo ("DEPENDING ON...", "CONSULT REF.")                             | REVISAR (ir al manual) |
 | Sin referencia en la tabla                                                                         | SIN FUENTE EN DIPS REFERENCES             |
 | DIP SIN FUENTE EN DIPS REFERENCES con T/A mayor que el plazo de su descripción, o sin el RIR que pide                | POSIBLE DISCREPANCIA   |
 
-Qué tipos de discrepancia y reglas se revisan, y cuáles son OK, se configura en `config/discrepancias.yaml`. Sus valores son POSIBLE DISCREPANCIA, REVISAR, SIN FUENTE EN DIPS REFERENCES y OK. La prioridad sigue ese orden; OK no cambia el resultado. CORREGIDO EN CIERRE se calcula a partir de los resultados de apertura y cierre.
+Qué tipos de discrepancia y reglas se revisan, y cuáles son OK, se configura en `config/discrepancias.yaml`. Sus valores son POSIBLE DISCREPANCIA, EXTENSIÓN, REVISAR, SIN FUENTE EN DIPS REFERENCES y OK. La prioridad sigue ese orden; OK no cambia el resultado. CORREGIDO EN CIERRE se calcula a partir de los resultados de apertura y cierre.
 
 ## RIR en ICAM
 
