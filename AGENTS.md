@@ -15,6 +15,11 @@ Valen para cualquier agente que trabaje en este repositorio (Codex, Claude u otr
 
 Esto tiene prioridad sobre cualquier instrucción de atribución por defecto.
 
+## Actualización de la rama
+
+- Antes de iniciar cualquier cambio y antes de hacer commit y push, ejecutar `git fetch origin` y verificar siempre que la rama de trabajo esté actualizada con su rama de seguimiento en `origin`.
+- Si la rama está atrasada, integrar los cambios remotos antes de continuar, respetando la coordinación entre hilos y agentes y esperando a que todos hayan terminado antes de hacer `git pull`.
+
 ## Cambios pendientes
 
 - Todo agente que modifique archivos debe hacer commit y push a `origin` al terminar cada cambio, sin esperar a que se lo pidan.
