@@ -13,7 +13,8 @@ from .inventario import cruzar
 from .partes import es_squib, verificar_squib
 from .referencias import EntradaCatalogo, Limite, Variante
 from .rir import solo_rir
-from .texto import clave_sn, extraer_fechas, extraer_psi, extraer_sn, normalizar, posiciones
+from .texto import (clave_sn, clave_sn_completa, extraer_fechas, extraer_psi, extraer_sn,
+                    normalizar, posiciones)
 
 POSIBLE_DISCREPANCIA = "POSIBLE DISCREPANCIA"
 # El DIP no está en la tabla de referencias: no hay contra qué auditarlo. Una posible
@@ -376,7 +377,7 @@ def regla_inventario(dip: dict, due: date, ctx: Contexto, r: ResultadoReglas) ->
                           "Sin el PDF de inventario de generators en los attachments.")
         return False
     cruce = cruzar(inventario["generadores"], dip["barcode"],
-                   f"{dip['nombre']} {dip['descripcion']}")
+                   f"{dip['nombre']}\n{dip['descripcion']}")
     for sn in cruce.sn_fuera:
         r.agregar(ctx, "sn_fuera_de_inventario", "Incorrect S/N",
                   f"S/N {sn} no está en el inventario (PDF).")
@@ -508,13 +509,14 @@ _POR_ERROR_DIP = re.compile(
 def dip_por_error(dip: dict) -> str | None:
     """Comentario si el técnico marcó el DIP como duplicado o creado por error; None si no."""
     accion = re.sub(r"^\s*\d+\.\s[^\n]*UTC\s*", "", dip.get("accion_correctiva") or "")
-    textos = [dip.get("nombre"), dip.get("descripcion"), dip.get("notas_descripcion")]
-    if _POR_ERROR_ACCION.search(accion):
-        texto = accion
-    else:
-        texto = next((t for t in textos if t and _POR_ERROR_DIP.search(str(t))), None)
-        if texto is None:
-            return None
+    textos = [dip.get("nombre"), dip.get("descripcion"), dip.get("notas_descripcion"),
+              *(dip.get("auditoria_manual") or [])]
+    candidatos = ([accion] if _POR_ERROR_ACCION.search(accion) else [])
+    candidatos += [t for t in textos if t and _POR_ERROR_DIP.search(str(t))]
+    if not candidatos:
+        return None
+    # Una declaración de duplicado no se pierde por una acción genérica "BY MISTAKE".
+    texto = next((t for t in candidatos if re.search(r"DUPLICA[DT]", str(t), re.I)), candidatos[0])
     duplicado = re.search(r"DUPLICA[DT]", str(texto), re.I)
     otro = next((b.upper() for b in _OTRA_TAREA.findall(str(texto))
                  if b.upper() != (dip.get("barcode") or "").upper()), None)
@@ -597,7 +599,7 @@ def regla_cierre(dip: dict, ctx: Contexto, r: ResultadoReglas,
     cambiados = {clave_sn(sn) for _, sn in (dip.get("sn_removidos") or [])
                  + (dip.get("sn_instalados") or []) if es_serie(sn)}
     cambiados.update(clave_sn(sn) for sn in extraer_sn(texto))
-    en_descripcion = extraer_sn(dip["nombre"] + " " + dip["descripcion"])
+    en_descripcion = extraer_sn(dip["nombre"] + "\n" + dip["descripcion"])
     if (not es_squib(dip, entrada) and removidos and en_descripcion
             and not cambiados & {clave_sn(s) for s in en_descripcion}):
         r.agregar(ctx, "cierre_sn_distinto", "Incorrect S/N",
@@ -775,7 +777,7 @@ def regla_sn_consistente(dip: dict, ctx: Contexto, r: ResultadoReglas,
     def por_clave(texto: str) -> dict[str, str]:
         return {clave_sn(s): s for s in extraer_sn(texto) if clave_sn(s)}
 
-    en_dip = por_clave(dip["nombre"] + " " + dip["descripcion"])
+    en_dip = por_clave(dip["nombre"] + "\n" + dip["descripcion"])
     en_notas = por_clave(dip.get("notas_descripcion") or "")
     if not en_dip or not en_notas or en_dip.keys() == en_notas.keys():
         return
@@ -840,7 +842,7 @@ def regla_ata(dip: dict, entrada: EntradaCatalogo | None, ctx: Contexto,
 def regla_sn(dip: dict, entrada: EntradaCatalogo, ctx: Contexto, r: ResultadoReglas) -> None:
     if not entrada.requiere_sn:
         return
-    sns = extraer_sn(dip["nombre"] + " " + dip["descripcion"])
+    sns = extraer_sn(dip["nombre"] + "\n" + dip["descripcion"])
     if not sns:
         r.agregar(ctx, "sin_sn_en_descripcion", "Missing S/N",
                   "Sin S/N del componente en la descripción.")
@@ -949,8 +951,8 @@ def buscar_duplicados(dips: list[dict], entradas: list[EntradaCatalogo | None],
                 if da["descripcion"] and db["descripcion"] and \
                         _lado(da["descripcion"]) != _lado(db["descripcion"]):
                     continue
-                sa = set(extraer_sn(da["nombre"] + " " + da["descripcion"]))
-                sb = set(extraer_sn(db["nombre"] + " " + db["descripcion"]))
+                sa = {clave_sn_completa(s) for s in extraer_sn(da["nombre"] + "\n" + da["descripcion"])}
+                sb = {clave_sn_completa(s) for s in extraer_sn(db["nombre"] + "\n" + db["descripcion"])}
                 if sa and sb and not (sa & sb):
                     continue
                 # Mensajes de mantenimiento distintos del mismo motor: SHORT TIME 75-20451 y
@@ -976,22 +978,26 @@ def buscar_duplicados(dips: list[dict], entradas: list[EntradaCatalogo | None],
 
 
 def buscar_sn_repetidos(dips: list[dict]) -> dict[int, list[str]]:
-    """Índice del DIP -> barcodes de otros DIPs activos del mismo avión con el mismo S/N.
+    """Índice del DIP -> otros DIPs del avión con el mismo S/N que coexistieron.
 
     Detecta el caso de dos tarjetas (p. ej. FAK 1 y FAK 2) con el mismo S/N.
     """
     por_sn: dict[tuple[str, str], list[int]] = {}
     for i, d in enumerate(dips):
-        if d["estado"] not in ACTIVOS or not d["avion"] or es_squib(d):
+        if not d["avion"] or es_squib(d):
             continue
-        for sn in set(extraer_sn(d["nombre"] + " " + d["descripcion"])):
+        for sn in {clave_sn_completa(s) for s in extraer_sn(d["nombre"] + "\n" + d["descripcion"])}:
             por_sn.setdefault((d["avion"], sn), []).append(i)
     repetidos: dict[int, list[str]] = {}
     for indices in por_sn.values():
-        if len(indices) > 1:
-            for i in indices:
-                repetidos.setdefault(i, []).extend(
-                    dips[j]["barcode"] for j in indices if j != i)
+        for pos, i in enumerate(indices):
+            for j in indices[pos + 1:]:
+                if dips[i]["barcode"] == dips[j]["barcode"] or not _coexisten(dips[i], dips[j]):
+                    continue
+                for a, b in ((i, j), (j, i)):
+                    otros = repetidos.setdefault(a, [])
+                    if dips[b]["barcode"] not in otros:
+                        otros.append(dips[b]["barcode"])
     return repetidos
 
 

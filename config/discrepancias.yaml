@@ -43,8 +43,9 @@
 # (dips_audit/reglas.py). Las auditorías de DIPs antiguos se hacían de otra forma: no sirven
 # para medir el programa.
 #
-# Criterio del 13-oct-2026: un DIP repetido (declarado, detectado o por S/N repetido) sí es
-# discrepancia mientras los dos sigan abiertos. Si uno ya se cerró, está corregido: OK.
+# Criterio del 20-oct-2026: un DIP duplicado (declarado, detectado o por S/N repetido)
+# conserva la discrepancia aunque ya haya cerrado o tenga un OK manual de cierre.
+# Los S/N se comparan completos, tolerando espacios internos y guiones.
 
 tipos:
 
@@ -113,17 +114,16 @@ tipos:
 
   Incorrect S/N:
     reglas:
-      sn_repetido:                       POSIBLE DISCREPANCIA  # mismo S/N en otro DIP activo del avión (señal de duplicado)
+      sn_repetido:                       POSIBLE DISCREPANCIA  # mismo S/N completo en DIPs del avión que coexistieron
       sn_inconsistente:                  POSIBLE DISCREPANCIA  # S/N del DIP distinto del de las notas de la descripción
       cierre_sn_distinto:                OK # cierre: S/N removido distinto del de la descripción
       sn_fuera_de_inventario:            POSIBLE DISCREPANCIA  # generators: S/N del DIP que no está en el PDF de inventario
 
-  # Un DIP repetido es una discrepancia mientras siga abierto.
+  # La duplicación conserva su discrepancia en apertura y cierre.
   Duplicated DIP:
     reglas:
-      # Si uno de los dos ya estaba cerrado a la hora de la auditoría, queda con estado OK.
       duplicado:                         POSIBLE DISCREPANCIA  # mismo avión, componente y abiertos a la vez
-      # El técnico lo marcó como duplicado o creado por error: si ya está cerrado, OK.
+      # Un duplicado declarado siempre es discrepancia. Solo un error de creación sin duplicación queda OK al cerrar.
       duplicado_declarado:               POSIBLE DISCREPANCIA  # "DUPLICATED", "ENTERED BY MISTAKE"
 
   Incorrect Fault Severity:

@@ -366,6 +366,9 @@ def test_dip_marcado_como_duplicado_o_por_error():
         "DIP OPEN BY MISTAKE IN WRONG WP"))) == "DIP creado por error."
     assert dip_por_error(hacer_dip(estado="COMPLETE", accion_correctiva=(
         "DIP DUPLICATED, REFERENCE TO BC T40S009J3HP"))) == "DIP duplicado (ver T40S009J3HP)."
+    assert dip_por_error(hacer_dip(estado="COMPLETE", accion_correctiva="ENTERED BY MISTAKE",
+                                  descripcion="DIP DUPLICADO DEL T40S009J3HP")) == \
+        "DIP duplicado (ver T40S009J3HP)."
     assert dip_por_error(hacer_dip(descripcion="DIP DUPLICADO DEL T40S009J3HP")) == \
         "DIP duplicado (ver T40S009J3HP); sigue abierto."
     # En la descripción, "BY MISTAKE" suelto es la falla, no el DIP.
@@ -374,9 +377,14 @@ def test_dip_marcado_como_duplicado_o_por_error():
         "BOTTLE REPLACED IAW AMM TASK 35-11-11-000-801"))) is None
 
 
-def test_dip_por_error_no_se_audita(config, tmp_path):
-    """Cerrado como creado por error: basta anotarlo, sin los hallazgos del resto de la
-    auditoría (aquí, sin attachments ni referencia técnica). El comentario es solo eso."""
+@pytest.mark.parametrize("accion, esperado, comentario", [
+    ("ENTERED BY MISTAKE", "OK", "DIP creado por error."),
+    ("DIP DUPLICATED, REFERENCE TO BC T40S009J3HP", "POSIBLE DISCREPANCIA",
+     "DIP duplicado (ver T40S009J3HP)."),
+])
+def test_dip_por_error_o_duplicado_conserva_solo_su_hallazgo(
+        config, tmp_path, accion, esperado, comentario):
+    """Un duplicado declarado conserva la discrepancia aunque ya esté cerrado."""
     from dips_audit.auditor import Auditor
     from dips_audit.cargador import lote_desde_icam
     from tests.test_barcode import _registro
@@ -384,10 +392,10 @@ def test_dip_por_error_no_se_audita(config, tmp_path):
     registro = _registro(estado="COMPLETE (Complete)")
     registro["sections"]["TaskExecution"] = (
         "Description \n\nFDR READOUT PENDING\n\nLabor\n\nCorrective Action\n\n"
-        "1. TECNICO (Technician), 24-SEP-2026 06:45 UTC\nENTERED BY MISTAKE\n\nPart Requirements \n")
+        f"1. TECNICO (Technician), 24-SEP-2026 06:45 UTC\n{accion}\n\nPart Requirements \n")
     lote = lote_desde_icam(registro, tmp_path / "icam.json")
     resultado = Auditor(config, fecha_auditoria=datetime(2026, 9, 25, 12, 0)).auditar_lote(lote)
     fila = resultado.filas.iloc[0]
     assert list(resultado.hallazgos["Código"]) == ["duplicado_declarado"]
-    assert fila["RESULTADO"] == "OK"                 # cerrado: ya está corregido
-    assert fila["COMENTARIO SUGERIDO"] == "DIP creado por error."
+    assert fila["RESULTADO"] == esperado
+    assert fila["COMENTARIO SUGERIDO"] == comentario

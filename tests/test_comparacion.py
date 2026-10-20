@@ -63,6 +63,18 @@ def test_exporta_excel(tmp_path, auditor):
     assert salida.exists()
 
 
+def test_duplicado_cerrado_conserva_motivo_en_comparacion(tmp_path, auditor_others):
+    due = datetime(2026, 8, 21, 23, 59)
+    filas = [_fila(b, "COMPLETE", due, datetime(2026, 8, 19), None,
+                   datetime(2026, 8, 20)) for b in ("A1", "B1")]
+    c = comparar(auditor_others, crear_export(tmp_path / "e.xlsx", filas, encabezado=ENCABEZADO))
+    detalle = c.detalle.set_index("Fault Barcode").loc["B1"]
+    assert detalle["Cierre: resultado del programa"] == "Posible discrepancia"
+    hallazgos = c.hallazgos[c.hallazgos["Fault Barcode"] == "B1"]
+    assert "duplicado" in set(hallazgos.loc[hallazgos["Auditoría"] == "CIERRE", "Código"])
+    assert "Posible duplicado de A1." in detalle["Cierre: motivos"]
+
+
 def test_sin_fuente_en_dips_references_se_cuenta_en_apertura_y_cierre(tmp_path, auditor):
     due = datetime(2026, 8, 21, 23, 59)
     apertura = _fila("S1", "ACTV", due, None, datetime(2026, 8, 18, 12), None)

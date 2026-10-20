@@ -299,9 +299,11 @@ La columna `REFERENCIA ASOCIADA` dice con qué ítem se reconoció el DIP, y `AS
 
 Antes de revisar cada DIP por separado se buscan duplicados, S/N repetidos y Parent Assembly distintos de sus pares, mirando todos los DIPs en alcance a la vez.
 
-Dos DIPs son posibles duplicados si están en el mismo avión, son el mismo ítem del catálogo, citan las mismas posiciones (FWD/AFT, LH/RH, #1/#2...) en el nombre y en la descripción, y estuvieron abiertos al mismo tiempo (sin fecha de cierre, basta con que se hayan abierto el mismo día). Además, si los dos citan S/N tienen que compartir alguno, y si citan mensajes de mantenimiento tienen que ser los mismos: 75-20451 y 75-10451 son dos fallas. En un ítem con varias etapas deben tener el mismo intervalo (un re-torque a 60 días y otro a 12 meses son etapas distintas), y en un ítem con vencimiento, el mismo due date. Se marca el que se abrió después. Un DIP repetido es una posible discrepancia mientras los dos sigan abiertos; si uno ya se cerró a la hora de la auditoría, está corregido y queda con estado OK.
+Dos DIPs son posibles duplicados si están en el mismo avión, son el mismo ítem del catálogo, citan las mismas posiciones (FWD/AFT, LH/RH, #1/#2...) en el nombre y en la descripción, y estuvieron abiertos al mismo tiempo (sin fecha de cierre, basta con que se hayan abierto el mismo día). Además, si los dos citan S/N tienen que compartir alguno, y si citan mensajes de mantenimiento tienen que ser los mismos: 75-20451 y 75-10451 son dos fallas. En un ítem con varias etapas deben tener el mismo intervalo (un re-torque a 60 días y otro a 12 meses son etapas distintas), y en un ítem con vencimiento, el mismo due date. Se marca el que se abrió después. La duplicación siempre conserva la posible discrepancia, aunque uno o ambos DIPs ya hayan cerrado o exista un OK manual de cierre.
 
-Hay S/N repetido cuando dos o más DIPs activos del mismo avión citan el mismo S/N, como un FAK 1 y un FAK 2 con el mismo número. Es la señal de un duplicado: también es una posible discrepancia, y no se anota si ya se anotó el duplicado.
+Hay S/N repetido cuando dos o más DIPs del mismo avión que estuvieron abiertos al mismo tiempo citan el mismo S/N, como un FAK 1 y un FAK 2 con el mismo número. Es la señal de un duplicado: también es una posible discrepancia que se conserva al cerrar, y no se anota si ya se anotó el duplicado. Una reutilización del componente después del cierre del primer DIP queda fuera de esta coincidencia.
+
+El parser reconstruye el S/N completo cuando hay espacios entre guiones o dígitos: `123 - 456` se lee como `123-456` y `123 456` como `123456`. Para buscar duplicados se conservan todas las letras y dígitos y se omiten guiones y espacios. Compartir solo un prefijo, como `123 - 456` y `123 - 789`, no es una coincidencia. Las fechas, las presiones y los plazos que siguen al serial se leen por separado, igual que el nombre y la descripción del DIP.
 
 La regla de Parent Assembly distinto de sus pares es solo para DIPs SIN FUENTE EN DIPS REFERENCES. Si el DIP cita una EC/ECRA y al menos otros dos DIPs del archivo que citan la misma están todos en otro Parent Assembly, se marca. Por ejemplo, cinco cambios de toberas por la ECRA 7300-0132C cargados en el motor y uno en el avión. Solo se hace con EC, porque una AMM puede ser genérica.
 
@@ -314,7 +316,7 @@ A cada DIP en alcance se le aplican, en este orden:
 3. Referencia técnica y RIR.
 4. Si el DIP es SIN FUENTE EN DIPS REFERENCES, las reglas contra su propia descripción.
 5. Lo que salió de comparar con los demás DIPs, el aviso de intervalo tomado de ICAM y los detalles adicionales de la asociación.
-6. Si el técnico declaró que el DIP se creó por error o es un duplicado, se borra todo lo anterior y queda solo ese hallazgo.
+6. Si se declaró que el DIP se creó por error o es un duplicado, queda solo ese hallazgo; una declaración genérica de error conserva cualquier duplicación detectada.
 
 A los DIPs con `Defer Dt` desde el 9 de julio de 2026 se les agrega en `VERIFICACIÓN MANUAL` el recordatorio "Verificar attachments: captura de referencia técnica y EC/RA adjunta.". Si el DIP tiene marcas AUDITDIP, esa columna empieza con "Ya se había auditado manualmente" y lo que anotó el auditor en cada marca, por ejemplo "Apertura: DISCREPANCIA (MISSING RIR INTERVAL); Cierre: sin discrepancia".
 
@@ -466,7 +468,7 @@ Un DIP cerrado sin attachments es posible discrepancia de cierre si su `Defer Dt
 
 #### DIP creado por error o declarado duplicado
 
-Si la acción correctiva dice "DUPLICATED", "BY MISTAKE", "BY ERROR", "POR ERROR"..., o si el nombre, la descripción o las notas lo dicen refiriéndose al DIP ("DIP DUPLICADO", pero no "MASK DEPLOYED BY MISTAKE", que es la falla), el DIP no se audita. Se borran sus hallazgos y verificaciones y queda uno solo: "DIP creado por error." o "DIP duplicado (ver T40S...).". Cerrado, ya está corregido y queda OK; si sigue abierto, es una posible discrepancia.
+Si la acción correctiva dice "DUPLICATED", "BY MISTAKE", "BY ERROR", "POR ERROR"..., o si el nombre, la descripción, las notas o la auditoría manual lo dicen refiriéndose al DIP ("DIP DUPLICADO", pero no "MASK DEPLOYED BY MISTAKE", que es la falla), se reemplazan sus hallazgos generales y verificaciones por "DIP creado por error." o "DIP duplicado (ver T40S...).". Un duplicado siempre conserva la posible discrepancia, abierto o cerrado. Un DIP creado por error queda OK al cerrar si no hay evidencia de duplicación; mientras esté abierto es posible discrepancia.
 
 ### El resultado
 
@@ -485,7 +487,7 @@ CORREGIDO EN CIERRE se calcula para un DIP COMPLETE con POSIBLE DISCREPANCIA en 
 
 Algunos casos fijan la severidad en el código, siempre con estado OK: Parent Assembly flexible, Start posterior en un SIN FUENTE EN DIPS REFERENCES y referencia técnica distinta cuando no es grave. Si la regla, su tipo de discrepancia o su categoría (con `--categorias`) están desactivados, el hallazgo directamente no se agrega. Por eso, con `--categorias`, un DIP sin referencia puede salir OK: SIN FUENTE EN DIPS REFERENCES es del tipo "Missing Reference in Table" y también quedó afuera. La consola y el Excel lo avisan.
 
-Un DIP COMPLETE tiene hallazgos de apertura y de cierre. Son de cierre `completado_fuera_de_plazo`, `cierre_deadline_extendido`, `cierre_sin_accion_correctiva`, `cierre_sin_referencia_tecnica`, `cierre_referencia_incompleta`, `cierre_sn_distinto`, `cierre_sin_adjuntos` y `cierre_antes_de_ventana` (`reglas.CODIGOS_CIERRE`); todos los demás son de apertura. En el Excel, `ESTADO APERTURA` es el resultado de los hallazgos de apertura y `ESTADO CIERRE` el de los de cierre más el SIN FUENTE EN DIPS REFERENCES, que vale para las dos. `RESULTADO` junta todos. `AUDITORÍA` dice CIERRE si el DIP está COMPLETE y APERTURA si no.
+Un DIP COMPLETE tiene hallazgos de apertura y de cierre. Son de cierre `completado_fuera_de_plazo`, `cierre_deadline_extendido`, `cierre_sin_accion_correctiva`, `cierre_sin_referencia_tecnica`, `cierre_referencia_incompleta`, `cierre_sn_distinto`, `cierre_sin_adjuntos` y `cierre_antes_de_ventana` (`reglas.CODIGOS_CIERRE`); todos los demás son de apertura. En el Excel, `ESTADO APERTURA` es el resultado de los hallazgos de apertura y `ESTADO CIERRE` el de los de cierre más SIN FUENTE EN DIPS REFERENCES y las discrepancias de duplicación, que valen para las dos. Los motivos de duplicación también se incluyen en el cierre al comparar contra la auditoría manual. `RESULTADO` junta todos. `AUDITORÍA` dice CIERRE si el DIP está COMPLETE y APERTURA si no.
 
 El `COMENTARIO SUGERIDO` es un texto listo para el comentario del auditor: "T/A aperturado correctamente" si el intervalo coincide con la tabla, seguido de los mensajes de los hallazgos que no se registran con estado OK ni "revisar en el manual", separados por " // ". Un DIP cerrado sin attachments tiene dos hallazgos (apertura y cierre), pero el comentario lo dice una vez. En un DIP creado por error, el comentario es solo ese mensaje.
 
@@ -683,11 +685,11 @@ PD significa POSIBLE DISCREPANCIA. La severidad es la que tiene hoy `config/disc
 | `deferral_reference_ata` | Incorrect ATA | Deferral Reference no empieza con el ATA | OK |
 | `ata_distinto_a_referencia` | Incorrect ATA | ATA distinto del de la tabla | OK |
 | `sin_sn_en_descripcion` | Missing S/N | La tabla pide S/N y el DIP no lo cita | OK |
-| `sn_repetido` | Incorrect S/N | Mismo S/N en otro DIP activo del avión (señal de duplicado) | PD |
+| `sn_repetido` | Incorrect S/N | Mismo S/N completo en DIPs del avión que coexistieron (se conserva al cerrar) | PD |
 | `sn_inconsistente` | Incorrect S/N | S/N distinto del de las notas de la descripción | PD |
 | `sn_fuera_de_inventario` | Incorrect S/N | Generators: S/N que no está en el PDF | PD |
-| `duplicado` | Duplicated DIP | Mismo avión, ítem y posición, abiertos a la vez | PD (OK si uno ya se cerró) |
-| `duplicado_declarado` | Duplicated DIP | El técnico dice que es duplicado o creado por error | PD (OK si ya está cerrado) |
+| `duplicado` | Duplicated DIP | Mismo avión, ítem y posición, abiertos a la vez; se conserva al cerrar | PD |
+| `duplicado_declarado` | Duplicated DIP | Se declaró duplicado o creado por error | PD (solo error de creación sin duplicación: OK al cerrar) |
 | `fault_severity` | Incorrect Fault Severity | Fault Severity distinta de DIP | OK |
 | `sin_referencia_tecnica` | Missing Technical Reference | Sin referencia cargada, sin captura y sin cita | PD |
 | `referencia_tecnica_incompleta` | Missing Technical Reference | La cita sin REV o sin fecha | OK |
@@ -767,7 +769,7 @@ Los datos pasan de una etapa a la siguiente en un solo sentido. El Excel se conv
 
 ## Límites conocidos
 
-- ICAM muestra el presente. El programa ve el DIP como está hoy, no como estaba cuando lo auditó una persona. Por eso el mismo Excel puede dar otro resultado más tarde: pudo cambiar ICAM (se agregó un attachment, se cerró el DIP), pudo cambiar la fecha de auditoría (un DIP venció, un duplicado se cerró) o una corrida usó ICAM y la otra no. Con `--fecha` se audita a un momento fijo.
+- ICAM muestra el presente. El programa ve el DIP como está hoy, no como estaba cuando lo auditó una persona. Por eso el mismo Excel puede dar otro resultado más tarde: pudo cambiar ICAM (se agregó un attachment, se cerró el DIP), pudo cambiar la fecha de auditoría (un DIP venció) o una corrida usó ICAM y la otra no. Con `--fecha` se audita a un momento fijo.
 - Los attachments se cuentan, no se leen. El programa no sabe si un attachment es la captura de la referencia o una foto, salvo los PDF de inventario de generators y los nombres que parecen capturas de un barcode.
 - La tabla de referencias no está completa. Lo que no tiene (daños de Structures con ECRA propia, CNR de vibración, aire o combustible, cables de spoiler...) sale SIN FUENTE EN DIPS REFERENCES.
 - Hay criterios por confirmar con los auditores: los niveles de discrepancia, el cierre tarde con Usage Remaining -1, el TA de algunos ítems (amortiguadores MAX, filtro de combustible, sellante de ventanas, pitot MAX) y la revisión vigente de los manuales. El detalle está en [docs/tecnico.md](docs/tecnico.md#12-pendientes).

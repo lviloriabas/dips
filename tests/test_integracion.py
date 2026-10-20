@@ -102,26 +102,50 @@ def test_casos_aceptados_se_muestran_como_ok(auditor_others, export, tmp_path):
         assert celda.fill.fgColor.rgb == "00C9E7C9"
 
 
-def test_dip_repetido_es_discrepancia_hasta_que_uno_se_cierra(auditor_others, tmp_path):
-    """Dos DIPs del mismo ítem abiertos a la vez: posible discrepancia. Si uno de los dos ya
-    se cerró a la hora de la auditoría, el repetido está corregido y queda OK."""
-    encabezado = [*ENCABEZADO_ENTRADA, "Complete Dt"]
+@pytest.mark.parametrize("estado_primero, estado_segundo, cierre_manual_ok, por_error", [
+    ("ACTV", "ACTV", False, False),
+    ("COMPLETE", "ACTV", False, False),
+    ("ACTV", "COMPLETE", False, False),
+    ("COMPLETE", "COMPLETE", False, False),
+    ("COMPLETE", "COMPLETE", True, False),
+    ("COMPLETE", "COMPLETE", True, True),
+])
+def test_dip_repetido_sigue_siendo_discrepancia_al_cerrar(
+        auditor_others, tmp_path, estado_primero, estado_segundo, cierre_manual_ok, por_error):
+    """El cierre de cualquiera de los dos y un OK manual no borran la duplicación."""
+    from dips_audit.cargador import cargar_export
+
+    encabezado = [*ENCABEZADO_ENTRADA, "Complete Dt", "Fault Description"]
     primero, segundo = list(FILAS[3]), list(FILAS[4])
+    primero[6], segundo[6] = estado_primero, estado_segundo
+    filas = [[*f, datetime(2026, 8, 19, 10, 0) if f[6] == "COMPLETE" else None,
+              "DIP OPEN BY MISTAKE" if n == 1 and por_error else ""]
+             for n, f in enumerate((primero, segundo))]
+    lote = cargar_export(crear_export(tmp_path / "export.xlsx", filas, encabezado=encabezado))
+    if cierre_manual_ok:
+        lote.datos.at[lote.datos.index[1], "auditoria_manual"] = ["Cierre: sin discrepancia"]
+    resultado = auditor_others.auditar_lote(lote)
+    actual = resultado.filas.set_index("Fault Barcode").loc["T5"]
+    h = resultado.hallazgos
+    hallazgo = h[(h["Fault Barcode"] == "T5") & (h["Código"] == "duplicado")].iloc[0]
+    assert actual["RESULTADO"] == hallazgo["Severidad"] == "POSIBLE DISCREPANCIA"
+    assert "Posible duplicado de T4." in actual["COMENTARIO SUGERIDO"]
+    if estado_segundo == "COMPLETE":
+        assert actual["ESTADO CIERRE"] == "POSIBLE DISCREPANCIA"
 
-    def duplicado(cierre_del_primero):
-        primero[6] = "COMPLETE" if cierre_del_primero else "ACTV"
-        ruta = crear_export(tmp_path / f"export_{primero[6]}.xlsx",
-                            [[*primero, cierre_del_primero], [*segundo, None]], encabezado=encabezado)
-        resultado = auditor_others.auditar_archivo(ruta)
-        h = resultado.hallazgos
-        return (resultado.filas.set_index("Fault Barcode").loc["T5", "RESULTADO"],
-                h[(h["Fault Barcode"] == "T5") & (h["Código"] == "duplicado")].iloc[0])
 
-    estado, hallazgo = duplicado(None)
-    assert (estado, hallazgo["Severidad"]) == ("POSIBLE DISCREPANCIA", "POSIBLE DISCREPANCIA")
-    estado, hallazgo = duplicado(datetime(2026, 8, 19, 10, 0))
-    assert (estado, hallazgo["Severidad"]) == ("OK", "OK")
-    assert "T4 ya se cerró" in hallazgo["Detalle"]
+@pytest.mark.parametrize("segundo_sn, repetido", [("123 - 789", False), ("123456", True)])
+def test_auditoria_compara_sn_completos_con_espacios(auditor_others, tmp_path, segundo_sn, repetido):
+    encabezado = [*ENCABEZADO_ENTRADA, "Fault Description"]
+    base = ["T7", 25, "Others", "FAK 1 DUE DATE", 30, "DAY", "ACTV", "HP-1837CMP", AVION,
+            "DIP", "25-DIP", datetime(2026, 9, 17, 23, 59), datetime(2026, 8, 18, 9, 0), None, 28]
+    filas = [[*base, "S/N 123 - 456"],
+             ["T8", *base[1:3], "FAK 2 DUE DATE", *base[4:], f"S/N {segundo_sn}"]]
+    resultado = auditor_others.auditar_archivo(
+        crear_export(tmp_path / "export.xlsx", filas, encabezado=encabezado))
+    h = resultado.hallazgos
+    assert (set(h.loc[h["Código"] == "sn_repetido", "Fault Barcode"]) == {"T7", "T8"}) is repetido
+    assert "duplicado" not in set(h["Código"])
 
 
 def test_sn_repetido_y_duplicado_declarado_abiertos_son_discrepancia(auditor_others, tmp_path):
@@ -224,7 +248,7 @@ def test_cierre_ok_sin_discrepancias_de_apertura_permanece_ok(auditor, tmp_path)
 
 @pytest.mark.parametrize("remanente, marcas, esperado", [
     (43, ["Apertura: DISCREPANCIA (X)", "Cierre: sin discrepancia"], "OK"),
-    (-1, ["Cierre: sin discrepancia (DIP DUPLICATED)"], "OK"),
+    (-1, ["Cierre: sin discrepancia (REVISADO)"], "OK"),
     (43, ["Apertura: sin discrepancia"], "CORREGIDO EN CIERRE"),
     (-1, ["Cierre: DISCREPANCIA (X)"], "POSIBLE DISCREPANCIA"),
 ])
@@ -248,6 +272,22 @@ def test_cierre_auditado_ok_en_icam_queda_ok_con_los_hallazgos(auditor, tmp_path
     assert "intervalo_excedido" in set(resultado.hallazgos["Código"])
     assert actual["HALLAZGOS"]
     assert ("auditoría manual de cierre" in actual["VERIFICACIÓN MANUAL"]) is (esperado == "OK")
+
+
+def test_duplicado_declarado_en_auditoria_manual_sigue_siendo_discrepancia(auditor, tmp_path):
+    from dips_audit.cargador import cargar_export
+
+    fila = list(FILAS[1])
+    fila[6] = "COMPLETE"
+    lote = cargar_export(crear_export(tmp_path / "entrada.xlsx", [[*fila, datetime(2026, 8, 20)]],
+                                      encabezado=[*ENCABEZADO_ENTRADA, "Complete Dt"]))
+    lote.datos.at[lote.datos.index[0], "auditoria_manual"] = [
+        "Cierre: sin discrepancia (DIP DUPLICATED)"]
+    resultado = auditor.auditar_lote(lote)
+    actual = resultado.filas.iloc[0]
+    assert actual["RESULTADO"] == actual["ESTADO CIERRE"] == "POSIBLE DISCREPANCIA"
+    assert list(resultado.hallazgos["Código"]) == ["duplicado_declarado"]
+    assert actual["COMENTARIO SUGERIDO"] == "DIP duplicado."
 
 
 def test_evaluacion_cuenta_corregidos_en_cierre_sin_marcarlos_como_discrepancia(auditor, tmp_path):

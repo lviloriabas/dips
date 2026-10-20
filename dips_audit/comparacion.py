@@ -24,7 +24,7 @@ from openpyxl import Workbook
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from openpyxl.utils import get_column_letter
 
-from .auditor import FUERA_DE_ALCANCE, Auditor
+from .auditor import CODIGOS_DUPLICADO, FUERA_DE_ALCANCE, Auditor
 from .cargador import ErrorCarga, Lote, cargar_export, completar_con_icam, parse_fecha, parse_texto
 from .reglas import POSIBLE_DISCREPANCIA, SEVERIDAD_SIN_FUENTE, SIN_FUENTE
 
@@ -70,7 +70,7 @@ MOTIVOS = {
     "ata_distinto_a_referencia": "ATA distinto del de la tabla",
     "tipo_dip_distinto_a_referencia": "Parece un DIP de otro tipo (Powerplant/Structures)",
     "sin_sn_en_descripcion": "Sin S/N del componente en la descripción",
-    "sn_repetido": "Mismo S/N en otro DIP activo del avión",
+    "sn_repetido": "Mismo S/N en DIPs del avión que coexistieron",
     "duplicado": "Posible DIP duplicado",
     "duplicado_declarado": "DIP duplicado o creado por error",
     "fault_severity": "Fault Severity distinta de DIP",
@@ -189,9 +189,13 @@ def comparar(auditor: Auditor, ruta: Path, hoja: str | None = None,
     # cerrar, es el motivo de ese resultado.
     sin_fuente_cierre = hc[(hc["Severidad"] == SEVERIDAD_SIN_FUENTE)
                            & hc["Fila Excel"].isin(con_cierre - con_apertura)]
+    duplicados_cierre = hc[hc["Código"].isin(CODIGOS_DUPLICADO)
+                           & (hc["Severidad"] == POSIBLE_DISCREPANCIA)
+                           & hc["Fila Excel"].isin(con_cierre)]
     h = pd.concat([ha[(ha["Auditoría"] == "APERTURA") & ha["Fila Excel"].isin(con_apertura)],
                    hc[(hc["Auditoría"] == "CIERRE") & hc["Fila Excel"].isin(con_cierre)],
-                   sin_fuente_cierre.assign(**{"Auditoría": "CIERRE"})])
+                   sin_fuente_cierre.assign(**{"Auditoría": "CIERRE"}),
+                   duplicados_cierre.assign(**{"Auditoría": "CIERRE"})])
     h = h.sort_values(["Fila Excel", "Auditoría"], ascending=[True, False])
     h.insert(h.columns.get_loc("Código"), "Motivo", h["Código"].map(MOTIVOS).fillna(h["Código"]))
     motivos = {(f, e): "\n".join(f"- {d}" for s, d in zip(g["Severidad"], g["Detalle"])

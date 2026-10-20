@@ -170,8 +170,8 @@ Si en un DIP con REVISAR además falla otra regla, queda en POSIBLE DISCREPANCIA
 | Sin attachments (apertura o cierre)                                                                | POSIBLE DISCREPANCIA   |
 | Cerrado antes de A en una ventana "AFTER A, BEFORE B" (con ICAM en FH y FC)                        | POSIBLE DISCREPANCIA   |
 | S/N distinto del de las notas de la descripción                                                    | POSIBLE DISCREPANCIA   |
-| DIP duplicado (o S/N repetido en otro DIP activo), o declarado duplicado / creado por error y abierto | POSIBLE DISCREPANCIA   |
-| DIP duplicado cuando uno de los dos ya se cerró, o declarado duplicado / creado por error y cerrado | OK           |
+| DIP duplicado, declarado duplicado o con S/N completo repetido en DIPs que coexistieron, incluso cerrados o con OK manual de cierre | POSIBLE DISCREPANCIA   |
+| DIP creado por error sin evidencia de duplicación, ya cerrado | OK           |
 | Deferral Reference distinto del ATA                                                                | OK           |
 | RIR faltante, con otro intervalo, sin un límite del T/A, en otro Parent Assembly, con inicio calendario posterior al T/A o Start distinto en FH/FC | POSIBLE DISCREPANCIA   |
 | Sin intervalo o sin tipo de intervalo                                                              | POSIBLE DISCREPANCIA   |

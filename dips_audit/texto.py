@@ -94,25 +94,34 @@ def extraer_psi(texto: object) -> list[int]:
     return valores
 
 
+_SN_NO_VALIDOS = {"DUE", "DATE", "INCORRECTO", "CORRECTO", "THE", "AND"}
+_SN_FIN = "(?:" + "|".join(sorted(_SN_NO_VALIDOS)) + r"|[PS] */ *N\d?|[PS]N\d?)\b"
+# Un número seguido de unidad o mes pertenece a la presión, al plazo o a la fecha,
+# no al serial anterior. Las continuaciones numéricas sí pueden tener espacios.
+_SN_MEDIDA_O_FECHA = (
+    r"(?:\d{1,4}[-/]\d{1,2}[-/]\d{2,4}\b|\d{1,2}:\d{2}\b|\d+(?:[.,]\d+)?[ -]*"
+    r"(?:PSI|FH|FC|HOURS?|HRS?|DAYS?|CDY|MONTHS?|CMON|CYCLES?|LANDINGS?|E/A|EA|"
+    + "|".join(MESES) + r")[A-Z]*\b)"
+)
 _SN_RE = re.compile(
     r"\b(?:(?:S\s*/\s*N|SN)(?:\d(?=[\s:#.=]))?|SERIAL\s*(?:NO\.?|NUMBER)?)"
     r"\s*[:#.=\-]?\s*"
-    r"([A-Z0-9][A-Z0-9\-]{2,})\b"
+    r"([A-Z0-9]+(?: *- *(?!" + _SN_FIN + r")[A-Z0-9]+"
+    r"|(?<=\d) +(?=\d)(?!" + _SN_MEDIDA_O_FECHA + r")[A-Z0-9]+)*)\b"
 )
 _PN_RE = re.compile(
     r"\b(?:(?:P\s*/\s*N|PN)(?:\d(?=[\s:#.=]))?|PART\s*(?:NO\.?|NUMBER))"
     r"\s*[:#.=]?\s*([A-Z0-9][A-Z0-9\-]{2,})\b"
 )
-_SN_NO_VALIDOS = {"DUE", "DATE", "INCORRECTO", "CORRECTO", "THE", "AND"}
 
 
 def extraer_sn(texto: object) -> list[str]:
-    """Números de serie mencionados con prefijo S/N o SN."""
+    """Seriales completos con prefijo S/N o SN, incluso con espacios entre dígitos o guiones."""
     t = sin_acentos(str(texto or "")).upper()
     encontrados = []
     for m in _SN_RE.finditer(t):
-        sn = m.group(1).strip("-")
-        if sn not in _SN_NO_VALIDOS and any(c.isdigit() for c in sn):
+        sn = re.sub(r"\s+", "", m.group(1)).strip("-")
+        if len(sn) >= 3 and sn not in _SN_NO_VALIDOS and any(c.isdigit() for c in sn):
             encontrados.append(sn)
     return encontrados
 
@@ -121,6 +130,11 @@ def clave_sn(sn: str) -> str:
     """Lo que identifica un S/N: sus dígitos. El mismo S/N se escribe con o sin letras y
     guiones (P11101989 / 11101989, 1234-AB / 1234)."""
     return re.sub(r"\D", "", str(sn or ""))
+
+
+def clave_sn_completa(sn: str) -> str:
+    """Identidad completa para duplicados: conserva letras y dígitos, omite espacios y guiones."""
+    return re.sub(r"[^A-Z0-9]", "", sin_acentos(str(sn or "")).upper())
 
 
 def extraer_pn(texto: object) -> list[str]:

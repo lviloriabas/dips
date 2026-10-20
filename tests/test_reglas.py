@@ -480,3 +480,29 @@ def test_sn_repetido_en_dos_dips(catalogo):
     b = hacer_dip(barcode="B", nombre="FAK 2 S/N CFAK187")
     c = hacer_dip(barcode="C", nombre="FAK 3 S/N CFAK999")
     assert buscar_sn_repetidos([a, b, c]) == {0: ["B"], 1: ["A"]}
+
+
+@pytest.mark.parametrize("segundo_sn, repetido", [
+    ("123 - 789", False), ("123456", True), ("ABC123-456", False),
+])
+def test_duplicados_comparan_el_sn_completo(catalogo, segundo_sn, repetido):
+    fak = catalogo.por_id("FAK")
+    a = hacer_dip(barcode="A", nombre="FIRST AID KIT", descripcion="S/N 123 - 456")
+    b = hacer_dip(barcode="B", nombre="FIRST AID KIT", descripcion=f"S/N {segundo_sn}")
+    assert bool(buscar_duplicados([a, b], [fak, fak])) is repetido
+    assert bool(buscar_sn_repetidos([a, b])) is repetido
+
+
+def test_sn_de_campos_distintos_no_se_concatenan():
+    a = hacer_dip(barcode="A", nombre="FAK 1 S/N 123", descripcion="456 AVAILABLE FOR INSTALLATION")
+    b = hacer_dip(barcode="B", nombre="FAK 2 S/N 123456")
+    assert buscar_sn_repetidos([a, b]) == {}
+
+
+def test_sn_repetido_cerrado_solo_si_los_dips_coexistieron():
+    a = hacer_dip(barcode="A", nombre="FAK 1 S/N 12345", estado="COMPLETE",
+                  complete_date=datetime(2026, 8, 19))
+    b = hacer_dip(barcode="B", nombre="FAK 2 S/N 12345")
+    assert buscar_sn_repetidos([a, b]) == {0: ["B"], 1: ["A"]}
+    b["found_date"] = datetime(2026, 8, 20)
+    assert buscar_sn_repetidos([a, b]) == {}

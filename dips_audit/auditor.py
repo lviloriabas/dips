@@ -23,12 +23,13 @@ from .referencias import Catalogo, EntradaCatalogo, cargar_catalogo, cargar_refe
 from .reglas_descripcion import buscar_parent_distinto_de_pares, revisar_descripcion
 from .reglas import (ACTIVOS, MOSTRAR_SEVERIDAD, ORDEN_SEVERIDAD, POSIBLE_DISCREPANCIA,
                      REVISAR, SEVERIDAD_SIN_FUENTE, SIN_FUENTE, Contexto, Hallazgo, auditar_dip, buscar_duplicados,
-                     buscar_sn_repetidos, como_fecha_hora, dip_por_error, estado_final, etapa,
+                     buscar_sn_repetidos, dip_por_error, estado_final, etapa,
                      referencia_y_adjunto_exigibles)
 
 RAIZ = Path(__file__).resolve().parent.parent
 FUERA_DE_ALCANCE = "FUERA DE ALCANCE"
 CORREGIDO_EN_CIERRE = "CORREGIDO EN CIERRE"
+CODIGOS_DUPLICADO = {"duplicado", "duplicado_declarado", "sn_repetido"}
 # CORREGIDO EN CIERRE identifica discrepancias de apertura con cierre OK.
 RESULTADOS = {POSIBLE_DISCREPANCIA: POSIBLE_DISCREPANCIA, REVISAR: REVISAR, SIN_FUENTE: SIN_FUENTE,
               "OK": "OK", CORREGIDO_EN_CIERRE: CORREGIDO_EN_CIERRE, FUERA_DE_ALCANCE: FUERA_DE_ALCANCE}
@@ -136,7 +137,6 @@ class Auditor:
         # DIPs SIN FUENTE en otro Parent Assembly que los demás con la misma EC/AMM/SRM.
         parent_pares = {indices_alcance[k]: v for k, v in buscar_parent_distinto_de_pares(
             dips_alcance, [entradas[i] for i in indices_alcance]).items()}
-        por_barcode = {d["barcode"]: d for d in dips}
 
         filas, hallazgos = [], []
         for i, (dip, alcance, asoc) in enumerate(zip(dips, en_alcance, asociaciones)):
@@ -194,19 +194,12 @@ class Auditor:
                               f"Abierto como {dip['tipo']}; parece {'/'.join(sorted(otros_tipos))}.")
             if i in duplicados:
                 otro_barcode, _ = duplicados[i]
-                # Si uno de los dos ya se cerró a la hora de la auditoría, el duplicado ya
-                # se corrigió: queda con estado OK.
-                cerrado = next((d for d in (por_barcode.get(otro_barcode), dip)
-                                if d and d["estado"] not in ACTIVOS and d.get("complete_date")
-                                and d["complete_date"] <= como_fecha_hora(ctx.fecha_referencia)),
-                               None)
                 r.agregar(ctx, "duplicado", "Duplicated DIP",
-                          f"Posible duplicado de {otro_barcode}."
-                          + (f" {cerrado['barcode']} ya se cerró." if cerrado else ""),
-                          "OK" if cerrado else None)
+                          f"Posible duplicado de {otro_barcode}.")
             elif i in sn_repetidos:
                 r.agregar(ctx, "sn_repetido", "Incorrect S/N",
-                          f"S/N repetido en otro DIP activo: {', '.join(sn_repetidos[i])}.")
+                          f"S/N repetido en otro DIP que estuvo abierto al mismo tiempo: "
+                          f"{', '.join(sn_repetidos[i])}.")
             self._por_error(dip, ctx, r)
             marcas = dip.get("auditoria_manual") or dip.get("marcas_auditdip")
             if marcas:
@@ -405,14 +398,20 @@ class Auditor:
 
     @staticmethod
     def _por_error(dip: dict, ctx, r) -> None:
-        """DIP que el técnico marcó como duplicado o creado por error: no se audita, basta
-        con anotarlo. Cerrado, ya está corregido (OK); abierto, falta cerrarlo."""
+        """Conserva solo la declaración: un duplicado sigue siendo discrepancia al cerrar;
+        un DIP creado por error, sin declaración de duplicado, queda OK si ya cerró."""
         mensaje = dip_por_error(dip)
         if not mensaje or not ctx.discrepancias.activa("duplicado_declarado", "Duplicated DIP"):
             return
+        duplicados = [h for h in r.hallazgos
+                      if h.codigo in CODIGOS_DUPLICADO and h.severidad == POSIBLE_DISCREPANCIA]
         r.hallazgos, r.manuales, r.intervalo_ok = [], [], False
+        if duplicados and mensaje.startswith("DIP creado por error"):
+            r.hallazgos = duplicados
+            return
+        cerrado_por_error = dip["estado"] not in ACTIVOS and mensaje.startswith("DIP creado por error")
         r.agregar(ctx, "duplicado_declarado", "Duplicated DIP", mensaje,
-                  None if dip["estado"] in ACTIVOS else "OK")
+                  "OK" if cerrado_por_error else None)
 
     @staticmethod
     def _comentario(r, hallazgos: list[Hallazgo] | None = None) -> str:
@@ -452,18 +451,22 @@ class Auditor:
         de_apertura = [h for h in hallazgos if etapa(h.codigo) == "APERTURA"]
         # Sin fuente vale para las dos auditorías: el DIP no está en la tabla.
         sin_fuente = [h for h in de_apertura if h.severidad == SEVERIDAD_SIN_FUENTE]
+        # La duplicación se conserva en el cierre aunque cualquiera de los DIPs ya cerró.
+        duplicados = [h for h in de_apertura
+                      if h.codigo in CODIGOS_DUPLICADO and h.severidad == POSIBLE_DISCREPANCIA]
+        aplican_al_cierre = de_cierre + sin_fuente + duplicados
         estado_apertura = estado_final(de_apertura) if en_alcance else ""
-        estado_cierre = estado_final(de_cierre + sin_fuente) if cierre else ""
+        estado_cierre = estado_final(aplican_al_cierre) if cierre else ""
         estado = (estado_cierre if cierre else estado_apertura) if en_alcance else FUERA_DE_ALCANCE
         if cierre and estado_apertura == POSIBLE_DISCREPANCIA and estado_cierre == "OK":
             estado = CORREGIDO_EN_CIERRE
-        if cierre and estado != "OK" and cierre_auditado_ok(dip):
+        if cierre and estado != "OK" and not duplicados and cierre_auditado_ok(dip):
             # El auditor ya dio OK el cierre en ICAM: el DIP queda OK aunque el programa
             # encuentre discrepancias; los estados y hallazgos se conservan para revisarlos.
             manuales = [*manuales, "Resultado OK por la auditoría manual de cierre en ICAM; "
                         f"el programa dio {estado}: revisar los hallazgos."]
             estado = "OK"
-        comentario = cls._comentario(r, de_cierre + sin_fuente if cierre else None) if r else ""
+        comentario = cls._comentario(r, aplican_al_cierre if cierre else None) if r else ""
         return {
             "Fila Excel": dip["fila"],
             "Fault Barcode": dip["barcode"],
