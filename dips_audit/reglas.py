@@ -411,9 +411,14 @@ def regla_fechas(dip: dict, entrada: EntradaCatalogo | None, ctx: Contexto,
 
     # Due date coherente con el inicio del T/A + intervalo (solo días). El T/A cuenta desde
     # su Start en ICAM, que puede ser posterior a la apertura; sin datos de ICAM, desde la
-    # apertura. En los ítems con vencimiento el due date es el del ítem.
+    # apertura. Si hay extensión, la coherencia del T/A se revisa con el due date original.
+    # En los ítems con vencimiento el due date es el del ítem.
     hasta_vencimiento = entrada is not None and entrada.hasta_vencimiento
     if due and found and valor is not None and unidad == "DAY" and not hasta_vencimiento:
+        original = dip.get("orig_due_date")
+        extendido = original and _fin_del_plazo(original) < _fin_del_plazo(dip["due_date"])
+        due_ta = _como_fecha(original) if extendido else due
+        nombre_due = "Due date original" if extendido else "Due date"
         inicio = _inicio_ta(dip)
         # Sin ICAM, un T/A armado con la ventana "AFTER A, BEFORE B" en días cuenta desde la apertura + A.
         ventana = _ventana(dip, entrada)
@@ -424,15 +429,15 @@ def regla_fechas(dip: dict, entrada: EntradaCatalogo | None, ctx: Contexto,
                  else f"apertura + {retraso} DAY" if retraso
                  else f"apertura {_fecha(base)}")
         esperado = base + timedelta(days=valor)
-        diferencia = (due - esperado).days
+        diferencia = (due_ta - esperado).days
         if diferencia > ctx.tol_dias:
             r.agregar(ctx, "due_date_posterior_a_intervalo", "Incorrect Due Date",
-                      f"Due date {_fecha(due)}; corresponde {_fecha(esperado)} ({desde} "
+                      f"{nombre_due} {_fecha(due_ta)}; corresponde {_fecha(esperado)} ({desde} "
                       f"+ {_fmt(valor)} DAY)."
                       + ("" if inicio else " Verificar el Start del T/A."))
         elif diferencia < -ctx.tol_dias:
             r.agregar(ctx, "due_date_anterior_a_intervalo", "Incorrect Due Date",
-                      f"Due date {_fecha(due)}; corresponde {_fecha(esperado)} ({desde} "
+                      f"{nombre_due} {_fecha(due_ta)}; corresponde {_fecha(esperado)} ({desde} "
                       f"+ {_fmt(valor)} DAY).")
 
     # Ítems con vencimiento: el due date no puede superar la fecha del ítem. En los generators
@@ -547,8 +552,8 @@ def regla_cierre(dip: dict, ctx: Contexto, r: ResultadoReglas,
         elif (original and _fin_del_plazo(original) < _fin_del_plazo(due)
               and _fin_del_plazo(original) + timedelta(hours=ctx.horas_cierre) < completo):
             r.agregar(ctx, "cierre_deadline_extendido", "Late Completion",
-                      f"Cerrado el {_fecha_hora(completo)}, después del due date original "
-                      f"({_fecha_hora(original)}). Verificar la extensión.")
+                      f"Cerrado el {_fecha_hora(completo)} dentro del plazo extendido "
+                      f"(due date {_fecha_hora(due)}; original {_fecha_hora(original)}).")
     elif not completo and not sin_ta:
         r.manuales.append("DIP COMPLETE: verificar en ICAM que se cerró dentro del plazo.")
     if not sin_ta:

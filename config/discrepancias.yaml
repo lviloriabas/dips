@@ -181,11 +181,12 @@ tipos:
   # --- Auditoría de cierre (DIP COMPLETE). A confirmar. ------------------------
 
   # Cerrado tarde = Usage Remaining negativo al cerrar (sin ese dato, la hora de cierre contra
-  # el due date). Si el trabajo se hizo en otra tarea, queda para verificar en esa tarea.
+  # el due date vigente, incluida su extensión). Si el trabajo se hizo en otra tarea,
+  # queda para verificar en esa tarea. Cerrar dentro de la extensión es OK.
   Late Completion:
     reglas:
       completado_fuera_de_plazo:         POSIBLE DISCREPANCIA     # cerrado después del due date
-      cierre_deadline_extendido:         POSIBLE DISCREPANCIA     # después del due original, con extensión
+      cierre_deadline_extendido:         OK # cerrado dentro del plazo extendido
 
   # Ítems con ventana "AFTER A, BEFORE B" (desgaste de frenos, amortiguador): el trabajo va
   # después de A. En FH y FC se cuenta del uso al encontrar la falla al uso al cerrar (ICAM).

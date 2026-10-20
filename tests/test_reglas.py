@@ -1,5 +1,7 @@
 from dataclasses import replace
-from datetime import datetime
+from datetime import date, datetime
+
+import pytest
 
 from dips_audit.reglas import auditar_dip, buscar_duplicados, buscar_sn_repetidos, estado_final
 from tests.conftest import hacer_dip
@@ -162,12 +164,54 @@ def test_cierre_con_tolerancia_de_horas(catalogo, ctx):
     assert "completado_fuera_de_plazo" in codigos(r, "POSIBLE DISCREPANCIA")
 
 
-def test_cierre_despues_del_due_original(catalogo, ctx):
+@pytest.mark.parametrize("restante", [None, 0.0, 2.0])
+def test_cierre_dentro_de_extension_queda_ok(catalogo, ctx, auditor, restante):
     r = auditar(catalogo, ctx, "OXIGENO_TRIPULACION", estado="COMPLETE",
                 due_date=datetime(2026, 8, 25, 23, 59), orig_due_date=datetime(2026, 8, 21, 23, 59),
-                complete_date=datetime(2026, 8, 24, 10, 0))
-    assert codigos(r) >= {"cierre_deadline_extendido"}
+                complete_date=datetime(2026, 8, 24, 10, 0), usage_remaining=restante)
+    assert "cierre_deadline_extendido" in codigos(r, "OK")
     assert "completado_fuera_de_plazo" not in codigos(r)
+    assert estado_final(r.hallazgos) == "OK"
+    h = next(h for h in r.hallazgos if h.codigo == "cierre_deadline_extendido")
+    assert "dentro del plazo extendido" in h.mensaje
+    assert "exten" not in auditor._comentario(r).lower()
+
+
+@pytest.mark.parametrize("due, completo, tarde", [
+    (datetime(2026, 8, 25, 23, 59), datetime(2026, 8, 26, 4, 59), False),
+    (datetime(2026, 8, 25, 23, 59), datetime(2026, 8, 26, 5, 0), True),
+    (date(2026, 8, 25), datetime(2026, 8, 26, 4, 59, 59), False),
+    (date(2026, 8, 25), datetime(2026, 8, 26, 5, 0), True),
+])
+def test_cierre_respeta_limite_extendido_y_tolerancia(catalogo, ctx, due, completo, tarde):
+    ctx.horas_cierre = 5
+    r = auditar(catalogo, ctx, "OXIGENO_TRIPULACION", estado="COMPLETE",
+                due_date=due, orig_due_date=datetime(2026, 8, 21, 23, 59),
+                complete_date=completo, usage_remaining=None)
+    if tarde:
+        assert "completado_fuera_de_plazo" in codigos(r, "POSIBLE DISCREPANCIA")
+        assert "cierre_deadline_extendido" not in codigos(r)
+    else:
+        assert "cierre_deadline_extendido" in codigos(r, "OK")
+        assert estado_final(r.hallazgos) == "OK"
+
+
+def test_extension_con_usage_remaining_negativo_sigue_fuera_de_plazo(catalogo, ctx):
+    r = auditar(catalogo, ctx, "OXIGENO_TRIPULACION", estado="COMPLETE",
+                due_date=datetime(2026, 8, 25, 23, 59), orig_due_date=datetime(2026, 8, 21, 23, 59),
+                complete_date=datetime(2026, 8, 24, 10, 0), usage_remaining=-1.0)
+    assert "completado_fuera_de_plazo" in codigos(r, "POSIBLE DISCREPANCIA")
+    assert "cierre_deadline_extendido" not in codigos(r)
+
+
+def test_extension_no_oculta_due_original_incorrecto(catalogo, ctx):
+    r = auditar(catalogo, ctx, "OXIGENO_TRIPULACION", estado="COMPLETE",
+                due_date=datetime(2026, 8, 28, 23, 59), orig_due_date=datetime(2026, 8, 24, 23, 59),
+                complete_date=datetime(2026, 8, 26, 10, 0))
+    h = next(h for h in r.hallazgos if h.codigo == "due_date_posterior_a_intervalo")
+    assert h.severidad == "POSIBLE DISCREPANCIA"
+    assert "Due date original 24-AUG-2026" in h.mensaje
+    assert "cierre_deadline_extendido" in codigos(r, "OK")
 
 
 def test_cierre_con_datos_de_icam(catalogo, ctx):

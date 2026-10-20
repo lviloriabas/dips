@@ -343,7 +343,7 @@ Cuando el TA de la tabla tiene dos límites ("45 DAYS OR 225 FC"), con ICAM se e
 
 #### Due date y vencimiento del ítem
 
-En los TA en días, el due date tiene que ser el Start del TA más el intervalo, con un día de tolerancia. Sin ICAM se cuenta desde la apertura (o desde la apertura más A, si el TA es una ventana en días). Un due date posterior es posible discrepancia; uno anterior, OK.
+En los TA en días, el due date tiene que ser el Start del TA más el intervalo, con un día de tolerancia. Si hay una extensión, esta comparación se hace con el due date original. Sin ICAM se cuenta desde la apertura (o desde la apertura más A, si el TA es una ventana en días). Un due date posterior es posible discrepancia; uno anterior, OK.
 
 En los ítems UNTIL DUE DATE, el due date no puede pasar la fecha de vencimiento del ítem. En los generators de oxígeno esa fecha sale del PDF de inventario; en los demás, de la primera fecha del nombre o la descripción que sea posterior a la apertura. Pasarla es posible discrepancia, quedar más de un día antes queda OK y, si no hay fecha, queda para verificación manual.
 
@@ -456,7 +456,7 @@ Solo para DIPs COMPLETE.
 
 Para saber si se cerró tarde, primero se mira el Usage Remaining: negativo quiere decir tarde. Si no hay, la fecha de cierre no puede pasar el final del día del due date más 5 horas, porque el cierre viene en UTC y el due date en hora de Panamá (`horas_cierre`). Cerrar tarde es posible discrepancia. Si la acción correctiva remite a otra tarea (T40S..., TRF7...), la fecha se deja para verificar en esa tarea, y si no hay fecha de cierre, queda para verificación manual.
 
-Si el due date es posterior al original (`Orig Fault Due Date`) y el cierre fue después del original, hubo una extensión y se marca como posible discrepancia para que se verifique. Los cambios de deadline que muestra History se listan en `VERIFICACIÓN MANUAL`.
+Si el due date es posterior al original (`Orig Fault Due Date`) y el cierre fue después del original, pero dentro del plazo extendido, queda con estado OK. La extensión por sí sola no es discrepancia; si se supera el plazo vigente, se aplica la regla de cierre tardío. Los cambios de deadline que muestra History se listan en `VERIFICACIÓN MANUAL`.
 
 En los ítems con ventana "AFTER A, BEFORE B" (ver [Start del TA](#start-del-ta)) el trabajo se hace después de A, así que cerrar antes también es posible discrepancia. En FH o FC se cuenta desde el uso al encontrar la falla hasta el uso al cerrar, los dos de History en ICAM ("Usage When Found" y "Usage At Completion" de la tarea); sin ICAM no se revisa. En días se cuenta desde la fecha en que se encontró la falla. Un freno NG-800 encontrado a los 20055 FC y cambiado a los 20059 se cerró a los 4 FC, antes de los 12 que pide la tabla. El sellante de ventanas, que también puede empezar en la apertura, no se revisa.
 
@@ -719,7 +719,7 @@ PD significa POSIBLE DISCREPANCIA. La severidad es la que tiene hoy `config/disc
 | Código | Tipo de discrepancia | Qué revisa | Resultado |
 | --- | --- | --- | --- |
 | `completado_fuera_de_plazo` | Late Completion | Cerrado después del due date | PD |
-| `cierre_deadline_extendido` | Late Completion | Cerrado después del due date original, con extensión | PD |
+| `cierre_deadline_extendido` | Late Completion | Cerrado dentro del plazo extendido | OK |
 | `cierre_antes_de_ventana` | Early Completion | Cerrado antes de A en una ventana "AFTER A, BEFORE B" | PD |
 | `cierre_sin_accion_correctiva` | Missing Technical Reference | Sin acción correctiva | OK |
 | `cierre_sin_referencia_tecnica` | Missing Technical Reference | La acción correctiva no cita el manual | OK |

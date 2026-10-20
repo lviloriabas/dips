@@ -175,7 +175,8 @@ Si en un DIP con REVISAR además falla otra regla, queda en POSIBLE DISCREPANCIA
 | Deferral Reference distinto del ATA                                                                | OK           |
 | RIR faltante, con otro intervalo, sin un límite del T/A, en otro Parent Assembly o con otro Start | POSIBLE DISCREPANCIA   |
 | Sin intervalo o sin tipo de intervalo                                                              | POSIBLE DISCREPANCIA   |
-| Cierre después del due date, o después del original con deadline extendido                       | POSIBLE DISCREPANCIA   |
+| Cierre después del due date vigente, incluida su extensión                                     | POSIBLE DISCREPANCIA   |
+| Cierre dentro del plazo extendido, aunque sea después del due date original                     | OK                    |
 | Cierre sin acción correctiva                                                                      | OK           |
 | Acción correctiva sin cita del manual                                                             | OK           |
 | TA o RIR según el daño o el tipo ("DEPENDING ON...", "CONSULT REF.")                             | REVISAR (ir al manual) |
