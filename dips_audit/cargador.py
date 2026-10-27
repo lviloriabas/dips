@@ -10,6 +10,7 @@ from pathlib import Path
 import openpyxl
 import pandas as pd
 
+from .estados import normalizar_estado
 from .referencias import normalizar_unidad
 
 # Columna estándar -> nombres aceptados en el Excel (sin distinguir mayúsculas).
@@ -294,7 +295,7 @@ def normalizar_lote(original: pd.DataFrame) -> tuple[pd.DataFrame, list[str]]:
             "intervalo": intervalo,
             "tipo_intervalo_original": parse_texto(v("tipo_intervalo")),
             "unidad": unidad,
-            "estado": parse_texto(v("estado")).upper(),
+            "estado": normalizar_estado(parse_texto(v("estado"))),
             "avion": parse_texto(v("avion")),
             "parent_assy": parent,
             "parent_tipo": tipo_parent(parent),
@@ -508,7 +509,7 @@ def lote_desde_icam(r: dict, ruta: Path) -> Lote:
         return fecha or parse_fecha(_sin_utc(i.fecha_estimada))
     due = min(filter(None, (vence(i, True) for i in f.intervalos)), default=None)
     due_original = min(filter(None, (vence(i, False) for i in f.intervalos)), default=None)
-    estado = (f.estado_tarea or f.fault_status).split(" (")[0].upper()
+    estado = normalizar_estado(f.estado_tarea or f.fault_status)
     fila = {
         "Fault Barcode": f.barcode,
         "ATA": ata.group(0) if ata else None,

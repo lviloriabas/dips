@@ -2,7 +2,8 @@
 
 Se queda con las filas que cumplen alguna de estas reglas:
 
-- Fault Status ACTV (Active) y "DIP Open Audit User" vacío: falta la auditoría de apertura.
+- Fault Status ACTV, ACTIVE, OPEN, IN WORK o PAUSE y "DIP Open Audit User" vacío:
+  falta la auditoría de apertura.
 - Fault Status COMPLETE y "DIP Closed Audit User" vacío: falta la auditoría de cierre.
 
 Se corre por separado de la auditoría. Guarda una copia junto al original, con " FILTERED" al
@@ -20,11 +21,12 @@ from pathlib import Path
 from openpyxl import load_workbook
 from openpyxl.utils import get_column_letter
 
+from .estados import ACTIVOS, normalizar_estado
+
 COL_ESTADO = "Fault Status"
 COL_OPEN_USER = "DIP Open Audit User"
 COL_CLOSED_USER = "DIP Closed Audit User"
 
-ACTIVO = {"ACTV", "ACTIVE"}
 COMPLETO = {"COMPLETE"}
 
 
@@ -32,16 +34,10 @@ def _texto(valor) -> str:
     return "" if valor is None else str(valor).strip()
 
 
-def _estado(valor) -> str:
-    # ICAM a veces trae "ACTV (Active)": vale el código.
-    texto = _texto(valor).upper()
-    return texto.split()[0] if texto else ""
-
-
 def pendiente(estado, open_user, closed_user) -> bool:
     """True si al DIP le falta la auditoría que corresponde a su estado."""
-    e = _estado(estado)
-    if e in ACTIVO:
+    e = normalizar_estado(_texto(estado))
+    if e in ACTIVOS:
         return not _texto(open_user)
     if e in COMPLETO:
         return not _texto(closed_user)
@@ -97,7 +93,8 @@ def filtrar(entrada: Path) -> tuple[Path, dict[str, tuple[int, int]]]:
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         prog="python -m dips_audit.filtrar",
-        description="Deja solo los DIPs ACTV sin auditoría de apertura y COMPLETE sin auditoría de cierre.",
+        description="Deja solo los DIPs ACTV, ACTIVE, OPEN, IN WORK o PAUSE sin auditoría de "
+                    "apertura y COMPLETE sin auditoría de cierre.",
     )
     parser.add_argument("excel", type=Path, help='Excel "DIPs Audit (...)"')
     args = parser.parse_args(argv)

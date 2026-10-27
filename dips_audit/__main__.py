@@ -613,8 +613,8 @@ def main(argv: list[str] | None = None) -> int:
                                   "(columnas barcode y technical_references; description opcional)")
     a.add_argument("--pendientes", action="store_true",
                    help="Filtrar antes el Excel (copia con ' FILTERED' junto al original) y auditar "
-                        "solo los DIPs ACTV sin 'DIP Open Audit User' y COMPLETE sin 'DIP Closed "
-                        "Audit User' (sin esta opción, se auditan todos)")
+                        "solo los DIPs ACTV, ACTIVE, OPEN, IN WORK o PAUSE sin 'DIP Open Audit User' "
+                        "y COMPLETE sin 'DIP Closed Audit User' (sin esta opción, se auditan todos)")
     a.add_argument("-n", "--sin-excel", action="store_true", help="Solo mostrar en consola")
     a.add_argument("--max-filas", type=int, default=40, help="Filas a mostrar en consola")
     _argumentos_categorias(a)

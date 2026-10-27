@@ -114,8 +114,9 @@ def test_rir_con_intervalo_distinto():
     assert codigo == "rir_intervalo_incorrecto" and "2 DAY; la referencia pide 1 DAY" in mensaje
 
 
-def test_rir_faltante_en_dip_abierto():
-    [(codigo, mensaje)] = revisar([], requerido("1 DAY"), {"estado": "ACTV"})
+@pytest.mark.parametrize("estado", ["ACTV", "IN WORK", "PAUSE"])
+def test_rir_faltante_en_dip_abierto(estado):
+    [(codigo, mensaje)] = revisar([], requerido("1 DAY"), {"estado": estado})
     assert codigo == "rir_faltante" and "cada 1 DAY" in mensaje
 
 
@@ -214,12 +215,13 @@ def _registro(barcode, filas):
         "History": {"text": "18-AUG-2026 09:05 UTC"}}}
 
 
-def test_auditoria_con_rir_de_icam(config, tmp_path):
+@pytest.mark.parametrize("estado", ["ACTV", "IN WORK", "PAUSE"])
+def test_auditoria_con_rir_de_icam(config, tmp_path, estado):
     avion = "Boeing 737-8V3 - HP-{}CMP"
     filas = []
     for n, b in enumerate(["P1", "P2", "P3"]):
         matricula = f"HP-18{n}0CMP"
-        filas.append([b, 32, "Others", "DIP - PARKING BRAKE SYSTEM FNC FAIL HOLD CHECK", 3, "DAY", "ACTV",
+        filas.append([b, 32, "Others", "DIP - PARKING BRAKE SYSTEM FNC FAIL HOLD CHECK", 3, "DAY", estado,
                       matricula, avion.format(f"18{n}0"), "DIP", "32-DIP", datetime(2026, 8, 21, 23, 59),
                       datetime(2026, 8, 18, 23, 59), None, 2])
     ruta = crear_export(tmp_path / "entrada.xlsx", filas)
@@ -237,6 +239,7 @@ def test_auditoria_con_rir_de_icam(config, tmp_path):
     assert f.loc["P2", "RESULTADO"] == "POSIBLE DISCREPANCIA"
     assert "Sin RIR; la referencia pide" in f.loc["P3", "HALLAZGOS"]
     assert f.loc["P3", "RIR EN ICAM"] == "Sin RIR"
+    assert "el DIP está cerrado" not in f.loc["P3", "VERIFICACIÓN MANUAL"]
 
 
 def test_tablas_de_abiertas_e_historicas_en_la_misma_pagina():

@@ -39,6 +39,44 @@ def export(tmp_path):
                         encabezado=["Index", *ENCABEZADO_ENTRADA])
 
 
+@pytest.mark.parametrize("estado", ["IN WORK", "PAUSE"])
+@pytest.mark.parametrize("filtrado", [False, True])
+def test_estados_abiertos_en_auditoria_normal_y_filtrada(tmp_path, estado, filtrado):
+    pendiente, auditado = list(FILAS[3]), list(FILAS[3])
+    pendiente[6] = auditado[6] = estado
+    auditado[0] = "YA_AUDITADO"
+    entrada = crear_export(tmp_path / "entrada.xlsx", [
+        [*pendiente, None, "AUDITOR"], [*auditado, "AUDITOR", None],
+    ], encabezado=[*ENCABEZADO_ENTRADA, "DIP Open Audit User", "DIP Closed Audit User"])
+    salida = tmp_path / "salida.xlsx"
+    argumentos = ["auditar", str(entrada), "--salida", str(salida), "--fecha", "2026-08-25"]
+    if filtrado:
+        argumentos.append("--pendientes")
+    assert main(argumentos) == 0
+    wb = openpyxl.load_workbook(salida)
+    filas = list(wb["Auditoría"].values)
+    datos = [dict(zip(filas[0], fila)) for fila in filas[1:]]
+    assert {d["Fault Barcode"] for d in datos} == ({"T4"} if filtrado else {"T4", "YA_AUDITADO"})
+    for d in datos:
+        assert d["Fault Status"] == estado
+        assert d["AUDITORÍA"] == "APERTURA"
+        assert d["ESTADO CIERRE"] is None
+        assert d["RESULTADO"] == "POSIBLE DISCREPANCIA"
+    assert "DIP vencido" in datos[0]["HALLAZGOS"]
+    wb.close()
+
+
+@pytest.mark.parametrize("estado", ["IN WORK", "PAUSE"])
+def test_dip_creado_por_error_sigue_abierto(auditor, tmp_path, estado):
+    fila = list(FILAS[0])
+    fila[6] = estado
+    entrada = crear_export(tmp_path / "entrada.xlsx", [[*fila, "DIP OPEN BY MISTAKE"]],
+                           encabezado=[*ENCABEZADO_ENTRADA, "Fault Description"])
+    actual = auditor.auditar_archivo(entrada).filas.iloc[0]
+    assert actual["RESULTADO"] == "POSIBLE DISCREPANCIA"
+    assert actual["COMENTARIO SUGERIDO"] == "DIP creado por error; sigue abierto."
+
+
 def test_auditoria_de_punta_a_punta(auditor_others, export, tmp_path):
     resultado = auditor_others.auditar_archivo(export)
     # Tres resultados: OK, SIN FUENTE (no está en la tabla) o POSIBLE DISCREPANCIA.
@@ -104,6 +142,7 @@ def test_casos_aceptados_se_muestran_como_ok(auditor_others, export, tmp_path):
 
 @pytest.mark.parametrize("estado_primero, estado_segundo, cierre_manual_ok, por_error", [
     ("ACTV", "ACTV", False, False),
+    ("PAUSE", "IN WORK", False, False),
     ("COMPLETE", "ACTV", False, False),
     ("ACTV", "COMPLETE", False, False),
     ("COMPLETE", "COMPLETE", False, False),
@@ -170,6 +209,8 @@ def test_sn_repetido_y_duplicado_declarado_abiertos_son_discrepancia(auditor_oth
 
 @pytest.mark.parametrize("estado, remanente, esperado", [
     ("ACTV", 43, "POSIBLE DISCREPANCIA"),
+    ("IN WORK", 43, "POSIBLE DISCREPANCIA"),
+    ("PAUSE", 43, "POSIBLE DISCREPANCIA"),
     ("COMPLETE", 43, "CORREGIDO EN CIERRE"),
     ("COMPLETE", -1, "POSIBLE DISCREPANCIA"),
 ])

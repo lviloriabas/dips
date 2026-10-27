@@ -3,6 +3,8 @@
 import json
 from datetime import datetime
 
+import pytest
+
 from dips_audit.__main__ import main
 from dips_audit.cargador import lote_desde_icam
 
@@ -37,10 +39,13 @@ def _registro(barcode="T40S000FDR1", nombre="FDR - REPORT", limites=None, estado
     }
 
 
-def test_dip_armado_desde_icam(tmp_path):
-    lote = lote_desde_icam(_registro(), tmp_path / "icam.json")
+@pytest.mark.parametrize("estado, esperado", [
+    ("ACTV (Active)", "ACTV"), ("IN WORK (In Work)", "IN WORK"), ("PAUSE (Paused)", "PAUSE"),
+])
+def test_dip_armado_desde_icam(tmp_path, estado, esperado):
+    lote = lote_desde_icam(_registro(estado=estado), tmp_path / "icam.json")
     d = lote.datos.iloc[0]
-    assert (d["barcode"], d["nombre"], d["ata"], d["estado"]) == ("T40S000FDR1", "FDR - REPORT", 31, "ACTV")
+    assert (d["barcode"], d["nombre"], d["ata"], d["estado"]) == ("T40S000FDR1", "FDR - REPORT", 31, esperado)
     assert (d["avion"], d["flota"], d["intervalo"], d["unidad"]) == ("HP-1837CMP", "NG-800", 45, "DAY")
     assert d["found_date"] == datetime(2026, 8, 18, 9, 0)
     assert d["defer_date"] == datetime(2026, 8, 18, 9, 5)

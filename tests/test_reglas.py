@@ -107,8 +107,9 @@ def test_due_date_inconsistente_con_intervalo(catalogo, ctx):
     assert estado_final(r.hallazgos) == "POSIBLE DISCREPANCIA"
 
 
-def test_dip_vencido(catalogo, ctx):
-    r = auditar(catalogo, ctx, "OXIGENO_TRIPULACION", found_date=datetime(2026, 8, 10),
+@pytest.mark.parametrize("estado", ["ACTV", "IN WORK", "PAUSE"])
+def test_dip_vencido(catalogo, ctx, estado):
+    r = auditar(catalogo, ctx, "OXIGENO_TRIPULACION", estado=estado, found_date=datetime(2026, 8, 10),
                 due_date=datetime(2026, 8, 13, 23, 59))
     assert "dip_vencido" in codigos(r, "POSIBLE DISCREPANCIA")
 
@@ -117,6 +118,13 @@ def test_dip_completado_no_se_marca_vencido(catalogo, ctx):
     r = auditar(catalogo, ctx, "OXIGENO_TRIPULACION", estado="COMPLETE",
                 found_date=datetime(2026, 8, 10), due_date=datetime(2026, 8, 13, 23, 59))
     assert "dip_vencido" not in codigos(r)
+
+
+@pytest.mark.parametrize("estado", ["IN WORK", "PAUSE"])
+def test_estados_abiertos_revisan_programacion_y_remanente(catalogo, ctx, estado):
+    r = auditar(catalogo, ctx, "OXIGENO_TRIPULACION", estado=estado,
+                scheduled_date=datetime(2026, 8, 25), usage_remaining=-1)
+    assert {"dip_vencido", "programado_despues_del_due"} <= codigos(r)
 
 
 def test_completado_fuera_de_plazo(catalogo, ctx):
@@ -295,10 +303,11 @@ def test_cierre_sin_icam_no_revisa_accion_correctiva(catalogo, ctx):
     assert not {c for c in codigos(r) if c.startswith("cierre_")}
 
 
-def test_usage_remaining_mayor_que_intervalo(catalogo, ctx):
+@pytest.mark.parametrize("estado", ["ACTV", "IN WORK", "PAUSE"])
+def test_usage_remaining_mayor_que_intervalo(catalogo, ctx, estado):
     r = auditar(catalogo, ctx, "AMORTIGUADOR_MLG", nombre="DIP-Right Main Landing Gear Shock Strut",
                 intervalo=10.0, unidad="FC", tipo_intervalo_original="CYCLES", ata=32,
-                deferral_ref="32-DIP", usage_remaining=20.0, due_date=None)
+                deferral_ref="32-DIP", usage_remaining=20.0, due_date=None, estado=estado)
     # Los auditores lo aceptan (el T/A empieza después de la apertura): OK.
     assert "usage_remaining_mayor_a_intervalo" in codigos(r, "OK")
 
@@ -401,10 +410,12 @@ def test_sin_sn_queda_ok(catalogo, ctx):
 
 # --- Duplicados ------------------------------------------------------------
 
-def test_duplicado_mismo_componente_activo(catalogo):
+@pytest.mark.parametrize("estado", ["ACTV", "IN WORK", "PAUSE"])
+def test_duplicado_mismo_componente_activo(catalogo, estado):
     oxi = catalogo.por_id("OXIGENO_TRIPULACION")
     a = hacer_dip(barcode="A", nombre="CREW OXYGEN 850 PSI")
-    b = hacer_dip(barcode="B", nombre="DIP-CREW OXYGEN BOTTLE", found_date=datetime(2026, 8, 19))
+    b = hacer_dip(barcode="B", nombre="DIP-CREW OXYGEN BOTTLE", found_date=datetime(2026, 8, 19),
+                  estado=estado)
     assert buscar_duplicados([a, b], [oxi, oxi]) == {1: ("A", "CREW OXYGEN 850 PSI")}
 
 

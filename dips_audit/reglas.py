@@ -9,6 +9,7 @@ from datetime import date, datetime, time, timedelta
 from rapidfuzz.distance import Levenshtein
 
 from .discrepancias import Discrepancias
+from .estados import ACTIVOS
 from .inventario import cruzar
 from .partes import es_squib, verificar_squib
 from .referencias import EntradaCatalogo, Limite, Variante
@@ -489,7 +490,7 @@ def regla_fechas(dip: dict, entrada: EntradaCatalogo | None, ctx: Contexto,
                               "y que coincida con el due date del DIP.")
 
     # Vencido / completado fuera de plazo.
-    activo = estado in {"ACTV", "IN WORK", "OPEN"}
+    activo = estado in ACTIVOS
     auditoria = como_fecha_hora(ctx.fecha_referencia)
     if activo and dip["due_date"] and _fin_del_plazo(dip["due_date"]) < auditoria:
         r.agregar(ctx, "dip_vencido", "Overdue DIP",
@@ -972,9 +973,6 @@ def auditar_dip(dip: dict, entrada: EntradaCatalogo | None, ctx: Contexto) -> Re
 # --------------------------------------------------------------------------
 # Duplicados (se evalúan sobre el lote completo)
 # --------------------------------------------------------------------------
-
-ACTIVOS = {"ACTV", "IN WORK", "OPEN"}
-
 
 def _coexisten(da: dict, db: dict) -> bool:
     """True si los dos DIPs estuvieron abiertos al mismo tiempo.

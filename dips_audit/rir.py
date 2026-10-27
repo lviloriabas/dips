@@ -21,6 +21,7 @@ import re
 from dataclasses import dataclass, field
 from datetime import datetime
 
+from .estados import ACTIVOS
 from .icam import FichaICAM, TareaSiguiente
 from .limites_declarados import extraer_limites
 from .texto import normalizar
@@ -190,7 +191,7 @@ def revisar(rirs: list[RIR], exigido: Limite | None, dip: dict) -> list[tuple[st
     hallazgos: list[tuple[str, str]] = []
     sin_ta = solo_rir(dip)
     if (exigido or sin_ta) and not rirs:
-        if dip.get("historico_rir") or dip.get("estado") in {"ACTV", "OPEN", "IN WORK"}:
+        if dip.get("historico_rir") or dip.get("estado") in ACTIVOS:
             hallazgos.append(("rir_faltante",
                               f"Sin RIR; la referencia pide RIR cada {exigido}." if exigido
                               else "DIP de boroscope sin RIR; se sigue solo por RIR, sin T/A."))

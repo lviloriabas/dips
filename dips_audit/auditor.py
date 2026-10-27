@@ -346,7 +346,7 @@ class Auditor:
             r.agregar(ctx, codigo, "RIR", mensaje)
         exigido = rir_requerido(texto)
         if (exigido or sin_ta) and not dip["rirs"] and not dip.get("historico_rir") and \
-                dip.get("estado") not in {"ACTV", "OPEN", "IN WORK"}:
+                dip.get("estado") not in ACTIVOS:
             r.manuales = [m for m in r.manuales if not m.startswith("Verificar RIR")]
             r.manuales.append((f"Verificar RIR cada {exigido}" if exigido else "Verificar RIR")
                               + " en Follow-on Tasks "

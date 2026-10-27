@@ -64,6 +64,17 @@ def test_carga_basica(tmp_path):
     assert d["fila"] == 2
 
 
+@pytest.mark.parametrize("valor, esperado", [
+    (" in  work (In Work) ", "IN WORK"), (" pause (Paused) ", "PAUSE"),
+    ("ACTV (Active)", "ACTV"), ("COMPLETE (Complete)", "COMPLETE"),
+])
+def test_normaliza_estado_sin_perder_palabras(tmp_path, valor, esperado):
+    fila = list(FILA)
+    fila[6] = valor
+    lote = cargar_export(crear_export(tmp_path / "e.xlsx", [fila]))
+    assert lote.datos.iloc[0]["estado"] == esperado
+
+
 def test_encabezado_en_otra_fila(tmp_path):
     lote = cargar_export(crear_export(tmp_path / "e.xlsx", [FILA], filas_antes=2))
     assert lote.fila_encabezado == 3

@@ -241,7 +241,7 @@ Al leer cada valor:
 - A veces Excel guarda la fecha con día y mes invertidos (el 9 de julio como 7 de septiembre). Si la apertura cae después del due date y su día es 12 o menos, se prueba invertirlos; si así queda antes del due date, se acepta y se deja anotado en `VERIFICACIÓN MANUAL`.
 - A los números se les quitan las comas de miles.
 - El tipo de intervalo se lleva a DAY, FH, FC o MONTH. DAYS, CDY o DIA son días; HOURS o HRS son FH; CYCLES, LANDINGS o CYC son FC. Cualquier otro texto queda sin unidad.
-- ACTV, OPEN e IN WORK son estados activos; COMPLETE es cerrado.
+- ACTV, ACTIVE, OPEN, IN WORK y PAUSE son estados abiertos para la auditoría y el filtro de pendientes; COMPLETE es cerrado. Se quitan etiquetas como `(Active)` o `(In Work)` sin perder las palabras del estado.
 - El Parent Assy se clasifica en ENGINE (si dice ENGINE, CFM o LEAP), APU, AIRCRAFT (si dice BOEING o 737) u otro.
 - La flota sale de la matrícula: HP-98xx y HP-99xx son MAX y cualquier otra HP-xxxx es NG. Si el Parent Assy es el avión, su modelo precisa NG-700, NG-800 o NG-900. Un DIP cargado en un motor toma la flota de otro DIP del mismo avión.
 - `Attach Docs` da la cantidad de attachments. `Attachment Status` PENDING sin cantidad se toma como ninguno.
@@ -564,7 +564,7 @@ La comparación tiene un límite: ICAM muestra el DIP como está hoy, no como lo
 
 `filtrar.bat "DIPs Audit (...).xlsx"`, o `--pendientes` al auditar. El código está en `dips_audit/filtrar.py`.
 
-Se abre el Excel conservando formato, hojas y filtros. En cada hoja que tenga en la fila 1 las columnas `Fault Status`, `DIP Open Audit User` y `DIP Closed Audit User` quedan solo las filas pendientes: ACTV (o "ACTV (Active)") sin `DIP Open Audit User`, que les falta la auditoría de apertura, y COMPLETE sin `DIP Closed Audit User`, que les falta la de cierre. Todo lo demás se borra, incluidos otros estados. La copia se guarda como `<nombre> FILTERED.xlsx` junto al original, reemplazándola si ya existía, y la consola dice cuántas filas quedaron por hoja. Si ninguna hoja tiene esas columnas, se detiene con un error.
+Se abre el Excel conservando formato, hojas y filtros. En cada hoja que tenga en la fila 1 las columnas `Fault Status`, `DIP Open Audit User` y `DIP Closed Audit User` quedan solo las filas pendientes: ACTV, ACTIVE, OPEN, IN WORK o PAUSE sin `DIP Open Audit User`, que les falta la auditoría de apertura, y COMPLETE sin `DIP Closed Audit User`, que les falta la de cierre. Se aceptan también etiquetas como "ACTV (Active)" e "IN WORK (In Work)". Todo lo demás se borra, incluidos otros estados. La copia se guarda como `<nombre> FILTERED.xlsx` junto al original, reemplazándola si ya existía, y la consola dice cuántas filas quedaron por hoja. Si ninguna hoja tiene esas columnas, se detiene con un error.
 
 ## Con ICAM y sin ICAM
 
