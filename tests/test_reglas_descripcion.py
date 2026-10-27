@@ -221,6 +221,7 @@ def test_rir_start_con_redondeo_y_rir_mas_seguido():
 
 @pytest.mark.parametrize("nombre, esperado", [
     ("ENG 2 FUEL NOZZLES FULL SET REPLACEMENT", "TOBERAS_COMBUSTIBLE"),
+    ("DIP - ENGINE 1 FUEL PUMP PAD PLUG", "TAPON_BOMBA_COMBUSTIBLE"),
     ("AHM - ENG 1 EEC C2 scheduled maintenance task shows: SMT", "EEC_C2"),
     ("DIP - ENGINE #2 WATER WASH", "LAVADO_MOTOR"),
     ("DIP - BORESCOPE INSPECTION BY BIRDSTRIKE AT ENG #2 INLET", "BIRDSTRIKE_MOTOR"),
@@ -233,8 +234,6 @@ def test_rir_start_con_redondeo_y_rir_mas_seguido():
     ("Apply an aerodynamic fillet seal to the clearance between the PITOT PROBE baseplate", "SELLANTE_PITOT"),
     ("STRUCTURE - LIGHTNING STRIKE STA 325.38 AND STR 18L +9\"", "RAYO_DANO"),
     ("DIP - TWO SPOT OF LIGHTNING STRIKE LOCATED ON EXTERNAL FUSELAGE SKIN SECTION 46", "RAYO_DANO"),
-    ("IN REF TO BARCODE 2274947 (LIGHTNING STRIKE) PERFORM PHASE II", "RAYO"),
-    ("055 611 00 (Lightning Strike)", "RAYO"),
     # Filas 84 y 87 de la tabla.
     ("DIP 53 OPENING - LIGHTINING STRIKE NEW THRESHOLD INSP", "UMBRAL_REPARACION"),
     ("CNR - ENG 1 EGT SYSTEM CHECK", "CNR_EGT"),
@@ -247,6 +246,9 @@ def test_asociacion_powerplant_y_structures(catalogo, nombre, esperado):
     "DIP - AOA SEALANT, CAP SIDE",                               # sellante del AOA, no de ventanas
     "CNR - ENG#2 VIBRATION SYSTEM CHECK",                        # CNR de CFM sin fila en la tabla
     "IN REF TO LOG T40S009AE87 LH PITOT REPLACEMENT, PERFORM SEALANT INSTALATION WITHIN 10 DAYS",
+    # La referencia de fase II se retiró; no debe confundirse con daño estructural por rayo.
+    "IN REF TO BARCODE 2274947 (LIGHTNING STRIKE) PERFORM PHASE II",
+    "055 611 00 (Lightning Strike)",
 ])
 def test_no_se_asocian_a_powerplant_ni_structures(catalogo, nombre):
     assert asociar(nombre, catalogo).entrada is None

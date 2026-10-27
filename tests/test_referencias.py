@@ -33,6 +33,13 @@ def test_catalogo_cubre_todas_las_referencias_others(catalogo):
     assert sin_entrada == []
 
 
+def test_fuel_pump_pad_plug_conserva_los_datos_de_la_tabla(catalogo):
+    entrada = catalogo.por_id("TAPON_BOMBA_COMBUSTIBLE")
+    assert entrada.parent_assy == {"ENGINE"}
+    assert entrada.referencias_tecnicas == ""
+    assert entrada.variantes == []
+
+
 def test_catalogo_intervalos_condicionales_definidos(catalogo):
     frenos = catalogo.por_id("DESGASTE_FRENOS")
     assert {tuple(v.flotas) for v in frenos.variantes} >= {("NG-700",), ("MAX",)}

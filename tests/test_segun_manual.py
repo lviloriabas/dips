@@ -25,13 +25,27 @@ def test_remite_al_manual(texto, esperado):
 def test_catalogo_marca_las_referencias_que_remiten_al_manual(catalogo):
     assert "DEPENDING" in catalogo.por_id("PLATAFORMA_ALABE").ta_segun_manual
     assert "DEPENDING" in catalogo.por_id("PLATAFORMA_ALABE").rir_segun_manual
-    assert "CONSULT SRM" in catalogo.por_id("RAYO_DANO").ta_segun_manual
+    assert not catalogo.por_id("RAYO_DANO").ta_segun_manual
     assert "DEPENDING" in catalogo.por_id("GRIETA_TAPON_ESCAPE").rir_segun_manual
     # Resueltas en el catálogo con 'intervalos' (por presión, por vibración): no remiten.
     assert not catalogo.por_id("OXIGENO_TRIPULACION").ta_segun_manual
     assert not catalogo.por_id("VIBRACION_MOTOR").ta_segun_manual
     assert not catalogo.por_id("FDR").ta_segun_manual
     assert not any("PLATAFORMA_ALABE" in a or "RAYO_DANO" in a for a in catalogo.advertencias)
+
+
+@pytest.mark.parametrize("intervalo, excedido", [(350, False), (351, True)])
+def test_rayo_dano_usa_el_limite_vigente_de_350_fc(catalogo, ctx, intervalo, excedido):
+    entrada = catalogo.por_id("RAYO_DANO")
+    assert entrada.referencias_tecnicas == "SRM 53-00-01-1A-1"
+    assert [(l.valor, l.unidad) for v in entrada.variantes for l in v.limites] == [(350, "FC")]
+    dip = hacer_dip(nombre="LIGHTNING STRIKE FOUND", tipo="Structures", ata=53,
+                    deferral_ref="53-DIP", intervalo=intervalo, unidad="FC",
+                    tipo_intervalo_original="CYCLES", due_date=None, usage_remaining=None)
+    resultado = auditar_dip(dip, entrada, ctx)
+    codigos = {h.codigo for h in resultado.hallazgos}
+    assert ("intervalo_excedido" in codigos) is excedido
+    assert "intervalo_segun_manual" not in codigos
 
 
 def _plataforma(**cambios):

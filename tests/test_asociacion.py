@@ -53,7 +53,6 @@ CASOS = [
     ("LIVEVEST LATCH DOOR BROKEN SEAT 1EF", "CHALECO"),
     ("DIP - RH MAIN LANDING GEAR X DIMENSION CHECK", "AMORTIGUADOR_MLG"),
     ("DIP - Cargo Fire Extinguisher Bottle #1 AFT Squib", "SQUIB"),
-    ("055 611 00 (Lightning Strike)", "RAYO"),
     ("RADOME INTERNAL INSPECTION DUE TO BIRDSTRIKE", "RADOMO"),
     ("AHM - 361 451 41/42 BLEED CTRL CARD L & R scheduled maintenance task shows: SMT", "BLEED_CTRL_CARD"),
     ("AHM - 361 452 41 BLEED FAMV RVDT L scheduled maintenance task shows: SMT", "BLEED_FAMV"),
@@ -106,6 +105,7 @@ def test_asociacion_por_reglas(catalogo, nombre, esperado):
     "CNR - ENGINE #1 VIBRATION SYSTEM CHECK",     # la tabla solo tiene los CNR de EGT y aceite
     "MAREP// WAS OPEN DIP FOR REPLACE PRESSURE LINE OF ACOUSTIC FILTER 3 DAYS",
     "DIP - SPOILER CONTROL CABLES",
+    "055 611 00 (Lightning Strike)",  # LIGHTNING STRIKE PHASE II se retiró de la tabla.
 ])
 def test_sin_asociacion_cuando_no_corresponde(catalogo, nombre):
     a = asociar(nombre, catalogo)

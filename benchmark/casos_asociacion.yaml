@@ -24,7 +24,6 @@ positivos:
   - {nombre: "IDG DELTA P INDICATOR POPPED", intervalo: "400 HOUR", esperado: DPI}
   - {nombre: "SURVIVOR KIT RAFT DUE DATE", intervalo: "50 DAY", esperado: SURVIVAL_KIT}
   - {nombre: "BACK FLOW CHECK VALVE INERT GAS SYS", intervalo: "90 DAY", esperado: BACKFLOW}
-  - {nombre: "STROKE OF LIGHTING PHASE 2 INSPECTION", intervalo: "50 CYCLES", esperado: RAYO}
   - {nombre: "PROTECCION UNIVERSAL KIT FWD", intervalo: "90 DAY", esperado: UPK}
   - {nombre: "BRK 4 PIN FLUSH", intervalo: "20 CYCLES", esperado: DESGASTE_FRENOS}
   - {nombre: "CHALECO SALVAVIDAS SEGURO DE COMPARTIMIENTO DANADO", intervalo: "60 DAY", esperado: CHALECO}
@@ -38,6 +37,8 @@ positivos:
   - {nombre: "AHM - 320 451 00 AIR/GND SENSOR scheduled maintenance task shows: SMT", intervalo: "150 HOUR", esperado: AHM_AIR_GROUND}
 
 negativos:
+  # LIGHTNING STRIKE PHASE II se retiró de DIPs References; debe quedar sin fuente.
+  - {nombre: "STROKE OF LIGHTING PHASE 2 INSPECTION", intervalo: "50 CYCLES"}
   - {nombre: "DEFIBRILLATOR DUE DATE", intervalo: "38 DAY"}
   - {nombre: "DIP- wing tank # 2 access door 632AB", intervalo: "60 DAY"}
   - {nombre: "AFT COMP NET", intervalo: "10 DAY"}

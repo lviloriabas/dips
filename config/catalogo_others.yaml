@@ -490,6 +490,11 @@
   referencias: ["FUEL NOZZLE FULL SET REPLACEMENT"]
   requiere: [[FUEL NOZZLE, FUEL NOZZLES]]
 
+- id: TAPON_BOMBA_COMBUSTIBLE
+  nombre: FUEL PUMP PAD PLUG
+  referencias: ["FUEL PUMP PAD PLUG"]
+  requiere: [[FUEL PUMP], [PAD], [PLUG]]
+
 - id: VIBRACION_MOTOR
   ta_base: "2.0-2.9 VIBRATION UNITS: 7 DAYS; 3.0-3.4: 5 FC"
   nombre: ENGINE VIBRATION
