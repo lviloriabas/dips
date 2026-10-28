@@ -22,6 +22,9 @@ TEMPORALES = RAIZ / ".pytest_tmp"
 @pytest.hookimpl(tryfirst=True)
 def pytest_configure(config):
     if not config.option.basetemp:
+        # Pytest crea la subcarpeta de la corrida, pero requiere que exista su padre.
+        # .pytest_tmp no se versiona y falta en una instalacion nueva.
+        TEMPORALES.mkdir(parents=True, exist_ok=True)
         config.option.basetemp = str(TEMPORALES / str(os.getpid()))
         config._temporal_propia = True
 
