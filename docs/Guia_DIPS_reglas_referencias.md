@@ -25,7 +25,7 @@ $ .\auditar.bat "entrada.xlsx" --icam --pendientes
 ```
 
 - `--icam`: consulta los DIPs en ICAM y permite más chequeos. Si Edge pide sesión, iníciela allí.
-- `--pendientes`: incluye ACTV, ACTIVE, OPEN, IN WORK o PAUSE sin DIP Open Audit User y COMPLETE sin DIP Closed Audit User. Crea una copia `FILTERED.xlsx` junto al original. Quite esta opción para auditar todos.
+- `--pendientes`: incluye ACTV, ACTIVE, OPEN, IN WORK o PAUSE sin DIP Open Audit User y COMPLETE sin DIP Closed Audit User. Crea una copia en la subcarpeta `filtered` del original. Quite esta opción para auditar todos.
 
 **Consultar un DIP por barcode:**
 

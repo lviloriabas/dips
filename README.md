@@ -12,6 +12,12 @@ cd dips
 setup.bat
 ```
 
+Ejecute `setup.bat` como usuario normal, sin permisos de administrador. Usa CPython
+3.12 de 64 bits (x64); si falta, lo instala solo para su usuario desde python.org.
+Las librerías se descargan precompiladas, sin instalar Visual C++ Build Tools.
+Si el intento anterior dejó un `.venv` incompatible, vuelva a ejecutar `setup.bat`:
+lo conserva en `.venv-incompatible-...` y crea uno nuevo con la versión correcta.
+
 Si la PC tiene git, al abrir `auditar.bat`, `comparar.bat` o `filtrar.bat` el programa avisa cuando hay una versión más nueva en GitHub y pregunta si se actualiza.
 
 ## Uso
@@ -21,7 +27,7 @@ Si la PC tiene git, al abrir `auditar.bat`, `comparar.bat` o `filtrar.bat` el pr
 | Auditar | Arrastrar el Excel sobre `auditar.bat` | `salida/...xlsx`, filtrar `RESULTADO` |
 | Auditar un solo DIP | `auditar.bat T40S0099V9C` (el barcode, sin Excel) | En consola: datos del DIP, resultado y hallazgos. No genera archivos |
 | Comparar con la auditoría manual | Arrastrar `DIPs Audit (...).xlsx` sobre `comparar.bat` | `salida/..._COMPARACION_...xlsx` (hojas **Resumen** y **Detalle por DIP**) |
-| Filtrar DIPs pendientes de auditar | Arrastrar `DIPs Audit (...).xlsx` sobre `filtrar.bat` | `DIPs Audit (...) FILTERED.xlsx` junto al original: ACTV, ACTIVE, OPEN, IN WORK o PAUSE sin `DIP Open Audit User` y COMPLETE sin `DIP Closed Audit User` |
+| Filtrar DIPs pendientes de auditar | Arrastrar `DIPs Audit (...).xlsx` sobre `filtrar.bat` | `filtered/DIPs Audit (...) FILTERED.xlsx`, dentro de la carpeta del original: ACTV, ACTIVE, OPEN, IN WORK o PAUSE sin `DIP Open Audit User` y COMPLETE sin `DIP Closed Audit User` |
 | Modo prueba | Poner el Excel en `pruebas/entrada/` (o usar `--prueba`) | `pruebas/salida/PRUEBA_...xlsx` |
 
 Por defecto se audita **solo con el Excel** (menos reglas). Para leer en ICAM todos los DIPs del archivo, de cualquier tipo, ejecute el `.bat` en la consola con `--icam` (ver [Comandos](#comandos)); fuera del aviso de actualización, el programa no hace preguntas.
@@ -49,7 +55,7 @@ comparar.bat "DIPs Audit (23SEP2026).xlsx" -i -e RIR
 | `--referencias XLSX/PDF/URL` | Usar otra tabla de referencias local o un enlace de SharePoint. El PDF debe contener texto seleccionable y las nueve columnas de `References` en una misma tabla |
 | `--no-cache` | Leer en ICAM todos los DIPs, aunque se hayan leído hace menos de 1 hora (por defecto se usa lo guardado en `data/icam.json`) |
 | `--datos-icam RUTA` | Usar datos de ICAM ya extraídos (`data/icam.json` o CSV), sin leer ICAM |
-| `--pendientes` | Auditar solo los DIPs ACTV, ACTIVE, OPEN, IN WORK o PAUSE sin `DIP Open Audit User` y COMPLETE sin `DIP Closed Audit User`. Antes crea `... FILTERED.xlsx` junto al original, como `filtrar.bat` (sin esta opción, se auditan todos) |
+| `--pendientes` | Auditar solo los DIPs ACTV, ACTIVE, OPEN, IN WORK o PAUSE sin `DIP Open Audit User` y COMPLETE sin `DIP Closed Audit User`. Antes crea `filtered/... FILTERED.xlsx` dentro de la carpeta del original, como `filtrar.bat` (sin esta opción, se auditan todos) |
 | `-j`, `--hoja NOMBRE` | Hoja a leer (por defecto, la que tiene `Fault Barcode`) |
 | `-f`, `--fecha "AAAA-MM-DD HH:MM"` | Auditar a esa fecha y hora |
 | `-n`, `--sin-excel` | Resultado solo en consola |
@@ -152,6 +158,7 @@ Para cambiar una regla, siga la [guía de configuración](docs/configurar_reglas
 | "No se inició sesión en ICAM en 3 minutos" | Iniciar sesión en el Edge de ICAM y volver a arrastrar el archivo |
 | "La sesión de ICAM venció" | Iniciar sesión de nuevo; lo ya leído queda guardado |
 | "Permission denied" | Cerrar el Excel de salida |
+| "Microsoft Visual C++ 14.0 or greater is required" | Actualizar el proyecto y volver a ejecutar `setup.bat` como usuario normal. Configura Python 3.12 x64 y descarga paquetes precompilados |
 | "Faltan columnas obligatorias" | Formato inesperado; ver [docs/tecnico.md](docs/tecnico.md#1-lectura-del-excel-de-entrada) |
 
 ## Documentos

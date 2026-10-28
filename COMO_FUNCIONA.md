@@ -49,14 +49,14 @@ Y escribe:
 
 - `data/icam.json`, todo lo leído en ICAM, un registro por barcode;
 - `salida/`, los Excel de resultado y de comparación;
-- `... FILTERED.xlsx`, junto al original, cuando se filtran los pendientes;
+- `filtered/... FILTERED.xlsx`, dentro de la carpeta del original, cuando se filtran los pendientes;
 - `.icam_perfil/`, el perfil del Edge que usa para ICAM (ahí queda guardada la sesión).
 
 `pruebas/` guarda las corridas del modo prueba y `benchmark/` la muestra anónima con que se mide el programa. `tools/` tiene los scripts de la primera extracción de ICAM; el programa no los usa. El Excel de entrada, `data/`, `pruebas/` y `salida/` tienen nombres del personal o datos operativos, así que están en `.gitignore` y nunca se suben.
 
 ## Instalación y actualización
 
-`setup.bat` llama a `setup.ps1`. Si no encuentra Python 3.11 o superior, instala Python 3.12 solo para el usuario (con winget o desde python.org). Después crea el entorno `.venv`, instala `requirements.txt`, comprueba que estén Microsoft Edge y `DIPs References.xlsx` y corre las pruebas (`setup.bat -SinPruebas` las salta). Se puede ejecutar varias veces; lo que ya está instalado se omite. No descarga ningún navegador: usa el Edge del equipo.
+`setup.bat` llama a `setup.ps1`. Busca CPython 3.12 de 64 bits (x64); si no lo encuentra, lo instala desde python.org solo para el usuario, sin instalar el launcher ni pedir permisos de administrador. Si `.venv` usa una versión incompatible o está roto, lo conserva en `.venv-incompatible-...` y crea uno nuevo. Instala `requirements.txt` usando solo paquetes precompilados, sin compilar ni requerir Visual C++ Build Tools. Después comprueba que estén Microsoft Edge y `DIPs References.xlsx` y corre las pruebas (`setup.bat -SinPruebas` las salta). Un fallo de instalación o de pruebas detiene el proceso con un error. Se puede ejecutar varias veces. No descarga ningún navegador: usa el Edge del equipo.
 
 Cada vez que se abre `auditar.bat`, `comparar.bat` o `filtrar.bat`, el programa mira si hay una versión más nueva en GitHub (`dips_audit/actualizar.py`). Si la hay, muestra los cambios y pregunta si se actualiza (Enter es sí). Al actualizar baja los cambios, reinstala las librerías si cambió `requirements.txt` y vuelve a lanzar el `.bat`. No busca nada si la PC no tiene git, si no hay conexión, si la rama no es `main`, si hay commits locales sin subir o si está definida la variable de entorno `DIPS_SIN_ACTUALIZAR`.
 
@@ -564,7 +564,7 @@ La comparación tiene un límite: ICAM muestra el DIP como está hoy, no como lo
 
 `filtrar.bat "DIPs Audit (...).xlsx"`, o `--pendientes` al auditar. El código está en `dips_audit/filtrar.py`.
 
-Se abre el Excel conservando formato, hojas y filtros. En cada hoja que tenga en la fila 1 las columnas `Fault Status`, `DIP Open Audit User` y `DIP Closed Audit User` quedan solo las filas pendientes: ACTV, ACTIVE, OPEN, IN WORK o PAUSE sin `DIP Open Audit User`, que les falta la auditoría de apertura, y COMPLETE sin `DIP Closed Audit User`, que les falta la de cierre. Se aceptan también etiquetas como "ACTV (Active)" e "IN WORK (In Work)". Todo lo demás se borra, incluidos otros estados. La copia se guarda como `<nombre> FILTERED.xlsx` junto al original, reemplazándola si ya existía, y la consola dice cuántas filas quedaron por hoja. Si ninguna hoja tiene esas columnas, se detiene con un error.
+Se abre el Excel conservando formato, hojas y filtros. En cada hoja que tenga en la fila 1 las columnas `Fault Status`, `DIP Open Audit User` y `DIP Closed Audit User` quedan solo las filas pendientes: ACTV, ACTIVE, OPEN, IN WORK o PAUSE sin `DIP Open Audit User`, que les falta la auditoría de apertura, y COMPLETE sin `DIP Closed Audit User`, que les falta la de cierre. Se aceptan también etiquetas como "ACTV (Active)" e "IN WORK (In Work)". Todo lo demás se borra, incluidos otros estados. La copia se guarda como `filtered/<nombre> FILTERED.xlsx` dentro de la carpeta del original; crea `filtered` si falta y reemplaza la copia si ya existía. La consola dice cuántas filas quedaron por hoja. Si ninguna hoja tiene esas columnas, se detiene con un error.
 
 ## Con ICAM y sin ICAM
 

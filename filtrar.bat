@@ -1,7 +1,7 @@
 @echo off
 rem Filtra el Excel "DIPs Audit (...)": arrastrelo sobre este archivo.
 rem Deja los DIPs ACTV sin "DIP Open Audit User" y los COMPLETE sin "DIP Closed Audit User".
-rem Guarda una copia junto al original con " FILTERED" al final del nombre.
+rem Guarda una copia en la subcarpeta filtered del original con " FILTERED" al final del nombre.
 rem Uso en consola: filtrar.bat "DIPs Audit (25SEP2026).xlsx"
 chcp 65001 >nul
 setlocal

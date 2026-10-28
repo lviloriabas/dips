@@ -1,5 +1,6 @@
 # Entorno y cachés
 .venv/
+.venv-incompatible-*/
 __pycache__/
 *.pyc
 .pytest_cache/
@@ -8,6 +9,7 @@ __pycache__/
 
 # Reportes generados (contienen datos operativos)
 salida/
+filtered/
 # Reportes conservados por instalaciones anteriores
 salidas/
 

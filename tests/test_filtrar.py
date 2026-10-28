@@ -46,8 +46,35 @@ def test_filtrar(tmp_path):
 
     salida, resumen = filtrar(entrada)
 
-    assert salida == ruta_salida(entrada) == tmp_path / "DIPs Audit (25SEP2026) FILTERED.xlsx"
+    assert salida == ruta_salida(entrada) == tmp_path / "filtered" / "DIPs Audit (25SEP2026) FILTERED.xlsx"
+    assert not (tmp_path / salida.name).exists()
+    original = load_workbook(entrada)
+    assert original["DIPs Audit (55)"].max_row == 10
+    original.close()
     assert resumen == {"DIPs Audit (55)": (4, 9)}
     ws = load_workbook(salida)["DIPs Audit (55)"]
     assert [r[0] for r in ws.iter_rows(min_row=2, values_only=True)] == ["A1", "C2", "P1", "W1"]
     assert ws.auto_filter.ref == "A1:D5"
+
+
+def test_filtrar_reutiliza_carpeta_y_actualiza_copia(tmp_path):
+    entrada = tmp_path / "reporte.xlsx"
+    wb = Workbook()
+    ws = wb.active
+    ws.append(ENCABEZADO)
+    ws.append(["A1", "ACTV", None, None])
+    wb.save(entrada)
+    salida, _ = filtrar(entrada)
+    otro = salida.parent / "otro.txt"
+    otro.write_text("conservar", encoding="utf-8")
+    ws.append(["C1", "COMPLETE", None, None])
+    wb.save(entrada)
+
+    repetida, resumen = filtrar(entrada)
+
+    assert repetida == salida
+    assert resumen == {"Sheet": (2, 2)}
+    assert otro.read_text(encoding="utf-8") == "conservar"
+    copia = load_workbook(salida)
+    assert copia.active.max_row == 3
+    copia.close()

@@ -47,7 +47,7 @@ flowchart LR
 | Entrada                           | Cómo                                                                               | Salida                                                                                                            |
 | --------------------------------- | ----------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
 | Excel de entrada                  | Arrastrar el Excel sobre`auditar.bat` (en consola, con `--icam` para leer ICAM) | `salida/..._AUDITORIA_...xlsx`                                                                                 |
-| Solo los pendientes               | `auditar.bat "DIPs Audit (...).xlsx" --pendientes`                                | Primero `... FILTERED.xlsx` (ACTV, ACTIVE, OPEN, IN WORK o PAUSE sin auditoría de apertura, COMPLETE sin la de cierre), después la auditoría |
+| Solo los pendientes               | `auditar.bat "DIPs Audit (...).xlsx" --pendientes`                                | Primero `filtered/... FILTERED.xlsx` dentro de la carpeta del original (ACTV, ACTIVE, OPEN, IN WORK o PAUSE sin auditoría de apertura, COMPLETE sin la de cierre), después la auditoría |
 | Un DIP, sin Excel                 | `auditar.bat T40S0099V9C`                                                         | En consola; lee el DIP en ICAM y no genera archivos                                                               |
 | Comparar con la auditoría manual | Arrastrar el Excel sobre`comparar.bat`                                            | `salida/..._COMPARACION_...xlsx`                                                                               |
 

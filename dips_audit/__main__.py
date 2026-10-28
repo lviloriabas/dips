@@ -612,7 +612,7 @@ def main(argv: list[str] | None = None) -> int:
     a.add_argument("--datos-icam", metavar="RUTA", help="CSV o Excel con datos extraídos de ICAM por barcode "
                                   "(columnas barcode y technical_references; description opcional)")
     a.add_argument("--pendientes", action="store_true",
-                   help="Filtrar antes el Excel (copia con ' FILTERED' junto al original) y auditar "
+                   help="Filtrar antes el Excel (copia en la subcarpeta 'filtered' del original) y auditar "
                         "solo los DIPs ACTV, ACTIVE, OPEN, IN WORK o PAUSE sin 'DIP Open Audit User' "
                         "y COMPLETE sin 'DIP Closed Audit User' (sin esta opción, se auditan todos)")
     a.add_argument("-n", "--sin-excel", action="store_true", help="Solo mostrar en consola")

@@ -53,6 +53,9 @@ def test_estados_abiertos_en_auditoria_normal_y_filtrada(tmp_path, estado, filtr
     if filtrado:
         argumentos.append("--pendientes")
     assert main(argumentos) == 0
+    filtrado_excel = tmp_path / "filtered" / "entrada FILTERED.xlsx"
+    assert filtrado_excel.exists() is filtrado
+    assert not (tmp_path / "entrada FILTERED.xlsx").exists()
     wb = openpyxl.load_workbook(salida)
     filas = list(wb["Auditoría"].values)
     datos = [dict(zip(filas[0], fila)) for fila in filas[1:]]

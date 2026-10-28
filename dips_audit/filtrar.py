@@ -6,8 +6,8 @@ Se queda con las filas que cumplen alguna de estas reglas:
   falta la auditoría de apertura.
 - Fault Status COMPLETE y "DIP Closed Audit User" vacío: falta la auditoría de cierre.
 
-Se corre por separado de la auditoría. Guarda una copia junto al original, con " FILTERED" al
-final del nombre, y conserva las hojas, el formato y los filtros del archivo.
+Se corre por separado de la auditoría. Guarda una copia en la subcarpeta "filtered" del
+original, con " FILTERED" al final del nombre, y conserva hojas, formato y filtros.
 
 Uso: python -m dips_audit.filtrar "DIPs Audit (25SEP2026).xlsx"
 """
@@ -71,7 +71,7 @@ def _filtrar_hoja(ws) -> tuple[int, int] | None:
 
 
 def ruta_salida(entrada: Path) -> Path:
-    return entrada.with_name(f"{entrada.stem} FILTERED{entrada.suffix}")
+    return entrada.parent / "filtered" / f"{entrada.stem} FILTERED{entrada.suffix}"
 
 
 def filtrar(entrada: Path) -> tuple[Path, dict[str, tuple[int, int]]]:
@@ -86,6 +86,7 @@ def filtrar(entrada: Path) -> tuple[Path, dict[str, tuple[int, int]]]:
             f"Ninguna hoja tiene las columnas {COL_ESTADO!r}, {COL_OPEN_USER!r} y {COL_CLOSED_USER!r}."
         )
     salida = ruta_salida(entrada)
+    salida.parent.mkdir(parents=True, exist_ok=True)
     wb.save(salida)
     return salida, resumen
 
